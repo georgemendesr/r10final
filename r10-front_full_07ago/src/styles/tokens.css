@@ -1,0 +1,56 @@
+:root{
+  /* Fontes oficiais */
+  --font-heading: "Poppins", system-ui, -apple-system, sans-serif;
+  --font-body: "Rubik", ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  /* Texto dos títulos (sempre legível) */
+  --title-text: #0B1220;
+
+  /* Acentos vivos por editoria (para underline/faixa/borda/overlay) */
+  --acc-policia:        #FF2D2D;  /* vermelho vivo */
+  --acc-politica:       #2D6BFF;  /* azul royal vivo */
+  --acc-esportes:       #10B954;  /* verde vivo */
+  --acc-entretenimento: #FF7A19;  /* laranja vivo */
+  --acc-geral:          #7C8798;  /* cinza acento */
+
+  /* Chapéu neutro */
+  --hat-bg: #F1F3F5;
+  --hat-fg: #616B74;
+
+  /* Neutros UI */
+  --ui-100:#F8FAFC; --ui-200:#EEF2F6; --ui-300:#E2E8F0;
+  --ui-600:#475569; --ui-700:#334155; --ui-900:#0B1220;
+
+  /* Radius & sombras */
+  --radius-sm: 8px; --radius-md: 12px; --radius-lg: 16px;
+  --shadow-card: 0 6px 20px rgba(2,6,23,.06);
+}
+
+/* Tipografia */
+.title-card {
+  font-family: var(--font-heading);
+  font-size: clamp(18px, 4.6vw, 22px);
+  font-weight: 800;
+  line-height: 1.2;
+  color: var(--title-text);
+}
+
+.title-h1 {
+  font-family: var(--font-heading);
+  font-size: clamp(22px, 5.2vw, 28px);
+  font-weight: 900;
+  line-height: 1.15;
+  color: var(--title-text);
+}
+
+.subtitle {
+  font-size: clamp(14px, 3.6vw, 16px);
+  color: var(--ui-600);
+  line-height: 1.4;
+}
+
+.body-text {
+  font-size: 16px;
+  line-height: 1.75;
+  color: var(--ui-700);
+}

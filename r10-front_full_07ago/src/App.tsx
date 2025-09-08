@@ -1,0 +1,301 @@
+import React, { Suspense, useState, useEffect } from 'react';
+import { Helmet } from 'react-helmet-async';
+import { buildSiteMeta } from './lib/seo';
+import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
+import TopAdStrip from './components/TopAdStrip';
+import Header from './components/Header';
+import BreakingBar from './components/BreakingBar';
+import HeroHeadline from './components/HeroHeadline';
+import HeroGrid from './components/HeroGrid';
+import HeroGridVertical from './components/HeroGridVertical';
+import HeroGridMosaico from './components/HeroGridMosaico';
+import HeroGridPremium from './components/HeroGridPremium';
+import NewsGeneralSection from './components/NewsGeneralSection';
+import MostReadSection from './components/MostReadSection';
+import DailyEmotionsSection from './components/DailyEmotionsSection';
+import R10PlaySection from './components/R10PlaySection';
+import MunicipiosSection from './components/MunicipiosComponente';
+import Footer from './components/Footer';
+import AdminLink from './components/AdminLink';
+import { AuthProvider } from './contexts/AuthContext';
+import { getLayoutConfig, getActiveHeroLayout } from './services/layoutService';
+import { initializeServices } from './services/initService';
+
+// Lazy loading para componentes pesados (admin/dashboard)
+const ArticlePage = React.lazy(() => import('./components/ArticlePage'));
+const R10PlayPage = React.lazy(() => import('./components/R10PlayPage'));
+const LoginPage = React.lazy(() => import('./components/LoginPage'));
+const Dashboard = React.lazy(() => import('./components/Dashboard'));
+const PostForm = React.lazy(() => import('./components/PostForm'));
+const TestePosts = React.lazy(() => import('./components/TestePosts'));
+const SimplePostsTest = React.lazy(() => import('./components/SimplePostsTest'));
+
+// Lazy loading para páginas de teste de layout
+const TestLayoutVertical = React.lazy(() => import('./pages/TestLayoutVertical'));
+const TestLayoutMosaico = React.lazy(() => import('./pages/TestLayoutMosaico'));
+const TestLayoutPremium = React.lazy(() => import('./pages/TestLayoutPremium'));
+
+// ... (resto dos imports)
+
+function App() {
+  const HomePage = () => {
+    const [layoutConfig, setLayoutConfig] = useState(() => getLayoutConfig());
+    const [updateKey, setUpdateKey] = useState(0);
+
+    // Inicializar serviços na startup
+    useEffect(() => {
+      initializeServices();
+    }, []);
+
+    // Força atualização quando volta para a homepage
+    useEffect(() => {
+      const handleFocus = () => {
+        const newConfig = getLayoutConfig();
+        setLayoutConfig(newConfig);
+        setUpdateKey(prev => prev + 1);
+      };
+      
+      window.addEventListener('focus', handleFocus);
+      return () => window.removeEventListener('focus', handleFocus);
+    }, []);
+
+    // Função para obter o componente HeroGrid correto baseado no layout ativo
+    const getActiveHeroGridComponent = () => {
+      const activeLayout = getActiveHeroLayout();
+      switch (activeLayout) {
+        case 'vertical':
+          return <div data-e2e="hero-grid"><HeroGridVertical /></div>;
+        case 'mosaico':
+          return <div data-e2e="hero-grid"><HeroGridMosaico /></div>;
+        case 'premium':
+          return <div data-e2e="hero-grid"><HeroGridPremium /></div>;
+        default:
+          return <div data-e2e="hero-grid"><HeroGrid /></div>;
+      }
+    };
+
+    const sectionComponents: { [key: string]: React.ReactNode } = {
+      superManchete: <div data-e2e="hero-headline"><HeroHeadline /></div>,
+      destaques: getActiveHeroGridComponent(),
+      noticiasGerais: <NewsGeneralSection />,
+      maisLidas: <MostReadSection />,
+      reacoes: <DailyEmotionsSection />,
+      r10Play: <div data-e2e="r10-play"><R10PlaySection /></div>,
+      municipios: <MunicipiosSection />,
+    };
+
+    return (
+      <>
+        {import.meta.env.DEV && (
+          <Helmet>
+            {(() => {
+              const s = buildSiteMeta();
+              return (
+                <>
+                  <title>{s.title}</title>
+                  <meta name="description" content={s.description} />
+                  <meta property="og:title" content={s.title} />
+                  <meta property="og:description" content={s.description} />
+                  <meta property="og:url" content={s.url} />
+                  <meta property="og:image" content={s.image} />
+                  <meta name="twitter:card" content="summary_large_image" />
+                </>
+              );
+            })()}
+          </Helmet>
+        )}
+        <TopAdStrip />
+        <Header />
+        <main id="conteudo">
+          <BreakingBar />
+          {layoutConfig.filter(section => section.enabled).map((section, index) => (
+            <div key={`${section.id}-${updateKey}-${index}`}>
+              {sectionComponents[section.id]}
+            </div>
+          ))}
+        </main>
+        <Footer />
+        <AdminLink />
+      </>
+    );
+  };
+
+  const CategoryPage = () => {
+    const { category } = useParams<{ category: string }>();
+    
+    return (
+      <>
+        <TopAdStrip />
+        <Header />
+        <main id="conteudo" className="bg-gray-50 min-h-screen">
+          <div className="container mx-auto px-4 py-8 max-w-[1250px]">
+            <h1 className="text-4xl font-bold text-gray-900 mb-8 capitalize">
+              {category === 'politica' ? 'Política' : 
+               category === 'policial' ? 'Policial' :
+               category === 'esportes' ? 'Esportes' :
+               category === 'piripiri' ? 'Piripiri' :
+               category === 'entretenimento' ? 'Entretenimento' : category}
+            </h1>
+            <div className="bg-white rounded-xl p-8 shadow-sm">
+              <p className="text-gray-600 text-lg">
+                Conteúdo da categoria {category} será carregado aqui.
+              </p>
+            </div>
+          </div>
+        </main>
+        <Footer />
+        <AdminLink />
+      </>
+    );
+  };
+
+  const MunicipiosPage = () => (
+    <>
+      <TopAdStrip />
+      <Header />
+      <main id="conteudo" className="bg-gray-50 min-h-screen">
+        <MunicipiosSection />
+      </main>
+      <Footer />
+      <AdminLink />
+    </>
+  );
+
+  return (
+    <AuthProvider>
+      <Router>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          
+          {/* Rotas de teste para layouts alternativos */}
+          <Route 
+            path="/test-vertical" 
+            element={
+              <Suspense fallback={<div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div></div>}>
+                <TestLayoutVertical />
+              </Suspense>
+            } 
+          />
+          <Route 
+            path="/test-mosaico" 
+            element={
+              <Suspense fallback={<div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-600"></div></div>}>
+                <TestLayoutMosaico />
+              </Suspense>
+            } 
+          />
+          <Route 
+            path="/test-premium" 
+            element={
+              <Suspense fallback={<div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-600"></div></div>}>
+                <TestLayoutPremium />
+              </Suspense>
+            } 
+          />
+          
+          <Route 
+            path="/noticia/:subcategoria/:titulo/:id" 
+            element={
+              <Suspense fallback={<div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-600"></div></div>}>
+                <ArticlePage />
+              </Suspense>
+            } 
+          />
+          <Route 
+            path="/noticia/:id" 
+            element={
+              <Suspense fallback={<div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-600"></div></div>}>
+                <ArticlePage />
+              </Suspense>
+            } 
+          />
+          <Route 
+            path="/r10-play" 
+            element={
+              <Suspense fallback={<div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-600"></div></div>}>
+                <R10PlayPage />
+              </Suspense>
+            } 
+          />
+          <Route 
+            path="/login" 
+            element={
+              <Suspense fallback={<div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-600"></div></div>}>
+                <LoginPage />
+              </Suspense>
+            } 
+          />
+          <Route 
+            path="/admin" 
+            element={
+              <Suspense fallback={<div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-600"></div></div>}>
+                <Dashboard />
+              </Suspense>
+            } 
+          />
+          <Route 
+            path="/teste" 
+            element={
+              <Suspense fallback={<div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-600"></div></div>}>
+                <TestePosts />
+              </Suspense>
+            } 
+          />
+          <Route 
+            path="/debug-posts" 
+            element={
+              <Suspense fallback={<div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-600"></div></div>}>
+                <SimplePostsTest />
+              </Suspense>
+            } 
+          />
+          <Route 
+            path="/admin/materias" 
+            element={
+              <Suspense fallback={<div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-600"></div></div>}>
+                <Dashboard />
+              </Suspense>
+            } 
+          />
+          <Route 
+            path="/admin/usuarios" 
+            element={
+              <Suspense fallback={<div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-600"></div></div>}>
+                <Dashboard />
+              </Suspense>
+            } 
+          />
+          <Route 
+            path="/admin/configuracoes" 
+            element={
+              <Suspense fallback={<div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-600"></div></div>}>
+                <Dashboard />
+              </Suspense>
+            } 
+          />
+          <Route path="/dashboard" element={<Navigate to="/admin" replace />} />
+          <Route 
+            path="/admin/nova-materia" 
+            element={
+              <Suspense fallback={<div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-600"></div></div>}>
+                <PostForm />
+              </Suspense>
+            } 
+          />
+          <Route 
+            path="/admin/editar-materia/:id" 
+            element={
+              <Suspense fallback={<div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-600"></div></div>}>
+                <PostForm />
+              </Suspense>
+            } 
+          />
+          <Route path="/categoria/:category" element={<CategoryPage />} />
+          <Route path="/municipios" element={<MunicipiosPage />} />
+        </Routes>
+      </Router>
+    </AuthProvider>
+  );
+}
+
+export default App;

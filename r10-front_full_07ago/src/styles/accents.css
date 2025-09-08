@@ -1,0 +1,62 @@
+/* Underline animado (p/ cards e links de lista) */
+.title-acc {
+  color: var(--title-text); 
+  text-decoration: none;
+  background: linear-gradient(var(--acc, #FF2D2D) 0 0) 0 100%/0% 4px no-repeat;
+  transition: background-size .25s ease;
+}
+.title-acc:hover { 
+  background-size: 100% 4px; 
+}
+
+/* Faixa suave no início do H1 (opcional) */
+.title-bar {
+  color: var(--title-text);
+  box-decoration-break: clone;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--acc, #FF2D2D), #fff 80%), transparent);
+  padding: 2px 6px; 
+  border-radius: 6px;
+}
+
+/* Barra lateral colorida (listas como "Mais Lidas") */
+.title-left {
+  color: var(--title-text);
+  border-left: 6px solid var(--acc, #FF2D2D);
+  padding-left: .6rem;
+}
+
+/* Mapeamento por editoria (aplique com a editoria do card) */
+.acc-policia        { --acc: var(--acc-policia); }
+.acc-politica       { --acc: var(--acc-politica); }
+.acc-esportes       { --acc: var(--acc-esportes); }
+.acc-entretenimento { --acc: var(--acc-entretenimento); }
+.acc-geral          { --acc: var(--acc-geral); }
+
+/* Chapéu neutro */
+.hat{
+  display: inline-flex; 
+  align-items: center; 
+  gap: .4rem;
+  padding: .25rem .55rem; 
+  border-radius: 999px;
+  background: var(--hat-bg); 
+  color: var(--hat-fg);
+  font: 500 12px/1.1 var(--font-body);
+  border: none; 
+  text-transform: none;
+}
+
+/* Classes para anúncios - reservar altura */
+.ad-970x90  { min-height: 90px; }
+.ad-970x250 { min-height: 250px; }
+.ad-300x600 { min-height: 600px; }
+.ad-300x250 { min-height: 250px; }
+
+/* Notícias Gerais - banner fixo */
+.noticias-gerais {
+  --news-leading-h: 465px; /* ajuste para igualar ao card principal da seção */
+}
+.noticias-gerais .ad-slot-fixo {
+  min-height: var(--news-leading-h);
+  height: var(--news-leading-h); /* fixa exatamente igual */
+}
