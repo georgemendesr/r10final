@@ -1,14 +1,17 @@
 # 🛡️ SISTEMA DE PROTEÇÃO - R10 FINAL
-## **VERSÃO FUNCIONAL ATUAL: v1.0-baseline**
+## **VERSÃO FUNCIONAL ATUAL: v1.1-noticias-funcionando**
 
 ### 📊 STATUS ATUAL DO PROJETO
 ✅ **FUNCIONANDO PERFEITAMENTE:**
-- API Backend (SQLite) - Porta 3002
-- Frontend React + Vite - Porta 5175  
-- 13 notícias carregadas do banco
-- Seção Geral com links funcionais
-- Alinhamento corrigido nos títulos
-- Sistema de chapéus padronizado
+- API Backend (SQLite) - Porta 3002 ✅
+- Frontend React + Vite - Porta 5175 ✅  
+- SuperManchete carregando ✅
+- Seção Destaques com 5 posts ✅
+- Seção Geral com posts ordenados ✅
+- Links funcionais ✅
+- **PROBLEMA CORS RESOLVIDO** ✅
+- **MODO OFFLINE REMOVIDO** ✅
+- Sistema de chapéus padronizado ✅
 
 ### 🛡️ PROTOCOLO DE BLINDAGEM IMPLEMENTADO
 
@@ -61,6 +64,7 @@ cd r10-front_full_07ago && npm run dev
 
 ### 📈 HISTÓRICO DE PROTEÇÃO
 - **v1.0-baseline** - Estado inicial funcional (8 Set 2025)
+- **v1.1-noticias-funcionando** - CORS resolvido, notícias carregando (9 Set 2025)
 - Sistema de proteção implementado
 - Próximos commits seguirão protocolo de segurança
 
