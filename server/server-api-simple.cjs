@@ -589,6 +589,54 @@ function createApp({ dbPath }) {
     });
   });
 
+  // Deletar post
+  app.delete('/api/posts/:id', (req, res) => {
+    const { id } = req.params;
+    
+    if (!id) {
+      return res.status(400).json({ error: 'ID é obrigatório' });
+    }
+
+    console.log('🗑️ Tentando deletar post:', id);
+
+    // Verificar se o post existe antes de deletar
+    db.get('SELECT * FROM noticias WHERE id = ?', [id], (err, row) => {
+      if (err) {
+        console.error('Erro ao verificar post:', err);
+        return res.status(500).json({ error: 'Erro interno do servidor' });
+      }
+      
+      if (!row) {
+        return res.status(404).json({ error: 'Post não encontrado' });
+      }
+
+      // Deletar o post
+      db.run('DELETE FROM noticias WHERE id = ?', [id], function (deleteErr) {
+        if (deleteErr) {
+          console.error('Erro ao deletar post:', deleteErr);
+          return res.status(500).json({ error: 'Erro interno do servidor' });
+        }
+
+        if (this.changes === 0) {
+          return res.status(404).json({ error: 'Post não encontrado ou já deletado' });
+        }
+
+        console.log('✅ Post deletado com sucesso:', id);
+        
+        // Invalidar cache se a função existir
+        try { 
+          if (typeof invalidateHomeCache === 'function') invalidateHomeCache(); 
+        } catch(_) {}
+
+        res.json({ 
+          success: true, 
+          message: 'Post deletado com sucesso',
+          id: id 
+        });
+      });
+    });
+  });
+
   // Criar novo post
   app.post('/api/posts', (req, res) => {
     const body = req.body || {};
