@@ -8,14 +8,24 @@ export let OFFLINE_MODE = OFFLINE_ONLY;
 // Função para ordenar posts por data de publicação (mais recentes primeiro)
 const sortDesc = (a:any,b:any) => new Date(b.publishedAt||0).getTime() - new Date(a.publishedAt||0).getTime();
 
-// URL da API PostgreSQL
-const API_BASE_URL = 'http://localhost:3002/api';
+// URL da API - dinâmico para evitar issues localhost vs 127.0.0.1
+const API_HOST = ((): string => {
+  try {
+    if (typeof window !== 'undefined' && window.location?.hostname) {
+      return window.location.hostname; // usa o mesmo host do front (ex.: 127.0.0.1)
+    }
+  } catch (_) {}
+  return '127.0.0.1'; // fallback seguro
+})();
+const API_BASE_URL = (import.meta as any)?.env?.VITE_API_BASE_URL || `http://${API_HOST}:3002/api`;
+console.debug('[postsService] API_BASE_URL=', API_BASE_URL);
 
 // Chave para localStorage
 const POSTS_STORAGE_KEY = 'r10_posts';
 
 async function fetchJSON<T>(url: string): Promise<T> {
-  const res = await fetch(url);
+  const bust = `${url}${url.includes('?') ? '&' : '?'}_ts=${Date.now()}`;
+  const res = await fetch(bust, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
@@ -157,7 +167,9 @@ export async function fetchPostsPage(params: Record<string, string | number>): P
   
   // Testar conectividade com a API
   try {
-    const response = await fetch(`${API_BASE_URL}/posts?page=${page}&limit=${limit}`);
+  const base = `${API_BASE_URL}/posts?page=${page}&limit=${limit}`;
+  const url = `${base}&_ts=${Date.now()}`;
+  const response = await fetch(url, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } });
     if (!response.ok) {
       console.warn(`⚠️ fetchPostsPage() - API não disponível (${response.status}), mudando para offline`);
       OFFLINE_MODE = true;
@@ -227,6 +239,8 @@ export async function fetchHomepage(): Promise<{hero?: Post[], highlights?: Post
 // Função principal para buscar posts
 export async function getPosts(filters?: PostFilters): Promise<Post[]> {
   console.log('🔄 getPosts chamado, filtros:', filters);
+  console.log('🔧 OFFLINE_ONLY:', OFFLINE_ONLY, 'OFFLINE_MODE:', OFFLINE_MODE);
+  console.log('🌐 API_BASE_URL:', API_BASE_URL);
   
   if (OFFLINE_ONLY) {
     console.log('📱 MODO OFFLINE FORÇADO - Usando dados estáticos');
@@ -249,7 +263,11 @@ export async function getPosts(filters?: PostFilters): Promise<Post[]> {
     const url = `${API_BASE_URL}/posts${params.toString() ? '?' + params.toString() : ''}`;
     console.log('🔗 Tentando conectar à API:', url);
     
-    const response = await fetch(url);
+  const urlBust = `${url}${url.includes('?') ? '&' : '?'}_ts=${Date.now()}`;
+  console.log('📡 Fazendo fetch para:', urlBust);
+  const response = await fetch(urlBust, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } });
+    
+    console.log('📞 Response status:', response.status, 'ok:', response.ok);
     
     if (!response.ok) {
       console.warn(`⚠️ API retornou status ${response.status}, mudando para modo offline`);
@@ -289,7 +307,7 @@ export async function getPostById(id: string): Promise<Post | null> {
   }
   
   try {
-    const response = await fetch(`${API_BASE_URL}/posts/${id}`);
+  const response = await fetch(`${API_BASE_URL}/posts/${id}?_ts=${Date.now()}`, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } });
     
     if (!response.ok) {
       console.warn(`⚠️ Post ${id} não encontrado na API, tentando offline`);
@@ -456,16 +474,26 @@ export async function getPostsByPosition(posicao: string, limit?: number): Promi
   console.log('🔍 Buscando posts por posição:', posicao, limit ? `(limite: ${limit})` : '');
   
   try {
-    const allPosts = await getPosts();
-    let filteredPosts = allPosts.filter(post => 
-      post.posicao && post.posicao.toLowerCase() === posicao.toLowerCase()
-    );
+    // Tentar filtrar pela API para reduzir carga e evitar divergências
+  let fetched = await getPosts({ posicao, limit });
+    // Por segurança, filtrar novamente no cliente com normalização
+    const want = normalizePos(posicao);
+    let filteredPosts = fetched.filter(post => {
+      const p = normalizePos(post.posicao || '');
+      return p === want;
+    });
     
     // Aplicar limite se especificado
     if (limit && limit > 0) {
       filteredPosts = filteredPosts.slice(0, limit);
     }
     
+    // Fallback: se nada passou no filtro mas a API retornou itens, devolve os primeiros
+    if (filteredPosts.length === 0 && fetched.length > 0) {
+      console.warn(`⚠️ Nenhum item bateu exatamente com posicao="${posicao}" após normalização. Devolvendo ${Math.min(limit || fetched.length, fetched.length)} itens como fallback.`);
+      filteredPosts = (limit && limit > 0) ? fetched.slice(0, limit) : fetched;
+    }
+
     console.log(`✅ Encontrados ${filteredPosts.length} posts com posição "${posicao}"`);
     return filteredPosts;
   } catch (error) {
@@ -491,6 +519,19 @@ export async function fetchPostsArray(limit?: number): Promise<Post[]> {
     return posts;
   } catch (error) {
     console.error('❌ Erro ao buscar array de posts:', error);
+    return [];
+  }
+}
+
+// Fallback direto para destacar posts por posicao=destaque
+export async function getHighlights(limit = 5): Promise<Post[]> {
+  try {
+    const url = `${API_BASE_URL}/posts?posicao=destaque&limit=${limit}`;
+    const data: any = await fetchJSON<any>(url);
+    const arr = Array.isArray(data) ? data : (Array.isArray(data?.items) ? data.items : (Array.isArray(data?.posts) ? data.posts : []));
+    return arr.map(mapApiResponseToPost);
+  } catch (e) {
+    console.warn('⚠️ getHighlights fallback falhou, retornando []', e);
     return [];
   }
 }

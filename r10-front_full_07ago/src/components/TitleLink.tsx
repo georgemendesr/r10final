@@ -52,9 +52,10 @@ const TitleLink: React.FC<TitleLinkProps> = ({
     cursor-pointer
   `;
 
-  const Component = finalHref ? 'a' : 'button';
+  // Evitar elementos interativos aninhados: se não houver href nem onClick, usar <span>
+  const Component = (finalHref ? 'a' : (onClick ? 'button' : 'span')) as keyof JSX.IntrinsicElements;
 
-  const handleClick = (e: React.MouseEvent) => {
+  const handleClick = (e: React.MouseEvent<any>) => {
     if (finalHref && !onClick) {
       // Navegação normal para link
       window.location.href = finalHref;
@@ -64,7 +65,7 @@ const TitleLink: React.FC<TitleLinkProps> = ({
     }
   };
 
-  const handleMouseEnter = (e: React.MouseEvent<HTMLElement>) => {
+  const handleMouseEnter = (e: React.MouseEvent<any>) => {
     // Não alterar cor do título - apenas animar a linha
     const line = e.currentTarget.querySelector('.title-line') as HTMLElement;
     if (line) {
@@ -72,7 +73,7 @@ const TitleLink: React.FC<TitleLinkProps> = ({
     }
   };
 
-  const handleMouseLeave = (e: React.MouseEvent<HTMLElement>) => {
+  const handleMouseLeave = (e: React.MouseEvent<any>) => {
     // Não alterar cor do título - apenas animar a linha
     const line = e.currentTarget.querySelector('.title-line') as HTMLElement;
     if (line) {
@@ -80,7 +81,7 @@ const TitleLink: React.FC<TitleLinkProps> = ({
     }
   };
 
-  const handleFocus = (e: React.FocusEvent<HTMLElement>) => {
+  const handleFocus = (e: React.FocusEvent<any>) => {
     const line = e.currentTarget.querySelector('.title-line') as HTMLElement;
     if (line) {
       line.style.width = '100%';
@@ -88,7 +89,7 @@ const TitleLink: React.FC<TitleLinkProps> = ({
     }
   };
 
-  const handleBlur = (e: React.FocusEvent<HTMLElement>) => {
+  const handleBlur = (e: React.FocusEvent<any>) => {
     const line = e.currentTarget.querySelector('.title-line') as HTMLElement;
     if (line) {
       line.style.width = '0';
@@ -98,7 +99,8 @@ const TitleLink: React.FC<TitleLinkProps> = ({
 
   return (
     <Component
-      href={finalHref}
+      // href apenas quando for âncora
+      {...(finalHref ? { href: finalHref } : {})}
       onClick={handleClick}
       className={`${baseClasses} ${className} title-with-line`}
       style={{

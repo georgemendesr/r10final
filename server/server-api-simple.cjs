@@ -816,9 +816,10 @@ if (require.main === module) {
 
   ports.forEach((p) => {
     try {
-      const server = app.listen(p, () => {
-        console.log(`🚀 API SQLite rodando na porta ${p}`);
+      const server = app.listen(p, '0.0.0.0', () => {
+        console.log(`🚀 API SQLite rodando na porta ${p} (todas as interfaces)`);
         console.log(`📍 Health: http://127.0.0.1:${p}/api/health`);
+        console.log(`📍 Health: http://localhost:${p}/api/health`);
       });
       server.on('error', (err) => {
         if (err && err.code === 'EADDRINUSE') {

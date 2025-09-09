@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Post, getPostsByPosition } from '../services/postsService';
-import TitleLink from './TitleLink';
 
 const HeroHeadline = () => {
   const [supermanchete, setSupermanchete] = useState<Post | null>(null);
@@ -85,13 +84,8 @@ const HeroHeadline = () => {
                 )}
                 
                 {/* Título sempre branco para supermanchete */}
-                <h1 className="text-4xl md:text-5xl mb-4 font-bold">
-                  <a
-                    href={articleUrl}
-                    className="text-white hover:text-white focus:text-white block"
-                  >
-                    {supermanchete.titulo}
-                  </a>
+                <h1 className="text-4xl md:text-5xl mb-4 font-bold text-white">
+                  <span className="block">{supermanchete.titulo}</span>
                 </h1>
                 <p className="text-white/90 drop-shadow text-lg mb-6 leading-relaxed tracking-wide">
                   {supermanchete.subtitulo || supermanchete.conteudo?.substring(0, 150) + '...'}
