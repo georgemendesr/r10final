@@ -179,7 +179,21 @@ function reorganizePositionHierarchy(db, updatedPostId, newPosition, callback) {
 // Factory para montar o app e conectar no SQLite no caminho informado
 function createApp({ dbPath }) {
   const app = express();
-  app.use(cors());
+  
+  // Configuração CORS específica para o frontend
+  const corsOptions = {
+    origin: [
+      'http://localhost:5175',
+      'http://127.0.0.1:5175',
+      'http://localhost:3000', // fallback para outros ambientes
+      'http://127.0.0.1:3000'
+    ],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control']
+  };
+  
+  app.use(cors(corsOptions));
   app.use(express.json());
   // ETag forte
   app.set('etag', 'strong');
