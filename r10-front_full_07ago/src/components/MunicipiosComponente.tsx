@@ -2,16 +2,19 @@ import React, { useState, useEffect } from 'react';
 
 interface Post {
   id: string;
-  title: string;
-  subtitle: string;
-  content: string;
+  titulo: string;
+  subtitulo: string;
+  conteudo: string;
   chapeu: string;
+  categoria: string;
   imagemUrl?: string;
   publishedAt: string;
+  createdAt: string;
 }
 
 interface Municipio {
   nome: string;
+  slug: string;
   posts: Post[];
 }
 
@@ -19,32 +22,69 @@ const MunicipiosSection: React.FC = () => {
   const [municipios, setMunicipios] = useState<Municipio[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Lista dos municípios do formulário
+  const municipiosList = [
+    { nome: 'Piripiri', slug: 'piripiri' },
+    { nome: 'Pedro II', slug: 'pedro-ii' },
+    { nome: 'Brasileira', slug: 'brasileira' },
+    { nome: 'Lagoa de São Francisco', slug: 'lagoa-de-sao-francisco' },
+    { nome: 'Piracuruca', slug: 'piracuruca' },
+    { nome: 'São José do Divino', slug: 'sao-jose-do-divino' },
+    { nome: 'Domingos Mourão', slug: 'domingos-mourao' },
+    { nome: 'Capitão de Campos', slug: 'capitao-de-campos' },
+    { nome: 'Cocal de Telha', slug: 'cocal-de-telha' },
+    { nome: 'Milton Brandão', slug: 'milton-brandao' },
+    { nome: 'Teresina', slug: 'teresina' },
+    { nome: 'Boa Hora', slug: 'boa-hora' }
+  ];
+
   useEffect(() => {
     const fetchMunicipiosPosts = async () => {
       try {
-        // Buscar todos os posts da seção municípios
-        const response = await fetch('http://127.0.0.1:3002/api/posts?posicao=municipios&limit=30');
-        const posts: Post[] = await response.json();
+        console.log('🔍 Buscando posts para municípios...');
         
-        // Agrupar posts por município (usando o chapéu)
-        const municipiosMap = new Map<string, Post[]>();
+        // Buscar todos os posts
+        const response = await fetch('http://127.0.0.1:3002/api/posts');
+        const allPosts: Post[] = await response.json();
         
-        posts.forEach(post => {
-          const municipioNome = post.chapeu || 'OUTROS';
-          if (!municipiosMap.has(municipioNome)) {
-            municipiosMap.set(municipioNome, []);
+        console.log('🏛️ Posts encontrados:', allPosts.length);
+        console.log('🏛️ Primeiros 3 posts:', allPosts.slice(0, 3).map(p => ({ titulo: p.titulo, categoria: p.categoria })));
+        
+        // Agrupar posts por município (usando categoria)
+        const municipiosWithPosts: Municipio[] = [];
+        
+        municipiosList.forEach(municipio => {
+          const postsDoMunicipio = allPosts.filter(post => 
+            post.categoria === municipio.slug
+          );
+          
+          console.log(`🏛️ ${municipio.nome} (${municipio.slug}):`, postsDoMunicipio.length, 'posts');
+          
+          if (postsDoMunicipio.length > 0) {
+            municipiosWithPosts.push({
+              nome: municipio.nome,
+              slug: municipio.slug,
+              posts: postsDoMunicipio.sort((a, b) => 
+                new Date(b.createdAt || b.publishedAt).getTime() - 
+                new Date(a.createdAt || a.publishedAt).getTime()
+              )
+            });
           }
-          municipiosMap.get(municipioNome)!.push(post);
         });
         
-        // Converter para array e limitar a 6 municípios
-        const municipiosArray = Array.from(municipiosMap.entries())
-          .map(([nome, posts]) => ({ nome, posts }))
-          .slice(0, 6);
+        // Ordenar municípios pela notícia mais recente
+        municipiosWithPosts.sort((a, b) => {
+          const dataA = new Date(a.posts[0]?.createdAt || a.posts[0]?.publishedAt).getTime();
+          const dataB = new Date(b.posts[0]?.createdAt || b.posts[0]?.publishedAt).getTime();
+          return dataB - dataA;
+        });
         
-        setMunicipios(municipiosArray);
+        console.log('🏛️ Municípios com posts:', municipiosWithPosts.length);
+        console.log('🏛️ Municípios encontrados:', municipiosWithPosts.map(m => m.nome));
+        
+        setMunicipios(municipiosWithPosts.slice(0, 6)); // Máximo 6 municípios
       } catch (error) {
-        console.error('Erro ao buscar posts de municípios:', error);
+        console.error('❌ Erro ao buscar posts de municípios:', error);
       } finally {
         setLoading(false);
       }
@@ -116,6 +156,23 @@ const MunicipiosSection: React.FC = () => {
     );
   }
 
+  if (municipios.length === 0) {
+    return (
+      <div className="bg-white py-8">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold text-gray-800 mb-2">MUNICÍPIOS</h2>
+            <div className="w-24 h-1 bg-blue-600 mx-auto"></div>
+          </div>
+          <div className="text-center">
+            <p className="text-gray-600">Nenhuma notícia de município encontrada.</p>
+            <p className="text-gray-500 text-sm mt-2">Adicione notícias com categoria de município no dashboard.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white py-8">
       <div className="max-w-7xl mx-auto px-4">
@@ -154,10 +211,10 @@ const MunicipiosSection: React.FC = () => {
                   {postPrincipal && (
                     <div className="mb-4">
                       <h4 className={`font-bold text-lg mb-2 ${colors.title}`}>
-                        {postPrincipal.title}
+                        {postPrincipal.titulo}
                       </h4>
                       <p className="text-gray-600 text-sm leading-relaxed">
-                        {postPrincipal.subtitle || postPrincipal.content.substring(0, 100) + '...'}
+                        {postPrincipal.subtitulo || postPrincipal.conteudo.substring(0, 100) + '...'}
                       </p>
                     </div>
                   )}
@@ -169,7 +226,7 @@ const MunicipiosSection: React.FC = () => {
                         {outrosPosts.map((post, nIndex) => (
                           <li key={nIndex} className="flex items-start">
                             <span className={`w-1.5 h-1.5 rounded-full ${colors.header.replace('from-', 'bg-').split(' ')[0]} mt-2 mr-2 flex-shrink-0`}></span>
-                            <span className="text-gray-700 text-sm">{post.title}</span>
+                            <span className="text-gray-700 text-sm">{post.titulo}</span>
                           </li>
                         ))}
                       </ul>

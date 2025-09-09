@@ -264,6 +264,7 @@ function createApp({ dbPath }) {
     const limitParam = req.query.limit ?? 50;
     const pageParam = req.query.page ?? 1;
     const posicaoParam = req.query.posicao || req.query.position || undefined;
+    const categoriaParam = req.query.categoria || req.query.category || undefined;
     const q = req.query.q;
     const admin = req.query.admin; // ignorado, mas habilita resposta paginada
 
@@ -285,6 +286,11 @@ function createApp({ dbPath }) {
         params.push(p);
       }
     }
+    if (categoriaParam) {
+      // Filtro por categoria - busca exata na categoria original do banco
+      where.push('LOWER(categoria) = ?');
+      params.push(String(categoriaParam).toLowerCase());
+    }
     if (q) {
       where.push('(titulo LIKE ? OR subtitulo LIKE ? OR conteudo LIKE ?)');
       params.push(`%${q}%`, `%${q}%`, `%${q}%`);
@@ -302,7 +308,7 @@ function createApp({ dbPath }) {
         return res.status(500).json({ error: 'Erro interno do servidor' });
       }
       const items = rows.map(mapPost);
-      console.log(`📊 /api/posts => ${items.length} itens (posicao=${posicaoParam || 'todas'} q=${q || '-'})`);
+      console.log(`📊 /api/posts => ${items.length} itens (posicao=${posicaoParam || 'todas'} categoria=${categoriaParam || 'todas'} q=${q || '-'})`);
 
       // Cache-Control e Last-Modified (60s)
       let lastMod = undefined;

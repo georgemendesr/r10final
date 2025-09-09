@@ -1,0 +1,80 @@
+[
+  {
+    "titulo": "Prefeitura de Piripiri inaugura nova unidade de saúde no centro da cidade",
+    "subtitulo": "Nova UBS vai atender mais de 5 mil moradores da região central e bairros adjacentes",
+    "conteudo": "A Prefeitura Municipal de Piripiri inaugurou na manhã desta sexta-feira (8) uma nova Unidade Básica de Saúde (UBS) no centro da cidade. A unidade, que funcionará 24 horas, vai atender uma população de aproximadamente 5 mil moradores da região central e bairros adjacentes. O investimento total foi de R$ 850 mil, recursos próprios do município e contrapartida do governo estadual.",
+    "chapeu": "SAÚDE",
+    "categoria": "piripiri",
+    "subcategoria": "piripiri",
+    "posicao": "geral",
+    "imagemUrl": "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=800",
+    "autor": "Redação R10",
+    "status": "publicado",
+    "prioridade": "normal"
+  },
+  {
+    "titulo": "Pedro II recebe investimento de R$ 2 milhões para pavimentação de ruas",
+    "subtitulo": "Obras vão beneficiar 15 ruas do município com asfalto e drenagem",
+    "conteudo": "A Prefeitura de Pedro II anunciou um investimento de R$ 2 milhões para pavimentação asfáltica e obras de drenagem em 15 ruas do município. As obras fazem parte do programa de infraestrutura urbana e devem ser concluídas até o final do ano. O prefeito destacou a importância do investimento para melhorar a qualidade de vida dos moradores.",
+    "chapeu": "INFRAESTRUTURA",
+    "categoria": "pedro-ii",
+    "subcategoria": "pedro-ii",
+    "posicao": "geral",
+    "imagemUrl": "https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=800",
+    "autor": "Redação R10",
+    "status": "publicado",
+    "prioridade": "normal"
+  },
+  {
+    "titulo": "Festa do Milho de Brasileira atrai mais de 10 mil visitantes",
+    "subtitulo": "Evento tradicional celebra a cultura local e movimenta a economia da região",
+    "conteudo": "A tradicional Festa do Milho de Brasileira, realizada no último fim de semana, atraiu mais de 10 mil visitantes de toda a região. O evento, que já está na sua 25ª edição, celebra a cultura local e movimenta significativamente a economia do município. Foram três dias de festividades com apresentações culturais, culinária típica e shows musicais.",
+    "chapeu": "CULTURA",
+    "categoria": "brasileira",
+    "subcategoria": "brasileira",
+    "posicao": "geral",
+    "imagemUrl": "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=800",
+    "autor": "Redação R10",
+    "status": "publicado",
+    "prioridade": "normal"
+  },
+  {
+    "titulo": "Lagoa de São Francisco implementa programa de agricultura familiar",
+    "subtitulo": "Iniciativa vai beneficiar 200 famílias de pequenos produtores rurais",
+    "conteudo": "A Prefeitura de Lagoa de São Francisco, em parceria com o governo estadual, implementou um programa de fortalecimento da agricultura familiar que vai beneficiar cerca de 200 famílias de pequenos produtores rurais. O programa oferece assistência técnica, distribuição de sementes e equipamentos, além de capacitação para os agricultores.",
+    "chapeu": "AGRICULTURA",
+    "categoria": "lagoa-de-sao-francisco",
+    "subcategoria": "lagoa-de-sao-francisco",
+    "posicao": "geral",
+    "imagemUrl": "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=800",
+    "autor": "Redação R10",
+    "status": "publicado",
+    "prioridade": "normal"
+  },
+  {
+    "titulo": "Piracuruca inaugura praça revitalizada no centro histórico",
+    "subtitulo": "Espaço ganhou nova iluminação, playground e área de convivência",
+    "conteudo": "A Praça da Matriz de Piracuruca foi oficialmente reinaugurada após um amplo processo de revitalização. O espaço, localizado no centro histórico da cidade, ganhou nova iluminação em LED, playground moderno, bancos ergonômicos e uma área de convivência para todas as idades. O investimento foi de R$ 350 mil.",
+    "chapeu": "INFRAESTRUTURA",
+    "categoria": "piracuruca",
+    "subcategoria": "piracuruca",
+    "posicao": "geral",
+    "imagemUrl": "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800",
+    "autor": "Redação R10",
+    "status": "publicado",
+    "prioridade": "normal"
+  },
+  {
+    "titulo": "São José do Divino realiza campanha de vacinação contra a gripe",
+    "subtitulo": "Meta é imunizar 80% da população prioritária até o final do mês",
+    "conteudo": "A Secretaria Municipal de Saúde de São José do Divino iniciou uma ampla campanha de vacinação contra a gripe. A meta é imunizar 80% da população prioritária, incluindo idosos, crianças, gestantes e profissionais de saúde. A vacinação está sendo realizada em todas as unidades de saúde do município e também através de ações volantes.",
+    "chapeu": "SAÚDE",
+    "categoria": "sao-jose-do-divino",
+    "subcategoria": "sao-jose-do-divino", 
+    "posicao": "geral",
+    "imagemUrl": "https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=800",
+    "autor": "Redação R10",
+    "status": "publicado",
+    "prioridade": "normal"
+  }
+]
