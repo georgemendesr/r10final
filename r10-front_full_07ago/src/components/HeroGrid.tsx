@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import WhatsAppShareButton from './WhatsAppShareButton';
 import { getPostsByPosition } from '../services/postsService';
+import { getHomeSectionTitles } from '../lib/seo';
 import OptimizedImage from './OptimizedImage';
 import TitleLink from './TitleLink';
 
@@ -150,6 +151,11 @@ const HeroGrid = () => {
   return (
     <section className="bg-gray-50 py-3 md:py-4 font-body">
       <div className="container mx-auto px-4 max-w-[1250px]">
+        {/* Título da Seção SEO */}
+        <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6 border-l-4 border-red-600 pl-4">
+          {getHomeSectionTitles().destaque}
+        </h2>
+
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr] gap-4 md:gap-6">
           {/* Notícia Principal */}
           <Link to={`/noticia/${getCategory(mainArticle)}/${createSlug(getTitle(mainArticle))}/${mainArticle.id}`} className="group">

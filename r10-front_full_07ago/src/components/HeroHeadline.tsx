@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Post, getPostsByPosition } from '../services/postsService';
+import { getHomeH1 } from '../lib/seo';
 
 const HeroHeadline = () => {
   const [supermanchete, setSupermanchete] = useState<Post | null>(null);

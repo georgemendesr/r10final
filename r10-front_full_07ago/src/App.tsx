@@ -1,9 +1,10 @@
 import React, { Suspense, useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { buildSiteMeta } from './lib/seo';
+import { buildSiteMeta, buildCategoryMeta } from './lib/seo';
 import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import TopAdStrip from './components/TopAdStrip';
 import Header from './components/Header';
+import SEOHeader from './components/SEOHeader';
 import BreakingBar from './components/BreakingBar';
 import HeroHeadline from './components/HeroHeadline';
 import HeroGrid from './components/HeroGrid';
@@ -106,6 +107,7 @@ function App() {
         )}
         <TopAdStrip />
         <Header />
+        <SEOHeader page="home" isVisible={false} />
         <main id="conteudo">
           <BreakingBar />
           {layoutConfig.filter(section => section.enabled).map((section, index) => (
@@ -122,20 +124,25 @@ function App() {
 
   const CategoryPage = () => {
     const { category } = useParams<{ category: string }>();
+    const categoryMeta = buildCategoryMeta(category || 'geral');
     
     return (
       <>
+        <Helmet>
+          <title>{categoryMeta.title}</title>
+          <meta name="description" content={categoryMeta.description} />
+          <meta property="og:title" content={categoryMeta.title} />
+          <meta property="og:description" content={categoryMeta.description} />
+          <meta property="og:url" content={categoryMeta.url} />
+          <meta property="og:image" content={categoryMeta.image} />
+          <meta name="twitter:title" content={categoryMeta.title} />
+          <meta name="twitter:description" content={categoryMeta.description} />
+        </Helmet>
         <TopAdStrip />
         <Header />
+        <SEOHeader page="category" category={category} />
         <main id="conteudo" className="bg-gray-50 min-h-screen">
           <div className="container mx-auto px-4 py-8 max-w-[1250px]">
-            <h1 className="text-4xl font-bold text-gray-900 mb-8 capitalize">
-              {category === 'politica' ? 'Política' : 
-               category === 'policial' ? 'Policial' :
-               category === 'esportes' ? 'Esportes' :
-               category === 'piripiri' ? 'Piripiri' :
-               category === 'entretenimento' ? 'Entretenimento' : category}
-            </h1>
             <div className="bg-white rounded-xl p-8 shadow-sm">
               <p className="text-gray-600 text-lg">
                 Conteúdo da categoria {category} será carregado aqui.

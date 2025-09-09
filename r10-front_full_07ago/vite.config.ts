@@ -6,9 +6,9 @@ import { componentTagger } from "lovable-tagger";
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   server: {
-  host: "127.0.0.1",
+    host: true,
     port: 5175,
-  strictPort: true,
+    strictPort: true,
     proxy: {
       '/api': {
         target: 'http://localhost:3002', // porta do servidor SQLite

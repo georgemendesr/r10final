@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import AdBanner from './AdBanner';
 import WhatsAppShareButton from './WhatsAppShareButton';
 import { getPostsByPosition } from '../services/postsService';
+import { getHomeSectionTitles } from '../lib/seo';
 import TitleLink from './TitleLink';
 import type { Post } from '../types/Post';
 
@@ -58,6 +59,11 @@ const NewsGeneralSection = () => {
   return (
     <section className="py-6 md:py-8 bg-white font-body">
       <div className="container mx-auto px-4 max-w-[1250px]">
+        {/* Título da Seção SEO */}
+        <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6 border-l-4 border-brand pl-4">
+          {getHomeSectionTitles().geral}
+        </h2>
+
         {/* Super Banner */}
         <div className="w-full flex justify-center mb-6 md:mb-8">
           <AdBanner position="super-banner" />

@@ -2,6 +2,7 @@ import React, { useEffect, useState, memo } from 'react';
 import { TrendingUp, Eye, Clock, ArrowRight } from 'lucide-react';
 import WhatsAppShareButton from './WhatsAppShareButton';
 import { fetchPostsArray, Post } from '../services/postsService';
+import { getHomeSectionTitles } from '../lib/seo';
 
 const MostReadSection = memo(() => {
   const [mostReadNews, setMostReadNews] = useState<Post[]>([]);
@@ -10,7 +11,7 @@ const MostReadSection = memo(() => {
     // Busca posts reais e simula ordenação por "mais lidas"
     async function fetchMostReadPosts() {
       try {
-        const list = await fetchPostsArray({ page: 1, limit: 100 });
+        const list = await fetchPostsArray(100);
         // Pega os 5 primeiros posts como "mais lidas"
         // Em produção, isso seria ordenado por views/clicks reais
         setMostReadNews(list.slice(0, 5));
@@ -29,7 +30,7 @@ const MostReadSection = memo(() => {
           <div className="flex items-center justify-center gap-3 mb-2">
             <TrendingUp className="w-6 h-6 text-brand" />
             <h2 className="text-2xl font-black text-neutral900 tracking-wider font-title">
-              MAIS LIDAS
+              {getHomeSectionTitles().maisLidas.toUpperCase()}
             </h2>
             <TrendingUp className="w-6 h-6 text-brand" />
           </div>
