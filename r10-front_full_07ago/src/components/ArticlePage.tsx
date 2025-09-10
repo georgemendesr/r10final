@@ -17,6 +17,7 @@ import TitleLink from './TitleLink';
 import { getEditoriaTextColor } from '../lib/editorias-colors';
 import ReactionVoting from './ReactionVoting';
 import Footer from './Footer';
+import usePostView from '../hooks/usePostView'; // Importar o hook de views
 
 interface ArticleData {
   id: string;
@@ -45,6 +46,9 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
   const [article, setArticle] = useState<ArticleData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Hook para incrementar views quando o artigo é visualizado
+  usePostView(id);
   
   // Hook TTS integrado no SmartAudioPlayer
 

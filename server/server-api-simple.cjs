@@ -75,6 +75,7 @@ function mapPost(row) {
     subtitulo: row.subtitulo || row.subtitle,
     content: row.conteudo || row.content,
     conteudo: row.conteudo || row.content,
+    resumo: row.resumo || '',
     // Considerar variações de colunas: imagem, imagemUrl, imagem_destaque
     imagemUrl: (row.imagem && String(row.imagem).trim()) || (row.imagemUrl && String(row.imagemUrl).trim()) || (row.imagem_destaque && String(row.imagem_destaque).trim()) || '/placeholder.svg',
     imagemDestaque: (row.imagem && String(row.imagem).trim()) || (row.imagem_destaque && String(row.imagem_destaque).trim()) || (row.imagemDestaque && String(row.imagemDestaque).trim()) || (row.imagemUrl && String(row.imagemUrl).trim()) || '/placeholder.svg',
@@ -291,6 +292,96 @@ function createApp({ dbPath }) {
       console.error('Falha no proxy Groq:', e);
       res.status(500).json({ error: 'Erro no proxy Groq' });
     }
+  });
+
+  // Função auxiliar para gerar resumo automático
+  async function generateSummary(content) {
+    try {
+      const API_KEY = process.env.GROQ_API_KEY || process.env.VITE_GROQ_API_KEY;
+      if (!API_KEY) {
+        console.log('⚠️ API key não configurada, resumo não será gerado');
+        return null;
+      }
+
+      // Limitar conteúdo para evitar tokens excessivos
+      const limitedContent = content.substring(0, 2000);
+      
+      const prompt = `Crie um resumo objetivo e direto desta notícia em até 2 frases, focando no fato principal:
+
+${limitedContent}
+
+Resumo:`;
+
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'llama3-8b-8192',
+          messages: [
+            {
+              role: 'system',
+              content: 'Você é um jornalista especializado em criar resumos concisos. Responda sempre em português brasileiro, seja direto e objetivo.'
+            },
+            {
+              role: 'user', 
+              content: prompt
+            }
+          ],
+          max_tokens: 150,
+          temperature: 0.3
+        })
+      });
+
+      if (!response.ok) {
+        console.error('Erro na API Groq para resumo:', response.status);
+        return null;
+      }
+
+      const data = await response.json();
+      const summary = data.choices[0]?.message?.content?.trim();
+      
+      if (summary) {
+        console.log('✅ Resumo gerado automaticamente');
+        return summary;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Erro ao gerar resumo:', error);
+      return null;
+    }
+  }
+
+  // Rota específica para posts mais lidos (ordenados por views)
+  app.get('/api/posts/most-read', (req, res) => {
+    const limitParam = req.query.limit ?? 10;
+    const limit = Math.min(20, Math.max(1, parseInt(limitParam)));
+    
+    console.log(`📈 Buscando ${limit} posts mais lidos...`);
+    
+    const sql = `
+      SELECT * FROM noticias 
+      WHERE titulo IS NOT NULL AND titulo != ''
+      ORDER BY COALESCE(views, 0) DESC, published_at DESC
+      LIMIT ?
+    `;
+    
+    db.all(sql, [limit], (err, rows) => {
+      if (err) {
+        console.error('Erro ao buscar posts mais lidos:', err);
+        return res.status(500).json({ error: 'Erro interno do servidor' });
+      }
+      
+      const items = rows.map(mapPost);
+      console.log(`📈 Encontrados ${items.length} posts mais lidos`);
+      console.log(`📈 Views dos top 3:`, items.slice(0, 3).map(p => ({ titulo: p.titulo.substring(0, 50), views: p.views })));
+      
+      res.setHeader('Cache-Control', 'public, max-age=300'); // Cache de 5 minutos
+      res.json(items);
+    });
   });
 
   // Listar posts (com filtros básicos)
@@ -512,6 +603,24 @@ function createApp({ dbPath }) {
           return res.status(404).json({ error: 'Post não encontrado' });
         }
         
+        // Gerar resumo automaticamente se o conteúdo foi atualizado
+        const updatedContent = desired.conteudo;
+        if (updatedContent && updatedContent.trim().length > 50) {
+          generateSummary(updatedContent).then(resumo => {
+            if (resumo) {
+              db.run('UPDATE noticias SET resumo = ? WHERE id = ?', [resumo, id], (updateErr) => {
+                if (updateErr) {
+                  console.error('Erro ao salvar resumo:', updateErr);
+                } else {
+                  console.log(`📝 Resumo atualizado para post ${id}`);
+                }
+              });
+            }
+          }).catch(err => {
+            console.error('Erro ao gerar resumo:', err);
+          });
+        }
+        
         // Invalida cache home
         try { if (typeof invalidateHomeCache === 'function') invalidateHomeCache(); } catch(_) {}
         
@@ -702,6 +811,23 @@ function createApp({ dbPath }) {
       const newId = this.lastID;
       console.log(`✅ Novo post criado com ID: ${newId} (posição: ${normalizedPosition})`);
       
+      // Gerar resumo automaticamente se há conteúdo
+      if (conteudo && conteudo.trim().length > 50) {
+        generateSummary(conteudo).then(resumo => {
+          if (resumo) {
+            db.run('UPDATE noticias SET resumo = ? WHERE id = ?', [resumo, newId], (updateErr) => {
+              if (updateErr) {
+                console.error('Erro ao salvar resumo:', updateErr);
+              } else {
+                console.log(`📝 Resumo salvo para post ${newId}`);
+              }
+            });
+          }
+        }).catch(err => {
+          console.error('Erro ao gerar resumo:', err);
+        });
+      }
+      
       // Invalida cache home
       try { if (typeof invalidateHomeCache === 'function') invalidateHomeCache(); } catch(_) {}
       
@@ -732,6 +858,48 @@ function createApp({ dbPath }) {
           res.status(201).json(mapPost(row));
         });
       }
+    });
+  });
+
+  // Incrementar views de um post
+  app.post('/api/posts/:id/view', (req, res) => {
+    const { id } = req.params;
+    
+    if (!id) {
+      return res.status(400).json({ error: 'ID é obrigatório' });
+    }
+    
+    console.log(`👁️ Incrementando view para post ${id}`);
+    
+    // Incrementar o contador de views
+    const sql = 'UPDATE noticias SET views = COALESCE(views, 0) + 1 WHERE id = ?';
+    
+    db.run(sql, [id], function(err) {
+      if (err) {
+        console.error('Erro ao incrementar views:', err);
+        return res.status(500).json({ error: 'Erro interno do servidor' });
+      }
+      
+      if (this.changes === 0) {
+        return res.status(404).json({ error: 'Post não encontrado' });
+      }
+      
+      // Buscar o post atualizado para retornar as views atuais
+      db.get('SELECT views FROM noticias WHERE id = ?', [id], (gerr, row) => {
+        if (gerr) {
+          console.error('Erro ao buscar views atualizadas:', gerr);
+          return res.json({ success: true, views: null });
+        }
+        
+        const views = row ? row.views : 0;
+        console.log(`👁️ Post ${id} agora tem ${views} views`);
+        
+        res.json({ 
+          success: true, 
+          views: views,
+          message: 'View incrementada com sucesso'
+        });
+      });
     });
   });
 

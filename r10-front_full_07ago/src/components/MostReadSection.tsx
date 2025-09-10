@@ -8,16 +8,38 @@ const MostReadSection = memo(() => {
   const [mostReadNews, setMostReadNews] = useState<Post[]>([]);
 
   useEffect(() => {
-    // Busca posts reais e simula ordenação por "mais lidas"
+    // Busca posts reais ordenados por views da API
     async function fetchMostReadPosts() {
       try {
-        const list = await fetchPostsArray(100);
-        // Pega os 5 primeiros posts como "mais lidas"
-        // Em produção, isso seria ordenado por views/clicks reais
-        setMostReadNews(list.slice(0, 5));
+        console.log('📈 MostReadSection: Buscando posts mais lidos...');
+        const response = await fetch('/api/posts/most-read?limit=5');
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('📈 MostReadSection: Posts mais lidos recebidos:', data.length);
+        console.log('📈 MostReadSection: Views dos top 3:', data.slice(0, 3).map((p: any) => ({ titulo: p.titulo.substring(0, 40), views: p.views })));
+        
+        setMostReadNews(data);
       } catch (error) {
-        console.error('Erro ao carregar posts mais lidos:', error);
-        setMostReadNews([]);
+        console.error('❌ Erro ao carregar posts mais lidos:', error);
+        // Fallback: buscar posts normais se a rota específica falhar
+        try {
+          const fallbackResponse = await fetch('/api/posts?limit=5');
+          if (fallbackResponse.ok) {
+            const fallbackData = await fallbackResponse.json();
+            const posts = Array.isArray(fallbackData) ? fallbackData : fallbackData.items || [];
+            setMostReadNews(posts.slice(0, 5));
+            console.log('📈 MostReadSection: Usando fallback com posts normais');
+          } else {
+            setMostReadNews([]);
+          }
+        } catch (fallbackError) {
+          console.error('❌ Erro no fallback também:', fallbackError);
+          setMostReadNews([]);
+        }
       }
     }
     fetchMostReadPosts();
@@ -69,7 +91,14 @@ const MostReadSection = memo(() => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center text-white/80 text-xs">
                     <Eye className="w-3 h-3 mr-1" />
-                    <span>{news.visualizacoes > 0 ? `${(news.visualizacoes / 1000).toFixed(1)}K` : `${Math.floor(Math.random() * 15) + 5}K`}</span>
+                    <span>
+                      {news.views > 0 
+                        ? news.views >= 1000 
+                          ? `${(news.views / 1000).toFixed(1)}K`
+                          : news.views.toString()
+                        : '0'
+                      }
+                    </span>
                   </div>
                   
                   <WhatsAppShareButton 

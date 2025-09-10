@@ -16,6 +16,7 @@ export interface Post {
   dataPublicacao: string;
   imagemUrl?: string;
   visualizacoes?: number;
+  views?: number; // Campo real de views do backend
   municipio?: string;
   publishedAt?: string;
   publishedTs?: number;
