@@ -41,6 +41,7 @@ const MunicipiosComponente = () => {
         // Buscar todos os posts
         const allPosts = await fetchPostsArray(200);
         console.log('🏛️ Posts totais encontrados:', allPosts.length);
+        console.log('🏛️ Categorias de TODOS os posts:', [...new Set(allPosts.map(p => p.categoria))]);
         
         // Filtrar posts que são de municípios (pela categoria)
         const postsComMunicipios = allPosts.filter(post => {
@@ -157,12 +158,12 @@ const MunicipiosComponente = () => {
       <div className="bg-white py-8">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-gray-800 mb-2">{getHomeSectionTitles().municipios}</h2>
+            <h2 className="titulo-principal text-gray-800 mb-2">{getHomeSectionTitles().municipios}</h2>
             <div className="w-24 h-1 bg-blue-600 mx-auto"></div>
           </div>
           <div className="flex items-center justify-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <p className="ml-3 text-gray-600">Carregando notícias dos municípios...</p>
+            <p className="corpo-texto ml-3 text-gray-600">Carregando notícias dos municípios...</p>
           </div>
         </div>
       </div>
@@ -174,11 +175,11 @@ const MunicipiosComponente = () => {
       <div className="bg-white py-8">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-gray-800 mb-2">{getHomeSectionTitles().municipios}</h2>
+            <h2 className="titulo-principal text-gray-800 mb-2">{getHomeSectionTitles().municipios}</h2>
             <div className="w-24 h-1 bg-blue-600 mx-auto"></div>
           </div>
           <div className="text-center py-12">
-            <p className="text-gray-600">Nenhuma notícia de municípios encontrada no momento.</p>
+            <p className="corpo-texto text-gray-600">Nenhuma notícia de municípios encontrada no momento.</p>
           </div>
         </div>
       </div>
@@ -192,24 +193,24 @@ const MunicipiosComponente = () => {
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-4">
             <span className="text-red-500 text-lg">📍</span>
-            <h2 className="text-3xl font-bold text-gray-800">{getHomeSectionTitles().municipios}</h2>
+            <h2 className="titulo-principal text-gray-800">MUNICÍPIOS</h2>
             <span className="text-red-500 text-lg">📍</span>
           </div>
           <div className="w-24 h-1 bg-blue-600 mx-auto"></div>
         </div>
         
         {/* Grid de municípios - 3 colunas, 2 linhas */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           {municipios.map((municipio, index) => {
             const post = municipio.posts[0]; // Pegar a notícia mais recente
             const colorClasses = getColorClasses(municipio.color);
             const keyPoints = extractKeyPoints(post);
             
             return (
-              <div key={municipio.slug} className="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200 hover:shadow-xl transition-shadow duration-300">
+              <div key={municipio.slug} className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100 hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
                 {/* Header colorido com nome do município */}
-                <div className={`${colorClasses.bg} ${colorClasses.text} px-4 py-3`}>
-                  <h3 className="font-bold text-sm uppercase tracking-wide">
+                <div className={`${colorClasses.bg} ${colorClasses.text} px-6 py-4`}>
+                  <h3 className="font-bold text-sm uppercase tracking-wider">
                     {municipio.nome}
                   </h3>
                 </div>
@@ -219,29 +220,30 @@ const MunicipiosComponente = () => {
                   <img
                     src={post.imagemUrl || "https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=400&h=300&fit=crop"}
                     alt={post.titulo}
-                    className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                    className="w-full h-full object-cover hover:scale-110 transition-transform duration-500"
                   />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
                 </div>
                 
                 {/* Conteúdo do card */}
-                <div className="p-4">
+                <div className="p-6">
                   {/* Título da notícia */}
                   <Link 
                     to={`/noticia/${post.categoria || 'geral'}/${createSlug(post.titulo)}/${post.id}`}
-                    className="block mb-3"
+                    className="block mb-4"
                   >
-                    <h4 className="font-bold text-lg text-gray-900 leading-tight hover:text-blue-600 transition-colors duration-200 line-clamp-2">
+                    <h4 className="headline font-bold text-lg text-gray-900 leading-tight hover:text-blue-600 transition-colors duration-200 line-clamp-2">
                       {post.titulo}
                     </h4>
                   </Link>
                   
                   {/* Pontos-chave com bullets */}
                   {keyPoints.length > 0 && (
-                    <ul className="space-y-1 mb-4">
+                    <ul className="space-y-2 mb-6">
                       {keyPoints.map((point, idx) => (
-                        <li key={idx} className="text-gray-600 text-sm flex items-start">
-                          <span className="text-red-500 mr-2 mt-1 flex-shrink-0">•</span>
-                          <span className="line-clamp-1">{point}</span>
+                        <li key={idx} className="text-gray-600 text-sm flex items-start leading-relaxed">
+                          <span className="text-blue-500 mr-3 mt-1.5 flex-shrink-0">•</span>
+                          <span className="line-clamp-2">{point}</span>
                         </li>
                       ))}
                     </ul>
@@ -250,10 +252,10 @@ const MunicipiosComponente = () => {
                   {/* Link para ver todas as notícias */}
                   <Link 
                     to={`/municipio/${municipio.slug}`}
-                    className="text-blue-600 text-sm font-medium hover:text-blue-800 transition-colors duration-200 flex items-center"
+                    className="inline-flex items-center text-sm font-semibold text-blue-600 hover:text-blue-800 transition-colors duration-200"
                   >
                     Ver todas as notícias de {municipio.nome}
-                    <svg className="w-4 h-4 ml-1" fill="currentColor" viewBox="0 0 20 20">
+                    <svg className="w-4 h-4 ml-2" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
                     </svg>
                   </Link>

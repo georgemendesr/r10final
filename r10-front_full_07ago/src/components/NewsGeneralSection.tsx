@@ -60,7 +60,7 @@ const NewsGeneralSection = () => {
     <section className="py-6 md:py-8 bg-white font-body">
       <div className="container mx-auto px-4 max-w-[1250px]">
         {/* Título da Seção SEO */}
-        <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6 border-l-4 border-brand pl-4">
+        <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6 border-l-4 border-brand pl-4 font-rubik">
           {getHomeSectionTitles().geral}
         </h2>
 
@@ -92,7 +92,7 @@ const NewsGeneralSection = () => {
                     title={mainNews.titulo}
                     categoria={mainNews.categoria}
                     postId={mainNews.id}
-                    className="text-xl md:text-2xl lg:text-3xl leading-tight flex-1 title-hover-combined large title-hover-shimmer text-left"
+                    className="text-lg md:text-xl lg:text-2xl leading-title flex-1 headline text-left"
                   />
                   <WhatsAppShareButton 
                     title={mainNews.titulo}
@@ -131,7 +131,7 @@ const NewsGeneralSection = () => {
                         title={news.titulo}
                         categoria={news.categoria}
                         postId={news.id}
-                        className="text-base md:text-lg lg:text-xl leading-tight flex-1 title-hover-combined small text-left"
+                        className="text-sm md:text-base lg:text-lg leading-tight flex-1 headline text-left"
                       />
                       <WhatsAppShareButton 
                         title={news.titulo}
@@ -166,7 +166,7 @@ const NewsGeneralSection = () => {
                         title={news.titulo}
                         categoria={news.categoria}
                         postId={news.id}
-                        className="text-base md:text-lg lg:text-xl leading-tight flex-1 title-hover-combined small text-left"
+                        className="text-sm md:text-base lg:text-lg leading-tight flex-1 headline text-left"
                       />
                       <WhatsAppShareButton 
                         title={news.titulo}

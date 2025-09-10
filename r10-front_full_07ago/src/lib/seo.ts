@@ -11,7 +11,7 @@ export function buildSiteMeta() {
 export function buildCategoryMeta(categoria: string) {
   const categorias = {
     geral: {
-      title: 'Notícias Gerais do Piauí | R10 Piauí',
+      title: 'Geral | R10 Piauí',
       description: 'Acompanhe as principais notícias gerais do Piauí e região. Informações atualizadas sobre acontecimentos locais.',
     },
     policia: {
@@ -120,8 +120,8 @@ export function getHomeSectionTitles() {
     politica: 'Notícias de Política',
     policia: 'Polícia em Destaque',
     eventos: 'Eventos Locais',
-    destaque: 'Destaques do Piauí',
-    geral: 'Notícias Gerais',
+    destaque: '', // Sem título para destaque
+    geral: '', // Sem título para geral
     municipios: 'Notícias dos Municípios do Piauí',
     maisLidas: 'Mais Lidas',
     aoVivo: 'Ao Vivo Agora'

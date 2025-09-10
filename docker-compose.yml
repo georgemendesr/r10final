@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  # Frontend React/Vite
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: r10-frontend
+    ports:
+      - "5175:5175"
+    volumes:
+      - ./r10-front_full_07ago:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=http://localhost:3002
+    networks:
+      - r10-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5175/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Backend API
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: r10-backend
+    ports:
+      - "3002:3002"
+    volumes:
+      - ./server:/app/server
+      - ./uploads:/app/uploads
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - PORT=3002
+    networks:
+      - r10-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Instagram Publisher
+  instagram:
+    build:
+      context: .
+      dockerfile: Dockerfile.instagram
+    container_name: r10-instagram
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./instagram-publisher:/app
+      - /app/node_modules
+    environment:
+      - PORT=8080
+    networks:
+      - r10-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+networks:
+  r10-network:
+    driver: bridge
+
+volumes:
+  node_modules_frontend:
+  node_modules_backend:
+  node_modules_instagram:

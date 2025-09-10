@@ -24,6 +24,8 @@ const HeroHeadline = () => {
       try {
         console.log('🎯 HeroHeadline: Buscando supermanchete...');
         const supermancheteArray = await getPostsByPosition('supermanchete', 1);
+        console.log('🎯 Array retornado da API:', supermancheteArray);
+        console.log('🎯 Quantidade encontrada:', supermancheteArray.length);
         const supermanchetePost = supermancheteArray[0] || null;
         
         console.log('🎯 Supermanchete encontrada:', supermanchetePost);

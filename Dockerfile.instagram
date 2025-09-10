@@ -1,0 +1,27 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Instalar dependências do sistema
+RUN apk add --no-cache curl
+
+# Copiar package.json do instagram se existir
+COPY instagram-publisher/package*.json* ./
+
+# Instalar dependências ou criar package.json básico
+RUN if [ -f package.json ]; then npm install; else \
+    echo '{"name":"instagram-publisher","version":"1.0.0","main":"server.js","scripts":{"start":"node server.js"},"dependencies":{"express":"^4.18.0"}}' > package.json && \
+    npm install; fi
+
+# Copiar código fonte do instagram
+COPY instagram-publisher/ .
+
+# Configurar variáveis de ambiente
+ENV NODE_ENV=development
+ENV PORT=8080
+
+# Expor porta
+EXPOSE 8080
+
+# Comando de início
+CMD ["npm", "start"]

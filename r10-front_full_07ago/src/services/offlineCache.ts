@@ -70,10 +70,10 @@ export function getOfflineByPosition(posicao: string, limit = 20): Post[] {
 
 export function normalizePos(v: string): string {
   const m: Record<string,string> = {
-    'supermanchete':'SUPER MANCHETE','super-manchete':'SUPER MANCHETE','super':'SUPER MANCHETE',
-    'destaque':'DESTAQUE','destaques':'DESTAQUE','manchete-principal':'DESTAQUE',
-    'geral':'GERAL','noticia':'GERAL','noticias':'GERAL','noticia-comum':'GERAL',
-    'municipios':'MUNICIPIOS','municipio':'MUNICIPIOS','municípios':'MUNICIPIOS'
+    'supermanchete':'supermanchete','super-manchete':'supermanchete','super':'supermanchete',
+    'destaque':'destaque','destaques':'destaque','manchete-principal':'destaque',
+    'geral':'geral','noticia':'geral','noticias':'geral','noticia-comum':'geral',
+    'municipios':'municipios','municipio':'municipios','municípios':'municipios'
   };
   const k = String(v || '').normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase().trim();
   return m[k] || v;

@@ -152,7 +152,7 @@ const HeroGrid = () => {
     <section className="bg-gray-50 py-3 md:py-4 font-body">
       <div className="container mx-auto px-4 max-w-[1250px]">
         {/* Título da Seção SEO */}
-        <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6 border-l-4 border-red-600 pl-4">
+        <h2 className="titulo-principal text-gray-900 mb-6 border-l-4 border-red-600 pl-4">
           {getHomeSectionTitles().destaque}
         </h2>
 
@@ -169,7 +169,7 @@ const HeroGrid = () => {
               />
             </div>
                             <div className="flex items-start gap-3 mb-3 md:mb-4">
-                              <h1 className="text-2xl md:text-3xl lg:text-4xl xl:text-5xl leading-tight flex-1">
+                              <h1 className="text-2xl md:text-3xl lg:text-4xl xl:text-5xl leading-title flex-1">
                                 <TitleLink
                                   title={getTitle(mainArticle)}
                                   categoria={getCategory(mainArticle)}
@@ -211,7 +211,7 @@ const HeroGrid = () => {
                         ? (<span className="text-gray-500 text-xs font-semibold uppercase mb-2 block">{sideArticles[0].chapeu}</span>)
                         : (import.meta.env?.DEV ? (<span className="text-gray-400 text-xs font-semibold uppercase mb-2 block opacity-60">S/CHAPÉU</span>) : null)}
                       <div className="flex items-start gap-2">
-                        <h2 className="text-lg md:text-xl leading-tight flex-1">
+                        <h2 className="text-lg md:text-xl leading-title flex-1">
                           <TitleLink
                             title={getTitle(sideArticles[0])}
                             categoria={getCategory(sideArticles[0])}
@@ -253,7 +253,7 @@ const HeroGrid = () => {
                         ? (<span className="text-gray-500 text-xs font-semibold uppercase mb-2 block">{sideArticles[1].chapeu}</span>)
                         : (import.meta.env?.DEV ? (<span className="text-gray-400 text-xs font-semibold uppercase mb-2 block opacity-60">S/CHAPÉU</span>) : null)}
                       <div className="flex items-start gap-2">
-                        <h2 className="text-lg md:text-xl leading-tight flex-1">
+                        <h2 className="text-lg md:text-xl leading-title flex-1">
                           <TitleLink
                             title={getTitle(sideArticles[1])}
                             categoria={getCategory(sideArticles[1])}
@@ -303,7 +303,7 @@ const HeroGrid = () => {
                         ? (<span className="text-gray-500 text-xs font-semibold uppercase mb-2 block">{sideArticles[2].chapeu}</span>)
                         : (import.meta.env?.DEV ? (<span className="text-gray-400 text-xs font-semibold uppercase mb-2 block opacity-60">S/CHAPÉU</span>) : null)}
                       <div className="flex items-start gap-2">
-                        <h2 className="text-lg md:text-xl leading-tight flex-1">
+                        <h2 className="text-lg md:text-xl leading-title flex-1">
                           <TitleLink
                             title={getTitle(sideArticles[2])}
                             categoria={getCategory(sideArticles[2])}
@@ -344,8 +344,13 @@ const HeroGrid = () => {
                           ? (<span className="text-gray-500 text-xs font-semibold uppercase mb-2 block">{sideArticles[3].chapeu}</span>)
                           : (import.meta.env?.DEV ? (<span className="text-gray-400 text-xs font-semibold uppercase mb-2 block opacity-60">S/CHAPÉU</span>) : null)}
                         <div className="flex items-start gap-2">
-                          <h2 className={`headline ${getEditorialClasses(getCategory(sideArticles[3])).title} text-lg md:text-xl leading-tight group-hover:opacity-80 transition-opacity flex-1 title-hover-combined medium`}>
-                            {getTitle(sideArticles[3])}
+                          <h2 className="text-lg md:text-xl leading-title flex-1">
+                            <TitleLink
+                              title={getTitle(sideArticles[3])}
+                              categoria={getCategory(sideArticles[3])}
+                              href={`/noticia/${getCategory(sideArticles[3])}/${createSlug(getTitle(sideArticles[3]))}/${sideArticles[3].id}`}
+                              className="headline font-medium"
+                            />
                           </h2>
                           <div onClick={(e) => e.stopPropagation()}>
                             <WhatsAppShareButton 

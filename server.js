@@ -2213,7 +2213,7 @@ app.post('/api/publish-instagram', async (req, res) => {
 app.use('/fonts', express.static(path.join(__dirname, 'fonts')));
 
 // Iniciar servidor
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 R10 Instagram Publisher iniciado na porta ${PORT}`);
   console.log(`🌐 Acesse: http://localhost:${PORT}`);
   console.log(`📱 Instagram Business ID: ${INSTAGRAM_CONFIG.BUSINESS_ID || 'NÃO DEFINIDO'}`);

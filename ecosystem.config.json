@@ -1,0 +1,55 @@
+{
+  "apps": [
+    {
+      "name": "r10-frontend",
+      "cwd": "./r10-front_full_07ago",
+      "script": "start-dev.js",
+      "env": {
+        "NODE_ENV": "development"
+      },
+      "watch": ["src", "public", "vite.config.ts", "package.json"],
+      "ignore_watch": ["node_modules", "dist", ".git"],
+      "restart_delay": 1000,
+      "max_restarts": 10,
+      "log_file": "./logs/frontend.log",
+      "error_file": "./logs/frontend-error.log",
+      "out_file": "./logs/frontend-out.log",
+      "log_date_format": "YYYY-MM-DD HH:mm:ss",
+      "windowsHide": true
+    },
+    {
+      "name": "r10-backend",
+      "script": "./server/server-api-simple.cjs",
+      "env": {
+        "NODE_ENV": "development",
+        "PORT": 3002
+      },
+      "watch": ["server", "*.cjs"],
+      "ignore_watch": ["node_modules", "server/noticias.db", ".git", "logs"],
+      "restart_delay": 1000,
+      "max_restarts": 10,
+      "log_file": "./logs/backend.log",
+      "error_file": "./logs/backend-error.log",
+      "out_file": "./logs/backend-out.log",
+      "log_date_format": "YYYY-MM-DD HH:mm:ss",
+      "windowsHide": true
+    },
+    {
+      "name": "r10-instagram",
+      "script": "./server.js",
+      "env": {
+        "NODE_ENV": "development",
+        "PORT": 8080
+      },
+      "watch": ["server.js", "*.js", "*.json"],
+      "ignore_watch": ["node_modules", "uploads", ".git", "logs"],
+      "restart_delay": 1000,
+      "max_restarts": 10,
+      "log_file": "./logs/instagram.log",
+      "error_file": "./logs/instagram-error.log", 
+      "out_file": "./logs/instagram-out.log",
+      "log_date_format": "YYYY-MM-DD HH:mm:ss",
+      "windowsHide": true
+    }
+  ]
+}

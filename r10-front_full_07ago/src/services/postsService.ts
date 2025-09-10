@@ -8,15 +8,8 @@ export let OFFLINE_MODE = OFFLINE_ONLY;
 // Função para ordenar posts por data de publicação (mais recentes primeiro)
 const sortDesc = (a:any,b:any) => new Date(b.publishedAt||0).getTime() - new Date(a.publishedAt||0).getTime();
 
-// URL da API - dinâmico para evitar issues localhost vs 127.0.0.1
-const API_HOST = ((): string => {
-  try {
-    if (typeof window !== 'undefined' && window.location?.hostname) {
-      return window.location.hostname; // usa o mesmo host do front (ex.: 127.0.0.1)
-    }
-  } catch (_) {}
-  return '127.0.0.1'; // fallback seguro
-})();
+// URL da API - fixado para 127.0.0.1 para garantir consistência com proxy
+const API_HOST = '127.0.0.1'; // sempre 127.0.0.1 para funcionar com localhost e IP
 const API_BASE_URL = (import.meta as any)?.env?.VITE_API_BASE_URL || `http://${API_HOST}:3002/api`;
 console.debug('[postsService] API_BASE_URL=', API_BASE_URL);
 
@@ -476,10 +469,15 @@ export async function getPostsByPosition(posicao: string, limit?: number): Promi
   try {
     // Tentar filtrar pela API para reduzir carga e evitar divergências
   let fetched = await getPosts({ posicao, limit });
+    console.log('🔍 Posts retornados da API:', fetched.length, fetched.map(p => ({ id: p.id, titulo: p.titulo, posicao: p.posicao })));
+    
     // Por segurança, filtrar novamente no cliente com normalização
     const want = normalizePos(posicao);
+    console.log('🔍 Posição normalizada procurada:', want);
+    
     let filteredPosts = fetched.filter(post => {
       const p = normalizePos(post.posicao || '');
+      console.log('🔍 Comparando:', post.posicao, '->', p, '===', want, '?', p === want);
       return p === want;
     });
     

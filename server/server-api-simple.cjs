@@ -40,8 +40,14 @@ function normalizeCategoria(categoria = '') {
   const toKey = (s) => String(s || '')
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .toLowerCase().trim().replace(/\s+/g, '');
-  const INTERNAL = new Set(['editoriais','editorial','municipios','municipio','especiais','especial']);
-  const ALLOWED = new Set(['policia','politica','esporte','entretenimento','geral']);
+  const INTERNAL = new Set(['editoriais','editorial','especiais','especial']);
+  const ALLOWED = new Set([
+    'policia','politica','esporte','entretenimento','geral',
+    // Municípios permitidos
+    'piripiri','pedro-ii','piracuruca','brasileira','lagoa-de-sao-francisco',
+    'campo-maior','barras','esperantina','batalha','cocal','buriti-dos-lopes',
+    'morro-do-chapeu','caxingo','sao-jose-do-divino'
+  ]);
   const c = toKey(categoria);
   if (ALLOWED.has(c)) return c;
   if (INTERNAL.has(c)) return 'geral';
@@ -180,11 +186,18 @@ function reorganizePositionHierarchy(db, updatedPostId, newPosition, callback) {
 function createApp({ dbPath }) {
   const app = express();
   
+  // CURTO-CIRCUITO: Health check no topo (diagnóstico)
+  app.get('/api/health', (_req,res)=> res.type('text/plain').send('ok'));
+  
   // Configuração CORS específica para o frontend
   const corsOptions = {
     origin: [
       'http://localhost:5175',
       'http://127.0.0.1:5175',
+      'http://localhost:5176',
+      'http://127.0.0.1:5176', 
+      'http://localhost:5177',
+      'http://127.0.0.1:5177',
       'http://localhost:3000', // fallback para outros ambientes
       'http://127.0.0.1:3000'
     ],
@@ -194,7 +207,19 @@ function createApp({ dbPath }) {
   };
   
   app.use(cors(corsOptions));
-  app.use(express.json());
+  
+  // Configurar limites de payload para suportar imagens base64
+  app.use(express.json({ limit: '100mb' }));
+  app.use(express.urlencoded({ limit: '100mb', extended: true }));
+  
+  // LOGGER TEMPORÁRIO: Detectar middleware pendurado
+  app.use((req,res,next)=>{
+    const t = Date.now();
+    console.log('[REQ]', req.method, req.url);
+    res.on('finish', ()=> console.log('[RES]', req.method, req.url, res.statusCode, (Date.now()-t)+'ms'));
+    next();
+  });
+  
   // ETag forte
   app.set('etag', 'strong');
 
@@ -228,11 +253,6 @@ function createApp({ dbPath }) {
       cb(null, cols);
     });
   }
-
-  // Health check
-  app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', database: 'sqlite', timestamp: new Date().toISOString() });
-  });
 
   // --- AI Proxy (Groq) ---
   // Health de IA: informa se há chave configurada no servidor (sem expor o valor)
@@ -297,7 +317,7 @@ function createApp({ dbPath }) {
         params.push('geral');
       } else {
         where.push('LOWER(posicao) = ?');
-        params.push(p);
+        params.push(p.toLowerCase());
       }
     }
     if (categoriaParam) {
@@ -409,6 +429,10 @@ function createApp({ dbPath }) {
   app.put('/api/posts/:id', (req, res) => {
     const { id } = req.params;
     const body = req.body || {};
+    
+    // Log para debug do tamanho do payload
+    const payloadSize = JSON.stringify(req.body).length / 1024 / 1024;
+    console.log(`📊 Tamanho do body recebido: ${payloadSize.toFixed(2)} MB`);
 
     // Campos que aceitaremos do front
     const desired = {
@@ -655,7 +679,7 @@ function createApp({ dbPath }) {
     const autor = body.autor || body.author || 'Redação R10 Piauí';
     const chapeu = body.chapeu || '';
     const posicao = body.posicao || body.position || 'geral';
-    const imagemDestaque = body.imagem_destaque || body.imagemDestaque || body.imagemUrl || body.imagem || body.image || '';
+    let imagemDestaque = body.imagem_destaque || body.imagemDestaque || body.imagemUrl || body.imagem || body.image || '';
     
     // Normalizar posição
     const normalizedPosition = normalizePos(posicao);
@@ -663,7 +687,7 @@ function createApp({ dbPath }) {
     // Data atual
     const now = new Date().toISOString();
     
-    // Inserir no banco
+    // PRIMEIRO: Inserir no banco para obter o ID
     const sql = `
       INSERT INTO noticias (titulo, subtitulo, conteudo, categoria, autor, chapeu, posicao, imagem_destaque, published_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -878,8 +902,8 @@ if (require.main === module) {
 
   ports.forEach((p) => {
     try {
-      const server = app.listen(p, '0.0.0.0', () => {
-        console.log(`🚀 API SQLite rodando na porta ${p} (todas as interfaces)`);
+      const server = app.listen(p, '127.0.0.1', () => {
+        console.log(`🚀 API SQLite rodando na porta ${p} (apenas localhost)`);
         console.log(`📍 Health: http://127.0.0.1:${p}/api/health`);
         console.log(`📍 Health: http://localhost:${p}/api/health`);
       });

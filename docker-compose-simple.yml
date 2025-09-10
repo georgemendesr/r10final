@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  # Backend API
+  backend:
+    image: node:18-alpine
+    container_name: r10-backend
+    working_dir: /app
+    command: sh -c "apk add --no-cache python3 make g++ && rm -rf node_modules && npm install && npm install cors && node server/server-api-simple.cjs"
+    ports:
+      - "3002:3002"
+    volumes:
+      - .:/app
+    environment:
+      - NODE_ENV=development
+      - PORT=3002
+    networks:
+      - r10-network
+    restart: unless-stopped
+
+  # Frontend React/Vite
+  frontend:
+    image: node:18-alpine
+    container_name: r10-frontend
+    working_dir: /app
+    command: sh -c "cd r10-front_full_07ago && npm install && npm run dev -- --host 0.0.0.0 --port 5175"
+    ports:
+      - "5175:5175"
+    volumes:
+      - .:/app
+    environment:
+      - VITE_API_URL=http://localhost:3002
+    networks:
+      - r10-network
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+networks:
+  r10-network:
+    driver: bridge

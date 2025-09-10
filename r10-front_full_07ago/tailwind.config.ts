@@ -17,10 +17,11 @@ export default {
 		},
 		extend: {
 			fontFamily: {
-				'poppins': ['Poppins', 'sans-serif'],
+				'inter': ['Inter', 'sans-serif'],
 				'rubik': ['Rubik', 'sans-serif'],
-				'title': ['Poppins', 'sans-serif'],
-				'body': ['Rubik', 'sans-serif'],
+				'sans': ['Inter', 'sans-serif'], // Inter como fonte padrão
+				'title': ['Inter', 'sans-serif'],
+				'body': ['Inter', 'sans-serif'],
 			},
 			colors: {
 				brand: '#C62828', /* Vermelho mais escuro para contraste 4.5:1 */

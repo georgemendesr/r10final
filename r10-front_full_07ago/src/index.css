@@ -1,7 +1,12 @@
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500&family=Rubik:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Rubik:wght@500;600;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Tipografia oficial do portal */
+:root {
+  --font-inter: 'Inter', sans-serif;
+}
 
 :root{
   /* Cores oficiais das editorias - paleta exata solicitada */
@@ -35,32 +40,75 @@
   --ed-geral-700:#c2410c;
 }
 
+/* Tipografia Inter - Sistema oficial do portal */
+
+/* Títulos principais - H1, H2 principais */
+.titulo-principal {
+  font-family: var(--font-inter);
+  font-weight: 600;
+  font-size: 32px;
+  line-height: 1.2;
+}
+
+/* Corpo de texto - Parágrafos, descrições */
+.corpo-texto {
+  font-family: var(--font-inter);
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+/* Labels/categorias - Tags, chapéus, labels */
+.label-categoria {
+  font-family: var(--font-inter);
+  font-weight: 500;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
 /* Chapéu - sempre cinza claro, sem underline, sem animação */
 .chapeu { 
+  font-family: var(--font-inter);
+  font-weight: 500;
+  font-size: 12px;
+  letter-spacing: 0.5px;
   color: #9ca3af; /* gray-400 */
   text-transform: uppercase; 
-  font-size: 12px; 
-  font-weight: 600; 
   text-decoration: none !important;
 }
 
 /* Tag/Chapéu - estilo padrão para seções */
 .tag {
+  font-family: var(--font-inter);
+  font-weight: 500;
+  font-size: 12px;
+  letter-spacing: 0.5px;
   color: #9ca3af; /* gray-400 - mesma cor do chapéu */
   text-transform: uppercase;
-  font-size: 12px;
-  font-weight: 600;
   text-decoration: none !important;
   display: inline-block;
 }
 
-/* Base dos títulos */
+/* Base dos títulos - PADRONIZAÇÃO DE ALTURA DE LINHA */
 .headline{
   font-family:'Rubik',sans-serif; 
   font-weight:600; 
-  line-height:1.2; 
-  letter-spacing:normal;
+  line-height:1.25 !important; /* Padronização: 1.25 para todos os títulos */
+  letter-spacing:-0.025em; /* Melhor ajuste tipográfico */
 }
+
+/* Variações específicas por tamanho - mantendo consistência */
+.headline.text-lg { line-height: 1.25 !important; }
+.headline.text-xl { line-height: 1.25 !important; }
+.headline.text-2xl { line-height: 1.25 !important; }
+.headline.text-3xl { line-height: 1.25 !important; }
+.headline.text-4xl { line-height: 1.25 !important; }
+.headline.text-5xl { line-height: 1.25 !important; }
+
+/* Classes Tailwind personalizadas para consistência */
+.leading-title { line-height: 1.25 !important; }
+.leading-title-tight { line-height: 1.2 !important; }
 
 /* Componente de título com linha animada - aplicado via TitleLink */
 .title-with-line {
