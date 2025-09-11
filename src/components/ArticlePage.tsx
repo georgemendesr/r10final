@@ -293,30 +293,84 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
       
       <article className="bg-white">
                 <div className="container mx-auto px-4 max-w-[1250px] py-8">
-          {/* Título Principal da Matéria */}
-          <div className="mb-8">
-            <div className="mb-3">
-              <span className="inline-block px-3 py-1 bg-red-600 text-white text-sm font-medium rounded-full uppercase tracking-wide">
-                {finalArticle.category === 'editoriais' && finalArticle.subcategorias?.length > 0
-                  ? finalArticle.subcategorias[0]
-                  : finalArticle.category === 'editoriais'
-                  ? 'Geral'
-                  : finalArticle.category}
-              </span>
+          {/* Cabeçalho Profissional da Matéria */}
+          <header className="article-header mb-12">
+            {/* Chapéu Editorial com Destaque */}
+            <div className="mb-8">
+              <div className="flex items-center gap-4 mb-3">
+                <div 
+                  className="editorial-badge px-5 py-3 text-white font-bold text-lg uppercase tracking-wider rounded-none relative overflow-hidden shadow-xl"
+                  style={{ 
+                    backgroundColor: getEditoriaTextColor(finalArticle.category),
+                    transform: 'skew(-8deg)',
+                  }}
+                >
+                  <span className="relative z-10" style={{ transform: 'skew(8deg)', display: 'block' }}>
+                    {finalArticle.category === 'editoriais' && finalArticle.subcategorias?.length > 0
+                      ? finalArticle.subcategorias[0]
+                      : finalArticle.category === 'editoriais'
+                      ? 'Geral'
+                      : finalArticle.category}
+                  </span>
+                  <div 
+                    className="absolute inset-0 opacity-30"
+                    style={{
+                      background: 'linear-gradient(45deg, transparent 20%, rgba(255,255,255,0.4) 50%, transparent 80%)'
+                    }}
+                  ></div>
+                </div>
+                
+                {/* Linha Editorial */}
+                <div className="flex-1 flex items-center gap-2">
+                  <div 
+                    className="flex-1 h-1 rounded-full shadow-sm"
+                    style={{ backgroundColor: getEditoriaTextColor(finalArticle.category) }}
+                  ></div>
+                  <div 
+                    className="w-2 h-2 rounded-full"
+                    style={{ backgroundColor: getEditoriaTextColor(finalArticle.category) }}
+                  ></div>
+                  <div 
+                    className="w-1 h-1 rounded-full opacity-60"
+                    style={{ backgroundColor: getEditoriaTextColor(finalArticle.category) }}
+                  ></div>
+                </div>
+              </div>
             </div>
             
-            <h1 className="text-4xl lg:text-5xl font-black leading-tight mb-6 font-rubik">
-              <span style={{ color: getEditoriaTextColor(finalArticle.category) }}>
-                {finalArticle.title}
-              </span>
-            </h1>
-            
-            {finalArticle.subtitle && (
-              <p className="text-xl lg:text-2xl text-gray-600 leading-relaxed font-light">
-                {finalArticle.subtitle}
-              </p>
-            )}
-          </div>
+            {/* Título Principal com Hierarquia Clara */}
+            <div className="space-y-8">
+              <h1 className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-black leading-[1.05] font-rubik tracking-tight">
+                <span 
+                  className="title-gradient bg-gradient-to-r bg-clip-text text-transparent"
+                  style={{ 
+                    backgroundImage: `linear-gradient(135deg, ${getEditoriaTextColor(finalArticle.category)} 0%, #1f2937 70%, ${getEditoriaTextColor(finalArticle.category)} 100%)`,
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent'
+                  }}
+                >
+                  {finalArticle.title}
+                </span>
+              </h1>
+              
+              {/* Subtítulo com Estilo Profissional */}
+              {finalArticle.subtitle && (
+                <div className="relative bg-gray-50 rounded-r-lg py-6 pr-6">
+                  <div 
+                    className="absolute left-0 top-0 bottom-0 w-2 rounded-l-lg"
+                    style={{ backgroundColor: getEditoriaTextColor(finalArticle.category) }}
+                  ></div>
+                  <div 
+                    className="absolute left-2 top-0 bottom-0 w-px opacity-30"
+                    style={{ backgroundColor: getEditoriaTextColor(finalArticle.category) }}
+                  ></div>
+                  <p className="text-xl md:text-2xl lg:text-3xl text-gray-700 leading-relaxed font-light pl-8 italic">
+                    {finalArticle.subtitle}
+                  </p>
+                </div>
+              )}
+            </div>
+          </header>
 
           <div className="grid grid-cols-12 gap-8">
             {/* Share Bar */}
@@ -377,19 +431,83 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
             
             {/* Main Content */}
             <div className="col-span-12 lg:col-span-8">
-                {/* Article Meta */}
-                <div className="flex flex-wrap items-center gap-4 text-gray-500 text-sm border-b border-gray-200 pb-4 mb-6">
-                  <div className="flex items-center gap-1">
-                    <User className="w-4 h-4" />
-                    <span>Por <strong className="text-gray-700">{finalArticle.author}</strong></span>
+                {/* Metadados do Artigo - Design Profissional */}
+                <div className="meta-card rounded-lg p-8 mb-10 border-l-4 shadow-sm" style={{ borderLeftColor: getEditoriaTextColor(finalArticle.category) }}>
+                  <div className="flex flex-wrap items-center gap-6 text-gray-600">
+                    {/* Autor com Avatar Placeholder */}
+                    <div className="flex items-center gap-4">
+                      <div 
+                        className="author-avatar w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-base shadow-md"
+                        style={{ backgroundColor: getEditoriaTextColor(finalArticle.category) }}
+                      >
+                        {finalArticle.author.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1 text-sm">
+                          <User className="w-4 h-4" />
+                          <span>Por</span>
+                        </div>
+                        <strong className="text-gray-900 font-semibold">{finalArticle.author}</strong>
+                      </div>
+                    </div>
+                    
+                    {/* Data de Publicação */}
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-5 h-5" style={{ color: getEditoriaTextColor(finalArticle.category) }} />
+                      <div>
+                        <div className="text-xs text-gray-500 uppercase tracking-wide">Publicado em</div>
+                        <div className="font-medium text-gray-900">{formatDate(finalArticle.publishDate)}</div>
+                      </div>
+                    </div>
+                    
+                    {/* Tempo de Leitura */}
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="w-5 h-5 rounded-full flex items-center justify-center"
+                        style={{ backgroundColor: getEditoriaTextColor(finalArticle.category) }}
+                      >
+                        <span className="text-white text-xs">📖</span>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-500 uppercase tracking-wide">Leitura</div>
+                        <div className="font-medium text-gray-900">{calculateReadTime(finalArticle.content)}</div>
+                      </div>
+                    </div>
+                    
+                    {/* Views se disponível */}
+                    {finalArticle.views && (
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="w-5 h-5 rounded-full flex items-center justify-center"
+                          style={{ backgroundColor: getEditoriaTextColor(finalArticle.category) }}
+                        >
+                          <span className="text-white text-xs">👁️</span>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-500 uppercase tracking-wide">Visualizações</div>
+                          <div className="font-medium text-gray-900">{finalArticle.views}</div>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-1">
-                    <Calendar className="w-4 h-4" />
-                    <span>{formatDate(finalArticle.publishDate)}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <span>📖 {calculateReadTime(finalArticle.content)} de leitura</span>
-                  </div>
+                  
+                  {/* Tags se existirem */}
+                  {finalArticle.tags && finalArticle.tags.length > 0 && (
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm text-gray-500 font-medium">Tags:</span>
+                        {finalArticle.tags.slice(0, 5).map((tag, index) => (
+                          <span 
+                            key={index}
+                            className="px-3 py-1 text-xs font-medium text-white rounded-full"
+                            style={{ backgroundColor: getEditoriaTextColor(finalArticle.category) }}
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
               {/* Smart Audio Player - ElevenLabs para posições elegíveis */}
