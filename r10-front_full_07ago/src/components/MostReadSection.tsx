@@ -1,5 +1,6 @@
 import React, { useEffect, useState, memo } from 'react';
 import { TrendingUp, Eye, Clock, ArrowRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import WhatsAppShareButton from './WhatsAppShareButton';
 import { fetchPostsArray, Post } from '../services/postsService';
 import { getHomeSectionTitles } from '../lib/seo';
@@ -12,7 +13,7 @@ const MostReadSection = memo(() => {
     async function fetchMostReadPosts() {
       try {
         console.log('📈 MostReadSection: Buscando posts mais lidos...');
-        const response = await fetch('/api/posts/most-read?limit=5');
+        const response = await fetch('http://localhost:3002/api/posts/most-read?limit=5');
         
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -27,7 +28,7 @@ const MostReadSection = memo(() => {
         console.error('❌ Erro ao carregar posts mais lidos:', error);
         // Fallback: buscar posts normais se a rota específica falhar
         try {
-          const fallbackResponse = await fetch('/api/posts?limit=5');
+          const fallbackResponse = await fetch('http://localhost:3002/api/posts?limit=5');
           if (fallbackResponse.ok) {
             const fallbackData = await fallbackResponse.json();
             const posts = Array.isArray(fallbackData) ? fallbackData : fallbackData.items || [];
@@ -46,24 +47,22 @@ const MostReadSection = memo(() => {
   }, []);
 
   return (
-    <section className="bg-white py-8">
+    <section className="bg-white py-6">
       <div className="container mx-auto px-4 max-w-[1250px]">
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-3 mb-2">
-            <TrendingUp className="w-6 h-6 text-brand" />
-            <h2 className="text-2xl font-black text-neutral900 tracking-wider font-title">
-              {getHomeSectionTitles().maisLidas.toUpperCase()}
-            </h2>
-            <TrendingUp className="w-6 h-6 text-brand" />
-          </div>
-          <div className="w-16 h-1 bg-gradient-to-r from-brand to-accent mx-auto"></div>
+        <div className="text-center mb-12">
+          <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-4 tracking-tight">
+            MAIS LIDAS
+          </h2>
+          <div className="w-32 h-1.5 bg-gradient-to-r from-red-600 via-orange-600 to-yellow-600 mx-auto rounded-full shadow-lg"></div>
+          <p className="text-gray-600 text-lg mt-4 font-medium">As notícias mais lidas pelos piauienses</p>
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           {mostReadNews.map((news, index) => (
-            <article 
-              key={news.id} 
-              className="group cursor-pointer bg-gradient-to-br from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 transition-all duration-300 rounded-xl p-4 text-white shadow-lg hover:shadow-xl relative overflow-hidden"
+            <Link 
+              key={news.id}
+              to={`/noticia/${news.categoria || 'geral'}/${news.titulo?.replace(/[^\w\s-]/g, '').replace(/\s+/g, '-').toLowerCase()}/${news.id}`}
+              className="group cursor-pointer bg-gradient-to-br from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 transition-all duration-300 rounded-xl p-4 text-white shadow-lg hover:shadow-xl relative overflow-hidden block"
             >
               <div className="relative z-10">
                 {/* Número de ranking - MUITO MAIS IMPACTANTE */}
@@ -110,7 +109,7 @@ const MostReadSection = memo(() => {
                   />
                 </div>
               </div>
-            </article>
+            </Link>
           ))}
         </div>
       </div>

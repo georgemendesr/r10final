@@ -1,0 +1,18 @@
+{
+  "folders": [
+    {
+      "path": "."
+    }
+  ],
+  "settings": {
+    "security.workspace.trust.enabled": false,
+    "terminal.integrated.allowWorkspaceConfiguration": true,
+    "workbench.colorTheme": "Default Light Modern",
+    "terminal.integrated.persistentSessionReviveProcess": "never",
+    "terminal.integrated.enablePersistentSessions": false,
+    "terminal.integrated.showExitAlert": false
+  },
+  "extensions": {
+    "recommendations": []
+  }
+}

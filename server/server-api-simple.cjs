@@ -1,8 +1,33 @@
+console.log('[[bootstrap]] Iniciando carregamento módulos principais...');
 const express = require('express');
 const cors = require('cors');
-const sqlite3 = require('sqlite3').verbose();
+let sqlite3; try { sqlite3 = require('sqlite3').verbose(); console.log('[[bootstrap]] sqlite3 carregado'); } catch(e){ console.error('[[bootstrap]] ERRO ao carregar sqlite3:', e.message); process.exit(97); }
 const crypto = require('crypto');
 const path = require('path');
+const fs = require('fs');
+
+// Configurar encoding para UTF-8
+process.env.NODE_ENV = process.env.NODE_ENV || 'development';
+if (process.platform === 'win32') {
+  process.stdout.setEncoding = process.stdout.setEncoding || (() => {});
+  process.stderr.setEncoding = process.stderr.setEncoding || (() => {});
+}
+
+// Handlers globais para capturar falhas silenciosas
+if (!global.__R10_DIAG__) {
+  global.__R10_DIAG__ = true;
+  const startedAt = Date.now();
+  console.log('=== [R10 API] bootstrap', new Date().toISOString());
+  process.on('uncaughtException', (err) => {
+    console.error('💥 uncaughtException:', err && err.stack || err);
+  });
+  process.on('unhandledRejection', (reason, p) => {
+    console.error('💥 unhandledRejection:', reason);
+  });
+  process.on('exit', (code) => {
+    console.log(`=== [R10 API] exit code=${code} uptime=${((Date.now()-startedAt)/1000).toFixed(1)}s`);
+  });
+}
 // Carregar variáveis de ambiente de um arquivo .env na raiz (se existir)
 try {
   require('dotenv').config({ path: path.join(process.cwd(), '.env') });
@@ -187,9 +212,6 @@ function reorganizePositionHierarchy(db, updatedPostId, newPosition, callback) {
 function createApp({ dbPath }) {
   const app = express();
   
-  // CURTO-CIRCUITO: Health check no topo (diagnóstico)
-  app.get('/api/health', (_req,res)=> res.type('text/plain').send('ok'));
-  
   // Configuração CORS específica para o frontend
   const corsOptions = {
     origin: [
@@ -208,6 +230,35 @@ function createApp({ dbPath }) {
   };
   
   app.use(cors(corsOptions));
+
+  // Servir frontend buildado (modo produção single-process) quando habilitado
+  // Ative definindo SERVE_STATIC_FRONT=1 ao iniciar (ex: process.env.SERVE_STATIC_FRONT='1')
+  if (process.env.SERVE_STATIC_FRONT === '1') {
+    try {
+      const distPath = path.join(__dirname, '../r10-front_full_07ago/dist');
+      if (fs.existsSync(distPath)) {
+        console.log('📦 Servindo frontend estático de', distPath);
+        app.use(express.static(distPath, { maxAge: '5m', index: 'index.html' }));
+        // Qualquer rota não /api/ volta index.html para permitir SPA router
+        app.get(/^(?!\/api\/).+/, (req, res) => {
+          res.sendFile(path.join(distPath, 'index.html'));
+        });
+      } else {
+        console.log('⚠️  SERVE_STATIC_FRONT=1 mas dist não encontrado em', distPath);
+      }
+    } catch (e) {
+      console.warn('Falha ao configurar frontend estático:', e.message);
+    }
+  }
+  
+  // CURTO-CIRCUITO: Health check no topo (diagnóstico)
+  app.get('/api/health', (_req,res)=> res.type('text/plain; charset=utf-8').send('ok'));
+  
+  // Configurar charset UTF-8 para todas as respostas da API
+  app.use('/api', (req, res, next) => {
+    res.set('Content-Type', 'application/json; charset=utf-8');
+    next();
+  });
   
   // Configurar limites de payload para suportar imagens base64
   app.use(express.json({ limit: '100mb' }));
@@ -243,6 +294,10 @@ function createApp({ dbPath }) {
 
   const resolvedDbPath = dbPath || process.env.SQLITE_DB_PATH || path.join(__dirname, 'noticias.db');
   const db = new sqlite3.Database(resolvedDbPath);
+  
+  // Configurar SQLite para UTF-8
+  db.run("PRAGMA encoding = 'UTF-8'");
+  
   app.locals.db = db; // expor conexão para testes/cleanup
   console.log('🗄️ Conectado ao banco SQLite:', resolvedDbPath);
 
@@ -269,7 +324,7 @@ function createApp({ dbPath }) {
         return res.status(501).json({ error: 'GROQ API key não configurada no servidor' });
       }
 
-      const { model = 'llama3-8b-8192', messages = [], max_tokens = 300, temperature = 0.7 } = req.body || {};
+      const { model = 'llama-3.1-8b-instant', messages = [], max_tokens = 300, temperature = 0.7 } = req.body || {};
       const url = 'https://api.groq.com/openai/v1/chat/completions';
 
       const r = await fetch(url, {
@@ -306,32 +361,26 @@ function createApp({ dbPath }) {
       // Limitar conteúdo para evitar tokens excessivos
       const limitedContent = content.substring(0, 2000);
       
-      const prompt = `Crie um resumo objetivo e direto desta notícia em até 2 frases, focando no fato principal:
-
-${limitedContent}
-
-Resumo:`;
-
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      // Usar o endpoint proxy local em vez de chamada direta
+      const response = await fetch('http://localhost:3002/api/ai/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${API_KEY}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: 'llama3-8b-8192',
+          model: 'llama-3.1-8b-instant',
           messages: [
             {
               role: 'system',
-              content: 'Você é um jornalista especializado em criar resumos concisos. Responda sempre em português brasileiro, seja direto e objetivo.'
+              content: 'Você é um jornalista especializado em criar resumos detalhados e informativos. Responda sempre em português brasileiro. Crie exatamente 4 tópicos bem desenvolvidos com bullet points (•), cada um com pelo menos 20 palavras, destacando os pontos principais, contexto, impacto e consequências da notícia. Seja específico e informativo.'
             },
             {
               role: 'user', 
-              content: prompt
+              content: `Crie um resumo completo e detalhado em 4 tópicos desta notícia, incluindo contexto, dados importantes e impactos:\n\n${limitedContent}`
             }
           ],
-          max_tokens: 150,
-          temperature: 0.3
+          max_tokens: 500,
+          temperature: 0.7
         })
       });
 
@@ -341,11 +390,21 @@ Resumo:`;
       }
 
       const data = await response.json();
-      const summary = data.choices[0]?.message?.content?.trim();
+      let summary = data.choices[0]?.message?.content?.trim();
       
       if (summary) {
+        // Garantir que o resumo tenha bullet points
+        const formattedSummary = summary
+          .split('\n')
+          .filter(line => line.trim())
+          .map(line => {
+            const trimmed = line.trim();
+            return trimmed.startsWith('•') ? trimmed : `• ${trimmed}`;
+          })
+          .join('\n');
+        
         console.log('✅ Resumo gerado automaticamente');
-        return summary;
+        return formattedSummary;
       }
       
       return null;
@@ -384,6 +443,47 @@ Resumo:`;
     });
   });
 
+  // Função para completar seções com posts de outras posições
+  function completeSection(posicao, items, targetCount) {
+    if (items.length >= targetCount) return items.slice(0, targetCount);
+    
+    const needed = targetCount - items.length;
+    const usedIds = items.map(item => item.id);
+    
+    return new Promise((resolve) => {
+      let fallbackQuery;
+      let fallbackParams = [];
+      
+      if (posicao === 'destaque') {
+        // Destaque pega da seção geral
+        fallbackQuery = `SELECT * FROM noticias WHERE (LOWER(COALESCE(posicao, "")) = ? OR posicao IS NULL OR TRIM(posicao) = "") AND id NOT IN (${usedIds.map(() => '?').join(',') || 'NULL'}) ORDER BY id DESC LIMIT ?`;
+        fallbackParams = ['geral', ...usedIds, needed];
+      } else if (posicao === 'geral') {
+        // Geral pega posts sem posição definida
+        fallbackQuery = `SELECT * FROM noticias WHERE (posicao IS NULL OR TRIM(posicao) = "" OR posicao = "") AND id NOT IN (${usedIds.map(() => '?').join(',') || 'NULL'}) ORDER BY id DESC LIMIT ?`;
+        fallbackParams = [...usedIds, needed];
+      } else {
+        return resolve(items);
+      }
+      
+      if (usedIds.length === 0) {
+        fallbackQuery = fallbackQuery.replace('AND id NOT IN (NULL)', '');
+        fallbackParams = fallbackParams.filter(p => !usedIds.includes(p));
+      }
+      
+      db.all(fallbackQuery, fallbackParams, (err, rows) => {
+        if (err) {
+          console.error('Erro ao completar seção:', err);
+          return resolve(items);
+        }
+        
+        const additionalPosts = rows.map(mapPost);
+        const combined = [...items, ...additionalPosts].slice(0, targetCount);
+        resolve(combined);
+      });
+    });
+  }
+
   // Listar posts (com filtros básicos)
   app.get('/api/posts', (req, res) => {
     const limitParam = req.query.limit ?? 50;
@@ -393,9 +493,22 @@ Resumo:`;
     const q = req.query.q;
     const admin = req.query.admin; // ignorado, mas habilita resposta paginada
 
-    const limit = Math.min(100, Math.max(1, parseInt(limitParam)));
+    let limit = Math.min(100, Math.max(1, parseInt(limitParam)));
     const page = Math.max(1, parseInt(pageParam));
     const offset = (page - 1) * limit;
+
+    // Definir limites específicos para seções especiais
+    const targetCounts = {
+      'destaque': 5,
+      'geral': 7
+    };
+    
+    if (posicaoParam) {
+      const normalized = normalizePos(String(posicaoParam));
+      if (targetCounts[normalized]) {
+        limit = Math.max(limit, targetCounts[normalized]);
+      }
+    }
 
     let base = 'FROM noticias';
     const where = [];
@@ -427,12 +540,29 @@ Resumo:`;
 
     const doPaged = req.query.page !== undefined || admin !== undefined;
 
-  db.all(query, [...params, limit, offset], (err, rows) => {
+  db.all(query, [...params, limit, offset], async (err, rows) => {
       if (err) {
         console.error('Erro na consulta /api/posts:', err);
         return res.status(500).json({ error: 'Erro interno do servidor' });
       }
-      const items = rows.map(mapPost);
+      
+      let items = rows.map(mapPost);
+      
+      // Completar seções se necessário
+      if (posicaoParam && !q && !categoriaParam) {
+        const normalized = normalizePos(String(posicaoParam));
+        const targetCount = targetCounts[normalized];
+        
+        if (targetCount && items.length < targetCount) {
+          try {
+            items = await completeSection(normalized, items, targetCount);
+            console.log(`📊 Seção ${normalized} completada: ${items.length}/${targetCount} itens`);
+          } catch (completeErr) {
+            console.error('Erro ao completar seção:', completeErr);
+          }
+        }
+      }
+      
       console.log(`📊 /api/posts => ${items.length} itens (posicao=${posicaoParam || 'todas'} categoria=${categoriaParam || 'todas'} q=${q || '-'})`);
 
       // Cache-Control e Last-Modified (60s)
@@ -524,6 +654,7 @@ Resumo:`;
     // Log para debug do tamanho do payload
     const payloadSize = JSON.stringify(req.body).length / 1024 / 1024;
     console.log(`📊 Tamanho do body recebido: ${payloadSize.toFixed(2)} MB`);
+    console.log(`📝 [BACKEND] Resumo recebido: ${body.resumo ? body.resumo.substring(0, 100) + '...' : 'VAZIO'}`);
 
     // Campos que aceitaremos do front
     const desired = {
@@ -532,6 +663,7 @@ Resumo:`;
       conteudo: body.conteudo ?? body.content,
       categoria: body.categoria ?? body.category,
       chapeu: body.chapeu,
+      resumo: body.resumo, // ✅ RESUMO INCLUÍDO!
       posicao: body.posicao ?? body.position,
       slug: body.slug,
     };
@@ -594,6 +726,8 @@ Resumo:`;
       }
 
       const sql = `UPDATE noticias SET ${sets.join(', ')} WHERE id = ?`;
+      console.log(`🔍 [SQL] Executando: ${sql}`);
+      console.log(`📝 [SQL] Parâmetros:`, [...params, id]);
       db.run(sql, [...params, id], function (uerr) {
         if (uerr) {
           console.error('Erro ao atualizar post:', uerr);
@@ -1070,8 +1204,8 @@ if (require.main === module) {
 
   ports.forEach((p) => {
     try {
-      const server = app.listen(p, '127.0.0.1', () => {
-        console.log(`🚀 API SQLite rodando na porta ${p} (apenas localhost)`);
+      const server = app.listen(p, '0.0.0.0', () => {
+        console.log(`🚀 API SQLite rodando na porta ${p} (todas as interfaces)`);
         console.log(`📍 Health: http://127.0.0.1:${p}/api/health`);
         console.log(`📍 Health: http://localhost:${p}/api/health`);
       });

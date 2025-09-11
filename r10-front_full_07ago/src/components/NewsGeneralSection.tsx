@@ -14,9 +14,16 @@ const NewsGeneralSection = () => {
     const loadGeralPosts = async () => {
       try {
         setLoading(true);
-        // Usando todos os posts GERAL disponíveis (4 atualmente)
-        const posts = await getPostsByPosition('geral', 10);
-        setGeralPosts(posts.slice(0, 7)); // Limitamos a 7 para a exibição
+        
+        // REGRA: Apenas notícias EXPLICITAMENTE setadas como 'geral'
+        const geralPosts = await getPostsByPosition('geral', 7);
+        
+        console.log('📊 NewsGeneral: Posts gerais encontrados:', {
+          total: geralPosts.length,
+          postIds: geralPosts.map((p: any) => p.id)
+        });
+        
+        setGeralPosts(geralPosts);
       } catch (error) {
         console.error('Erro ao carregar posts da seção geral:', error);
       } finally {

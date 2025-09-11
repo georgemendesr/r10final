@@ -10,6 +10,7 @@ interface QuickSummaryProps {
 const QuickSummary: React.FC<QuickSummaryProps> = ({ value, onChange, content }) => {
   const [showPreview, setShowPreview] = useState(false);
   const [isValid, setIsValid] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   // Validar resumo
   useEffect(() => {
@@ -45,8 +46,81 @@ const QuickSummary: React.FC<QuickSummaryProps> = ({ value, onChange, content })
     return truncated;
   };
 
-  // Gerar resumo automático baseado no conteúdo
-  const generateAutoSummary = () => {
+  // Gerar resumo automático usando IA do backend
+  const generateAutoSummary = async () => {
+    if (!content || content.trim().length < 50) {
+      onChange('• Conteúdo insuficiente para gerar resumo automático');
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      // Limpar tags HTML do conteúdo para enviar para a IA
+      const textContent = content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+      
+      const response = await fetch('/api/ai/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'llama-3.1-8b-instant',
+          messages: [
+            {
+              role: 'system',
+              content: 'Você é um jornalista especializado em resumos objetivos. Responda APENAS com 4 linhas, cada uma começando com "• " seguido de uma frase direta e informativa. NÃO use markdown, NÃO use títulos como "Tópico 1", NÃO use formatação. Apenas bullet points simples.'
+            },
+            {
+              role: 'user',
+              content: `Resuma esta notícia em 4 bullet points simples:\n\n${textContent}`
+            }
+          ],
+          max_tokens: 200,
+          temperature: 0.7,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const aiSummary = data.choices[0]?.message?.content?.trim();
+        
+        if (aiSummary) {
+          // Limpar formatação indesejada e garantir bullet points simples
+          const formattedSummary = aiSummary
+            .split('\n')
+            .filter(line => line.trim())
+            .map(line => {
+              const clean = line.trim()
+                .replace(/^\*\*/g, '') // Remove ** do início
+                .replace(/\*\*$/g, '') // Remove ** do final
+                .replace(/^\*/g, '') // Remove * do início
+                .replace(/^-/g, '') // Remove - do início
+                .replace(/^Tópico \d+:/gi, '') // Remove "Tópico X:"
+                .replace(/^\d+\./g, '') // Remove "1."
+                .trim();
+              
+              return clean.startsWith('•') ? clean : `• ${clean}`;
+            })
+            .join('\n');
+          
+          onChange(formattedSummary);
+        } else {
+          throw new Error('Resposta da IA vazia');
+        }
+      } else {
+        throw new Error(`Erro na API: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('Erro ao gerar resumo com IA:', error);
+      // Fallback para lógica local em caso de erro
+      generateLocalSummary();
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // Função de fallback para gerar resumo local (antigo método)
+  const generateLocalSummary = () => {
     // Limpar tags HTML do conteúdo
     const cleanContent = content
       .replace(/<[^>]*>/g, '') // Remove todas as tags HTML
@@ -133,10 +207,20 @@ const QuickSummary: React.FC<QuickSummaryProps> = ({ value, onChange, content })
         <div className="flex items-center space-x-2">
           <button
             onClick={generateAutoSummary}
-            className="flex items-center space-x-1 px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-md text-sm transition-colors"
+            disabled={isGenerating}
+            className="flex items-center space-x-1 px-3 py-1 bg-blue-100 hover:bg-blue-200 disabled:bg-gray-100 text-blue-700 disabled:text-gray-500 rounded-md text-sm transition-colors"
           >
-            <Zap className="w-3 h-3" />
-            <span>Gerar Auto</span>
+            {isGenerating ? (
+              <>
+                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-700"></div>
+                <span>Gerando...</span>
+              </>
+            ) : (
+              <>
+                <Zap className="w-3 h-3" />
+                <span>Gerar com IA</span>
+              </>
+            )}
           </button>
           
           <button

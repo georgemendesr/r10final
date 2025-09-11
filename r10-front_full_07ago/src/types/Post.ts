@@ -21,6 +21,7 @@ export interface Post {
   publishedAt?: string;
   publishedTs?: number;
   slug?: string;
+  resumo?: string; // Campo para resumo gerado por IA
 }
 
 export interface PostFilters {

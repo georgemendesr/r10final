@@ -138,7 +138,10 @@ const PostForm = () => {
         console.log('Carregando post com ID:', id);
         try {
           const existingPost = await getPostById(id);
-          console.log('Post encontrado:', existingPost);
+          console.log('🔍 [POST FORM] Post da API:', existingPost);
+          console.log('🔍 [POST FORM] Título:', existingPost?.titulo);
+          console.log('🔍 [POST FORM] Conteúdo:', existingPost?.conteudo?.substring(0, 100));
+          console.log('🔍 [POST FORM] Resumo:', existingPost?.resumo);
           if (existingPost) {
           setPostId(id);
           setPost({
@@ -150,7 +153,7 @@ const PostForm = () => {
             autor: existingPost.autor,
             fonte: '', // MySQL não tem campo fonte
             chapéu: existingPost.chapeu || '',
-            resumo: '', // MySQL não tem campo resumo
+            resumo: existingPost.resumo || '', // Campo resumo EXISTE no banco SQLite
             conteudo: existingPost.conteudo,
             imagemDestaque: existingPost.imagemUrl || null,
             posicao: existingPost.posicao || 'geral',
@@ -361,7 +364,7 @@ const PostForm = () => {
       }
       
       console.log('🔍 [PUBLISH DEBUG] Subcategorias selecionadas:', selectedSubcategories);
-      console.log('🎯 [PUBLISH DEBUG] Categoria final escolhida:', categoria);
+      console.log(`📝 [FRONTEND] Enviando resumo: ${post.resumo ? post.resumo.substring(0, 50) + '...' : 'VAZIO'}`);
       
       const postData = {
         id: postId || undefined,
@@ -370,6 +373,7 @@ const PostForm = () => {
         autor: post.autor,
         conteudo: post.conteudo,
         chapeu: post.chapéu,
+        resumo: post.resumo, // ✅ RESUMO INCLUÍDO!
         categoria: categoria,
         posicao: post.posicao as 'supermanchete' | 'destaque' | 'geral' | 'municipios',
         dataPublicacao: new Date().toISOString(),

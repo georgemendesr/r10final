@@ -145,6 +145,18 @@
   }
 }
 
+/* Animação para destaques animados */
+@keyframes highlight-pulse {
+  0%, 100% { 
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% { 
+    transform: scale(1.02);
+    opacity: 0.9;
+  }
+}
+
 /* Classes de cores das editorias (aplicadas via JavaScript/TitleLink) */
 .editoria-policia { 
   color: var(--ed-policia); 

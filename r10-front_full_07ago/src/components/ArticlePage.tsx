@@ -32,6 +32,7 @@ interface ArticleData {
   tags: string[];
   readTime: string;
   views: string;
+  resumo?: string; // Campo para resumo da IA
   posicao?: string; // Adicionando posição elegível para TTS
 }
 
@@ -116,6 +117,7 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
             tags: [],
             readTime: calculateReadTime(post.conteudo ? [post.conteudo] : []),
             views: post.visualizacoes?.toString() || '0',
+            resumo: post.resumo || '', // Campo resumo da IA
             posicao: post.posicao // Adicionando posição elegível para TTS
           });
         }
@@ -303,7 +305,7 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
               </span>
             </div>
             
-            <h1 className="text-4xl lg:text-5xl xl:text-6xl font-bold leading-tight mb-4 font-poppins">
+            <h1 className="text-4xl lg:text-5xl font-black leading-tight mb-6 font-rubik">
               <span style={{ color: getEditoriaTextColor(finalArticle.category) }}>
                 {finalArticle.title}
               </span>
@@ -415,35 +417,47 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
                 />
               </figure>
 
-              {/* Resumo em Tópicos */}
-              <div className="mb-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500 rounded-2xl max-w-2xl mx-auto">
-                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
-                  <span className="text-blue-600 mr-2">📋</span>
-                  Resumo da Notícia
-                </h3>
-                <div className="space-y-2">
-                  <div className="flex items-start">
-                    <span className="text-blue-600 font-bold mr-3 mt-1">•</span>
-                    <span className="text-gray-800">Nova política de transporte público será implementada em Teresina</span>
-                  </div>
-                  <div className="flex items-start">
-                    <span className="text-blue-600 font-bold mr-3 mt-1">•</span>
-                    <span className="text-gray-800">Sistema integrado entre ônibus e metrô com investimento de R$ 500 milhões</span>
-                  </div>
-                  <div className="flex items-start">
-                    <span className="text-blue-600 font-bold mr-3 mt-1">•</span>
-                    <span className="text-gray-800">Projeto deve beneficiar mais de 800 mil usuários diários</span>
-                  </div>
-                  <div className="flex items-start">
-                    <span className="text-blue-600 font-bold mr-3 mt-1">•</span>
-                    <span className="text-gray-800">Implementação prevista para 2024 com cronograma detalhado</span>
-                  </div>
-                  <div className="flex items-start">
-                    <span className="text-blue-600 font-bold mr-3 mt-1">•</span>
-                    <span className="text-gray-800">Inclui aplicativo móvel e cartão único para todos os transportes</span>
+              {/* Resumo em Tópicos - Exibe se houver resumo gerado */}
+              {finalArticle.resumo && (
+                <div className="mb-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500 rounded-2xl max-w-2xl mx-auto">
+                  <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                    <span className="text-blue-600 mr-2">📋</span>
+                    Resumo da Notícia
+                  </h3>
+                  <div className="space-y-3">
+                    {(() => {
+                      // Primeiro, tentar usar os bullets já formatados do resumo
+                      let bulletPoints = finalArticle.resumo.split('\n')
+                        .map(line => line.trim())
+                        .filter(line => line.length > 0 && (line.startsWith('•') || line.startsWith('-') || line.startsWith('*')));
+                      
+                      // Se não encontrou bullets formatados, dividir por quebras de linha simples
+                      if (bulletPoints.length === 0) {
+                        bulletPoints = finalArticle.resumo.split('\n')
+                          .map(line => line.trim())
+                          .filter(line => line.length > 10);
+                      }
+                      
+                      // Se ainda não tem bullets, dividir por pontos finais
+                      if (bulletPoints.length === 0) {
+                        bulletPoints = finalArticle.resumo.split(/[.!?]+/)
+                          .map(sentence => sentence.trim())
+                          .filter(sentence => sentence.length > 10);
+                      }
+                      
+                      // Garantir máximo de 5 bullets para melhor visualização
+                      bulletPoints = bulletPoints.slice(0, 5);
+                      
+                      return bulletPoints.map((point, index) => (
+                        <div key={index} className="flex items-start">
+                          <span className="text-blue-600 font-bold mr-3 mt-0.5 text-lg">•</span>
+                          <span className="text-gray-800 leading-relaxed">{point.replace(/^[•\-\*]\s*/, '').trim()}</span>
+                        </div>
+                      ));
+                    })()}
                   </div>
                 </div>
-              </div>
+              )}
 
 
 
@@ -478,34 +492,75 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
                                                  <span className="text-gray-800 text-base">{paragraph.replace('• ', '')}</span>
                       </div>
                     );
-                                     } else if (paragraph.includes('==') && paragraph.includes('==')) {
-                     // Destaque simples
-                     const highlightedText = paragraph.replace(/==(.*?)==/g, '<span class="bg-yellow-200 px-1 rounded">$1</span>');
+                                     } else if (paragraph.includes('==') && paragraph.includes('==') || 
+                              paragraph.includes('<span class="highlight-simple">') ||
+                              paragraph.includes('<span class="highlight-animated">')) {
+                     // Processar destaques - tanto formato antigo quanto novo
+                     let highlightedText = paragraph
+                       // Formato antigo: ==texto==
+                       .replace(/==(.*?)==/g, '<span class="bg-yellow-200 px-1 rounded border border-yellow-400" style="background: linear-gradient(120deg, #fef3c7 0%, #fde68a 100%); padding: 2px 4px; border-radius: 4px; border: 1px solid #f59e0b;">$1</span>')
+                       // Formato antigo: ===texto===
+                       .replace(/===(.*?)===/g, '<span class="bg-red-200 px-1 rounded border-2 border-red-400" style="background: linear-gradient(120deg, #fecaca 0%, #fca5a5 100%); padding: 2px 4px; border-radius: 4px; border: 2px solid #ef4444; animation: highlight-pulse 2s infinite;">$1</span>')
+                       // Formato novo: <span class="highlight-simple">texto</span>
+                       .replace(/<span class="highlight-simple"[^>]*>(.*?)<\/span>/g, '<span style="background: linear-gradient(120deg, #fef3c7 0%, #fde68a 100%); padding: 2px 4px; border-radius: 4px; border: 1px solid #f59e0b; display: inline;">$1</span>')
+                       // Formato novo: <span class="highlight-animated">texto</span>  
+                       .replace(/<span class="highlight-animated"[^>]*>(.*?)<\/span>/g, '<span style="background: linear-gradient(120deg, #fecaca 0%, #fca5a5 100%); padding: 2px 4px; border-radius: 4px; border: 2px solid #ef4444; animation: highlight-pulse 2s infinite; display: inline;">$1</span>')
+                       // Processar formatação básica
+                       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                       .replace(/(?<!\*)\*([^*\n]+?)\*(?!\*)/g, '<em>$1</em>')
+                       .replace(/__(.*?)__/g, '<u>$1</u>');
+                       
                      return (
                        <p key={index} className="text-gray-800 leading-relaxed mb-6 text-base font-normal" 
                           dangerouslySetInnerHTML={{ __html: highlightedText }} />
                      );
-                                     } else if (paragraph.includes('===') && paragraph.includes('===')) {
-                     // Destaque animado
-                     const highlightedText = paragraph.replace(/===(.*?)===/g, '<span class="bg-red-200 px-1 rounded border-2 border-red-400">$1</span>');
-                     return (
-                       <p key={index} className="text-gray-800 leading-relaxed mb-6 text-base font-normal" 
-                          dangerouslySetInnerHTML={{ __html: highlightedText }} />
-                     );
-                                     } else if (paragraph.includes('💡')) {
-                     // Caixa de informação
+                                     } else if (paragraph.includes('💡') || paragraph.includes('<div class="info-box">')) {
+                     // Caixa de informação - processar HTML se necessário
+                     let processedText = paragraph
+                       .replace(/<div class="info-box"[^>]*>(.*?)<\/div>/g, '$1');
+                       
                      return (
                        <div key={index} className="bg-blue-50 border-l-4 border-blue-500 p-4 my-6 rounded-r-lg">
-                         <p className="text-gray-800 text-base font-normal">
-                           {paragraph}
+                         <p className="text-gray-800 text-base font-normal"
+                            dangerouslySetInnerHTML={{ __html: processedText }}>
                          </p>
                        </div>
                      );
+                   } else if (paragraph.startsWith('### ') || paragraph.includes('<h3')) {
+                     // Subtítulos H3
+                     let processedText = paragraph
+                       .replace(/### (.*?)(?=\n|$)/g, '$1')
+                       .replace(/<h3[^>]*>(.*?)<\/h3>/g, '$1');
+                       
+                     return (
+                       <h3 key={index} className="text-lg font-semibold text-gray-900 my-6 mt-8">
+                         {processedText}
+                       </h3>
+                     );
+                   } else if (paragraph.startsWith('> ') || paragraph.includes('<blockquote')) {
+                     // Citações
+                     let processedText = paragraph
+                       .replace(/^> (.*?)(?=\n|$)/gm, '$1')
+                       .replace(/<blockquote[^>]*>(.*?)<\/blockquote>/g, '$1');
+                       
+                     return (
+                       <blockquote key={index} className="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 text-blue-900 my-6 rounded-r-lg">
+                         <p className="text-base font-normal italic"
+                            dangerouslySetInnerHTML={{ __html: processedText }}>
+                         </p>
+                       </blockquote>
+                     );
                   } else {
-                                        // Parágrafo normal
+                     // Parágrafo normal - processar formatação básica
+                     let processedText = paragraph
+                       // Processar formatação básica
+                       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                       .replace(/(?<!\*)\*([^*\n]+?)\*(?!\*)/g, '<em>$1</em>')
+                       .replace(/__(.*?)__/g, '<u>$1</u>');
+                       
                     return (
-                      <p key={index} className="text-gray-700 leading-relaxed mb-6 text-base font-normal font-poppins">
-                        {paragraph}
+                      <p key={index} className="text-gray-700 leading-relaxed mb-6 text-base font-normal font-poppins"
+                         dangerouslySetInnerHTML={{ __html: processedText }}>
                       </p>
                     );
                   }

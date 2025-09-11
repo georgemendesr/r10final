@@ -2,8 +2,8 @@ import { Post, PostFilters, PostsResponse } from '../types/Post';
 import { LS_KEY, readAllOffline, normalizePos, preloadOfflineFromStatic } from './offlineCache';
 
 // MODO OFFLINE FORÇADO - SEM API
-const OFFLINE_ONLY = (import.meta.env.VITE_OFFLINE_ONLY === 'true');
-export let OFFLINE_MODE = OFFLINE_ONLY;
+const OFFLINE_ONLY = false; // FORÇANDO MODO ONLINE PARA TESTAR RESUMO
+export let OFFLINE_MODE = false;
 
 // Função para ordenar posts por data de publicação (mais recentes primeiro)
 const sortDesc = (a:any,b:any) => new Date(b.publishedAt||0).getTime() - new Date(a.publishedAt||0).getTime();
@@ -131,7 +131,7 @@ const mapApiResponseToPost = (apiData: any): Post => {
     subcategorias: [categoria],
     status: 'published',
     tags: [categoria],
-    resumo: apiData.subtitulo || apiData.subtitle || '',
+    resumo: apiData.resumo || '', // ✅ SÓ MUDEI ESTA LINHA!
     fonte: 'R10 Piauí Pulse',
     views: apiData.visualizacoes || apiData.views || 0,
     slug: apiData.slug || `${apiData.id}-${(apiData.titulo || apiData.title || '').toLowerCase().replace(/[^a-z0-9]/g, '-')}`
@@ -300,7 +300,12 @@ export async function getPostById(id: string): Promise<Post | null> {
   }
   
   try {
-  const response = await fetch(`${API_BASE_URL}/posts/${id}?_ts=${Date.now()}`, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } });
+  const response = await fetch(`${API_BASE_URL}/posts/${id}?_ts=${Date.now()}&_cache=${Math.random()}`, { 
+    cache: 'no-store', 
+    headers: { 
+      'Cache-Control': 'no-cache, no-store, must-revalidate'
+    } 
+  });
     
     if (!response.ok) {
       console.warn(`⚠️ Post ${id} não encontrado na API, tentando offline`);

@@ -105,9 +105,12 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [undo, redo]);
 
-  // Aplicar formatação - ABORDAGEM MELHORADA
+  // Aplicar formatação - VERSÃO CORRIGIDA
   const applyFormat = (format: string) => {
     if (!editorRef.current) return;
+    
+    // Garantir que o editor tenha foco
+    editorRef.current.focus();
     
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) return;
@@ -121,183 +124,231 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
       return;
     }
     
-    if (selectedText.length === 0 && !['separator', 'justify-left', 'justify-center', 'justify-right', 'justify-full'].includes(format)) return;
-
     // Verificar se a seleção está dentro do editor
     const range = selection.getRangeAt(0);
     if (!editorRef.current.contains(range.commonAncestorContainer)) {
       return;
     }
 
-    // Usar document.execCommand para formatação direta
+    // Salvar estado antes da modificação
+    addToHistory(value);
+    
+    // Aplicar formatação baseada no tipo
     switch (format) {
       case 'bold':
-        document.execCommand('bold', false);
+        try {
+          document.execCommand('bold', false);
+        } catch (error) {
+          console.warn('Erro ao aplicar negrito:', error);
+        }
         break;
       case 'italic':
-        document.execCommand('italic', false);
+        try {
+          document.execCommand('italic', false);
+        } catch (error) {
+          console.warn('Erro ao aplicar itálico:', error);
+        }
         break;
       case 'underline':
-        document.execCommand('underline', false);
+        try {
+          document.execCommand('underline', false);
+        } catch (error) {
+          console.warn('Erro ao aplicar sublinhado:', error);
+        }
         break;
       case 'h3':
-        document.execCommand('formatBlock', false, 'h3');
+        try {
+          document.execCommand('formatBlock', false, 'h3');
+        } catch (error) {
+          console.warn('Erro ao aplicar H3:', error);
+        }
         break;
       case 'quote':
-        document.execCommand('formatBlock', false, 'blockquote');
+        try {
+          document.execCommand('formatBlock', false, 'blockquote');
+        } catch (error) {
+          console.warn('Erro ao aplicar citação:', error);
+        }
         break;
       case 'list':
-        document.execCommand('insertUnorderedList', false);
+        try {
+          document.execCommand('insertUnorderedList', false);
+        } catch (error) {
+          console.warn('Erro ao aplicar lista:', error);
+        }
         break;
       case 'highlight-simple':
-        // Usar execCommand para manter a formatação
         if (selectedText.length > 0) {
-          const span = document.createElement('span');
-          span.className = 'highlight-simple';
-          
           try {
-            const range = selection.getRangeAt(0);
+            const span = document.createElement('span');
+            span.className = 'highlight-simple';
+            span.style.cssText = 'background: linear-gradient(120deg, #fef3c7 0%, #fde68a 100%); padding: 2px 4px; border-radius: 4px; border: 1px solid #f59e0b;';
+            
             const contents = range.extractContents();
             span.appendChild(contents);
             range.insertNode(span);
             
-            // Restaurar seleção
-            const newRange = document.createRange();
-            newRange.selectNodeContents(span);
+            // Limpar seleção e posicionar cursor após o span
             selection.removeAllRanges();
+            const newRange = document.createRange();
+            newRange.setStartAfter(span);
+            newRange.collapse(true);
             selection.addRange(newRange);
           } catch (error) {
             console.warn('Erro ao aplicar destaque simples:', error);
-            // Fallback - apenas inserir o texto com destaque
-            span.textContent = selectedText;
-            const range = selection.getRangeAt(0);
-            range.deleteContents();
-            range.insertNode(span);
           }
         }
         break;
       case 'highlight-animated':
-        // Usar execCommand para manter a formatação
         if (selectedText.length > 0) {
-          const spanAnim = document.createElement('span');
-          spanAnim.className = 'highlight-animated';
-          
           try {
-            const range = selection.getRangeAt(0);
+            const spanAnim = document.createElement('span');
+            spanAnim.className = 'highlight-animated';
+            spanAnim.style.cssText = 'background: linear-gradient(120deg, #fecaca 0%, #fca5a5 100%); padding: 2px 4px; border-radius: 4px; border: 2px solid #ef4444; animation: highlight-pulse 2s infinite;';
+            
             const contents = range.extractContents();
             spanAnim.appendChild(contents);
             range.insertNode(spanAnim);
             
-            // Restaurar seleção
-            const newRange = document.createRange();
-            newRange.selectNodeContents(spanAnim);
+            // Limpar seleção e posicionar cursor após o span
             selection.removeAllRanges();
+            const newRange = document.createRange();
+            newRange.setStartAfter(spanAnim);
+            newRange.collapse(true);
             selection.addRange(newRange);
           } catch (error) {
             console.warn('Erro ao aplicar destaque animado:', error);
-            // Fallback - apenas inserir o texto com destaque
-            spanAnim.textContent = selectedText;
-            const range = selection.getRangeAt(0);
-            range.deleteContents();
-            range.insertNode(spanAnim);
           }
         }
         break;
       case 'info':
-        const infoDiv = document.createElement('div');
-        infoDiv.className = 'info-box';
-        infoDiv.innerHTML = `💡 <strong>${selectedText}</strong>`;
-        const rangeInfo = selection.getRangeAt(0);
-        rangeInfo.deleteContents();
-        rangeInfo.insertNode(infoDiv);
+        if (selectedText.length > 0) {
+          try {
+            const infoDiv = document.createElement('div');
+            infoDiv.className = 'info-box';
+            infoDiv.style.cssText = 'background: #dbeafe; border-left: 4px solid #3b82f6; padding: 12px; margin: 8px 0; border-radius: 4px; font-weight: 500;';
+            infoDiv.innerHTML = `💡 <strong>${selectedText}</strong>`;
+            
+            range.deleteContents();
+            range.insertNode(infoDiv);
+            
+            // Posicionar cursor após o div
+            selection.removeAllRanges();
+            const newRange = document.createRange();
+            newRange.setStartAfter(infoDiv);
+            newRange.collapse(true);
+            selection.addRange(newRange);
+          } catch (error) {
+            console.warn('Erro ao aplicar info box:', error);
+          }
+        }
         break;
       case 'separator':
-        const hr = document.createElement('hr');
-        hr.className = 'separator';
-        const rangeHr = selection.getRangeAt(0);
-        rangeHr.insertNode(hr);
+        try {
+          const hr = document.createElement('hr');
+          hr.className = 'separator';
+          hr.style.cssText = 'border: none; height: 2px; background: linear-gradient(90deg, transparent, #d1d5db, transparent); margin: 20px 0;';
+          
+          // Inserir em uma nova linha
+          const p = document.createElement('p');
+          p.appendChild(hr);
+          range.insertNode(p);
+          
+          // Posicionar cursor após o separador
+          selection.removeAllRanges();
+          const newRange = document.createRange();
+          newRange.setStartAfter(p);
+          newRange.collapse(true);
+          selection.addRange(newRange);
+        } catch (error) {
+          console.warn('Erro ao aplicar separador:', error);
+        }
         break;
       case 'justify-left':
-        document.execCommand('justifyLeft', false);
+        try {
+          document.execCommand('justifyLeft', false);
+        } catch (error) {
+          console.warn('Erro ao alinhar à esquerda:', error);
+        }
         break;
       case 'justify-center':
-        document.execCommand('justifyCenter', false);
+        try {
+          document.execCommand('justifyCenter', false);
+        } catch (error) {
+          console.warn('Erro ao centralizar:', error);
+        }
         break;
       case 'justify-right':
-        document.execCommand('justifyRight', false);
+        try {
+          document.execCommand('justifyRight', false);
+        } catch (error) {
+          console.warn('Erro ao alinhar à direita:', error);
+        }
         break;
       case 'justify-full':
-        document.execCommand('justifyFull', false);
+        try {
+          document.execCommand('justifyFull', false);
+        } catch (error) {
+          console.warn('Erro ao justificar:', error);
+        }
         break;
     }
 
-    // Atualizar o valor
-    updateContent();
+    // Forçar atualização do conteúdo
+    setTimeout(() => updateContent(), 10);
   };
 
-  // Atualizar conteúdo do editor
+  // Atualizar conteúdo do editor - VERSÃO SIMPLIFICADA
   const updateContent = () => {
     if (!editorRef.current) return;
     
-    // Obter o HTML do editor
-    const html = editorRef.current.innerHTML;
-    
-    // Salvar posição do cursor
-    const selection = window.getSelection();
-    const cursorPos = getSelectionStart();
-    
-    // Processar HTML para texto mantendo estrutura
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = html;
-    
-    // Preservar estrutura de parágrafos e quebras
-    let processedText = html
-      // Preservar parágrafos
-      .replace(/<p>/g, '')
-      .replace(/<\/p>/g, '\n\n')
-      // Preservar quebras de linha
-      .replace(/<br\s*\/?>/g, '\n')
-      // Preservar destaques
-      .replace(/<span class="highlight-simple">(.*?)<\/span>/g, '<span class="highlight-simple">$1</span>')
-      .replace(/<span class="highlight-animated">(.*?)<\/span>/g, '<span class="highlight-animated">$1</span>')
-      // Preservar formatação básica
-      .replace(/<strong>(.*?)<\/strong>/g, '**$1**')
-      .replace(/<em>(.*?)<\/em>/g, '*$1*')
-      .replace(/<u>(.*?)<\/u>/g, '__$1__')
-      // Remover outras tags HTML mas manter o conteúdo
-      .replace(/<[^>]+>/g, '')
-      // Limpar quebras excessivas
-      .replace(/\n{3,}/g, '\n\n')
-      .trim();
-    
-    // Restaurar formatação especial
-    processedText = processedText
-      .replace(/<span class="highlight-simple">(.*?)<\/span>/g, '<span class="highlight-simple">$1</span>')
-      .replace(/<span class="highlight-animated">(.*?)<\/span>/g, '<span class="highlight-animated">$1</span>');
-    
-    onChange(processedText);
-    addToHistory(processedText);
-    
-    // Tentar restaurar posição do cursor
-    setTimeout(() => {
-      if (editorRef.current) {
-        editorRef.current.focus();
-        try {
-          const newSelection = window.getSelection();
-          if (newSelection && editorRef.current.firstChild) {
-            const range = document.createRange();
-            const textNode = editorRef.current.firstChild;
-            const maxPos = Math.min(cursorPos, (textNode.textContent || '').length);
-            range.setStart(textNode, maxPos);
-            range.collapse(true);
-            newSelection.removeAllRanges();
-            newSelection.addRange(range);
-          }
-        } catch (error) {
-          // Silenciosamente falhar se não conseguir restaurar o cursor
-        }
+    try {
+      // Obter o HTML atual do editor
+      const html = editorRef.current.innerHTML;
+      
+      // Processar HTML mantendo formatação essencial
+      let processedText = html
+        // Preservar destaques primeiro (antes de processar outras tags)
+        .replace(/<span class="highlight-simple"[^>]*>(.*?)<\/span>/g, '**HIGHLIGHT_SIMPLE_START**$1**HIGHLIGHT_SIMPLE_END**')
+        .replace(/<span class="highlight-animated"[^>]*>(.*?)<\/span>/g, '**HIGHLIGHT_ANIMATED_START**$1**HIGHLIGHT_ANIMATED_END**')
+        
+        // Processar formatação básica
+        .replace(/<strong[^>]*>(.*?)<\/strong>/g, '**$1**')
+        .replace(/<b[^>]*>(.*?)<\/b>/g, '**$1**')
+        .replace(/<em[^>]*>(.*?)<\/em>/g, '*$1*')
+        .replace(/<i[^>]*>(.*?)<\/i>/g, '*$1*')
+        .replace(/<u[^>]*>(.*?)<\/u>/g, '__$1__')
+        
+        // Processar elementos estruturais
+        .replace(/<h3[^>]*>(.*?)<\/h3>/g, '### $1')
+        .replace(/<blockquote[^>]*>(.*?)<\/blockquote>/g, '> $1')
+        .replace(/<li[^>]*>(.*?)<\/li>/g, '• $1')
+        
+        // Processar parágrafos e quebras
+        .replace(/<p[^>]*>/g, '')
+        .replace(/<\/p>/g, '\n\n')
+        .replace(/<br\s*\/?>/g, '\n')
+        .replace(/<div[^>]*>/g, '\n')
+        .replace(/<\/div>/g, '\n')
+        
+        // Remover outras tags HTML
+        .replace(/<[^>]+>/g, '')
+        
+        // Restaurar destaques
+        .replace(/\*\*HIGHLIGHT_SIMPLE_START\*\*(.*?)\*\*HIGHLIGHT_SIMPLE_END\*\*/g, '<span class="highlight-simple">$1</span>')
+        .replace(/\*\*HIGHLIGHT_ANIMATED_START\*\*(.*?)\*\*HIGHLIGHT_ANIMATED_END\*\*/g, '<span class="highlight-animated">$1</span>')
+        
+        // Limpar quebras excessivas
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+      
+      // Atualizar apenas se houver mudanças significativas
+      if (processedText !== value) {
+        onChange(processedText);
       }
-    }, 0);
+    } catch (error) {
+      console.warn('Erro ao atualizar conteúdo:', error);
+    }
   };
 
   // Função para limpar formatação problemática
@@ -411,50 +462,58 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     reader.readAsDataURL(file);
   };
 
-  // Renderizar conteúdo formatado
+  // Renderizar conteúdo formatado - VERSÃO CORRIGIDA
   const renderFormattedContent = (content: string) => {
     if (!content) return '';
     
-    let formattedContent = content
-      // Primeiro, preservar destaques existentes
-      .replace(/<span class="highlight-simple">(.*?)<\/span>/g, '**HIGHLIGHT_SIMPLE_START**$1**HIGHLIGHT_SIMPLE_END**')
-      .replace(/<span class="highlight-animated">(.*?)<\/span>/g, '**HIGHLIGHT_ANIMATED_START**$1**HIGHLIGHT_ANIMATED_END**')
-      
-      // Aplicar formatações markdown básicas
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/__(.*?)__/g, '<u>$1</u>')
-      .replace(/### (.*?)(?=\n|$)/g, '<h3 class="text-lg font-semibold text-gray-900 my-3">$1</h3>')
-      .replace(/> (.*?)(?=\n|$)/g, '<blockquote class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 text-blue-900 my-2">$1</blockquote>')
-      .replace(/• (.*?)(?=\n|$)/g, '<li class="ml-4 my-1">$1</li>')
-      
-      // Restaurar destaques preservados
-      .replace(/\*\*HIGHLIGHT_SIMPLE_START\*\*(.*?)\*\*HIGHLIGHT_SIMPLE_END\*\*/g, '<span class="highlight-simple">$1</span>')
-      .replace(/\*\*HIGHLIGHT_ANIMATED_START\*\*(.*?)\*\*HIGHLIGHT_ANIMATED_END\*\*/g, '<span class="highlight-animated">$1</span>')
-      
-      // Preservar tags HTML dos destaques diretos
-      .replace(/<mark class="highlight-simple">(.*?)<\/mark>/g, '<span class="highlight-simple">$1</span>')
-      .replace(/<mark class="highlight-animated">(.*?)<\/mark>/g, '<span class="highlight-animated">$1</span>');
+    try {
+      let formattedContent = content
+        // Preservar destaques existentes com estilos inline
+        .replace(/<span class="highlight-simple"[^>]*>(.*?)<\/span>/g, '<span class="highlight-simple" style="background: linear-gradient(120deg, #fef3c7 0%, #fde68a 100%); padding: 2px 4px; border-radius: 4px; border: 1px solid #f59e0b; display: inline;">$1</span>')
+        .replace(/<span class="highlight-animated"[^>]*>(.*?)<\/span>/g, '<span class="highlight-animated" style="background: linear-gradient(120deg, #fecaca 0%, #fca5a5 100%); padding: 2px 4px; border-radius: 4px; border: 2px solid #ef4444; animation: highlight-pulse 2s infinite; display: inline;">$1</span>')
+        
+        // Preservar temporariamente os destaques
+        .replace(/<span class="highlight-simple"[^>]*>(.*?)<\/span>/g, '**HIGHLIGHT_SIMPLE_START**$1**HIGHLIGHT_SIMPLE_END**')
+        .replace(/<span class="highlight-animated"[^>]*>(.*?)<\/span>/g, '**HIGHLIGHT_ANIMATED_START**$1**HIGHLIGHT_ANIMATED_END**')
+        
+        // Aplicar formatações markdown básicas
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/(?<!\*)\*([^*\n]+?)\*(?!\*)/g, '<em>$1</em>') // Itálico mais preciso
+        .replace(/__(.*?)__/g, '<u>$1</u>')
+        .replace(/### (.*?)(?=\n|$)/g, '<h3 class="text-lg font-semibold text-gray-900 my-3">$1</h3>')
+        .replace(/^> (.*?)(?=\n|$)/gm, '<blockquote class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 text-blue-900 my-2">$1</blockquote>')
+        .replace(/^• (.*?)(?=\n|$)/gm, '<li class="ml-4 my-1">$1</li>')
+        
+        // Restaurar destaques preservados
+        .replace(/\*\*HIGHLIGHT_SIMPLE_START\*\*(.*?)\*\*HIGHLIGHT_SIMPLE_END\*\*/g, '<span class="highlight-simple" style="background: linear-gradient(120deg, #fef3c7 0%, #fde68a 100%); padding: 2px 4px; border-radius: 4px; border: 1px solid #f59e0b; display: inline;">$1</span>')
+        .replace(/\*\*HIGHLIGHT_ANIMATED_START\*\*(.*?)\*\*HIGHLIGHT_ANIMATED_END\*\*/g, '<span class="highlight-animated" style="background: linear-gradient(120deg, #fecaca 0%, #fca5a5 100%); padding: 2px 4px; border-radius: 4px; border: 2px solid #ef4444; animation: highlight-pulse 2s infinite; display: inline;">$1</span>')
+        
+        // Preservar tags HTML dos destaques diretos
+        .replace(/<mark class="highlight-simple"[^>]*>(.*?)<\/mark>/g, '<span class="highlight-simple" style="background: linear-gradient(120deg, #fef3c7 0%, #fde68a 100%); padding: 2px 4px; border-radius: 4px; border: 1px solid #f59e0b; display: inline;">$1</span>')
+        .replace(/<mark class="highlight-animated"[^>]*>(.*?)<\/mark>/g, '<span class="highlight-animated" style="background: linear-gradient(120deg, #fecaca 0%, #fca5a5 100%); padding: 2px 4px; border-radius: 4px; border: 2px solid #ef4444; animation: highlight-pulse 2s infinite; display: inline;">$1</span>');
 
-    // Processar quebras de linha e parágrafos
-    // Dividir por quebras duplas para parágrafos
-    const paragraphs = formattedContent.split(/\n\s*\n/).filter(p => p.trim());
-    
-    if (paragraphs.length > 1) {
-      // Múltiplos parágrafos
-      formattedContent = paragraphs.map(paragraph => {
-        const lines = paragraph.trim().replace(/\n/g, '<br>');
-        return lines ? `<p>${lines}</p>` : '';
-      }).filter(p => p).join('');
-    } else {
-      // Parágrafo único - apenas converter quebras simples
-      formattedContent = formattedContent.replace(/\n/g, '<br>');
-      if (formattedContent.trim() && !formattedContent.startsWith('<p>')) {
-        formattedContent = `<p>${formattedContent}</p>`;
+      // Processar quebras de linha e parágrafos de forma mais robusta
+      const paragraphs = formattedContent.split(/\n\s*\n/).filter(p => p.trim());
+      
+      if (paragraphs.length > 1) {
+        // Múltiplos parágrafos
+        formattedContent = paragraphs.map(paragraph => {
+          const lines = paragraph.trim().replace(/\n/g, '<br>');
+          return lines ? `<p style="margin: 8px 0; line-height: 1.6;">${lines}</p>` : '';
+        }).filter(p => p).join('');
+      } else {
+        // Parágrafo único
+        formattedContent = formattedContent.replace(/\n/g, '<br>');
+        if (formattedContent.trim() && !formattedContent.startsWith('<p>')) {
+          formattedContent = `<p style="margin: 8px 0; line-height: 1.6;">${formattedContent}</p>`;
+        }
       }
-    }
 
-    return formattedContent;
+      return formattedContent;
+    } catch (error) {
+      console.warn('Erro ao renderizar conteúdo:', error);
+      return content;
+    }
   };
 
   // Lidar com mudanças no editor - SIMPLIFICADO

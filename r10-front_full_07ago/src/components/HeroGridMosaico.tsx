@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo, memo } from 'react';
 import { Link } from 'react-router-dom';
 import WhatsAppShareButton from './WhatsAppShareButton';
-import { getPosts } from '../services/postsService';
+import { getPostsByPosition } from '../services/postsService';
 import OptimizedImage from './OptimizedImage';
 
 // Função para criar URL amigável com título
@@ -49,10 +49,16 @@ const HeroGridMosaico = () => {
     const fetchPosts = async () => {
       try {
         console.log('🔄 Buscando posts (Mosaico)...');
-        const result = await getPosts();
-        const allPosts = Array.isArray((result as any)?.posts) ? (result as any).posts : [];
-        console.log('📊 Posts encontrados (Mosaico):', allPosts.length);
-        setPosts(allPosts);
+        
+        // REGRA: Apenas notícias EXPLICITAMENTE setadas como 'destaque'
+        const destaques = await getPostsByPosition('destaque', 5);
+        
+        console.log('📊 Destaques encontrados (Mosaico):', {
+          total: destaques.length,
+          postIds: destaques.map((d: any) => d.id)
+        });
+        
+        setPosts(destaques);
       } catch (error) {
         console.error('❌ Erro ao buscar posts (Mosaico):', error);
       } finally {

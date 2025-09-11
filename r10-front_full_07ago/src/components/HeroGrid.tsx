@@ -59,32 +59,20 @@ const HeroGrid = () => {
       try {
         console.log('🔄 HeroGrid: Buscando posts...');
         
-        // Buscar posts por suas posições - HeroGrid só deve mostrar DESTAQUES
-        // A supermanchete é exibida pelo HeroHeadline, não pelo HeroGrid
+        // REGRA: Apenas notícias EXPLICITAMENTE setadas como 'destaque'
         const destaques = (await getPostsByPosition('destaque', 5)) as unknown as UPost[];
-        const mainArticle = destaques[0] || null; // Primeiro destaque vira matéria principal
-        const sideArticles = destaques.slice(1, 5); // Próximos 3 viram laterais
         
-        const geral = (await getPostsByPosition('geral', 7))
-          .filter(g => !destaques.some((d: any) => d.id === g.id))
-          .slice(0, 7);
-
-        const allPosts = [
-          ...destaques,
-          ...geral
-        ];
-
-        console.log('📊 HeroGrid: Posts encontrados por posição:', {
-          destaques: destaques.length,
-          mainArticle: mainArticle ? 1 : 0,
-          sideArticles: sideArticles.length,
-          geral: geral.length,
-          total: allPosts.length
+        console.log('📊 HeroGrid: Posts de destaque encontrados:', {
+          totalDestaques: destaques.length,
+          postIds: destaques.map(d => d.id)
         });
 
+        const mainArticle = destaques[0] || null;
+        const sideArticles = destaques.slice(1, 5);
+
         setPostsData({
-          posts: allPosts,
-          totalCount: allPosts.length,
+          posts: destaques,
+          totalCount: destaques.length,
           totalPages: 1
         });
         

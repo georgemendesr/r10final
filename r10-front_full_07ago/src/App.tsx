@@ -15,15 +15,22 @@ import NewsGeneralSection from './components/NewsGeneralSection';
 import MostReadSection from './components/MostReadSection';
 import DailyEmotionsSection from './components/DailyEmotionsSection';
 import R10PlaySection from './components/R10PlaySection';
-import MunicipiosSection from './components/MunicipiosComponente';
+import MunicipiosSection from './components/MunicipiosSection';
 import Footer from './components/Footer';
 import AdminLink from './components/AdminLink';
 import { AuthProvider } from './contexts/AuthContext';
 import { getLayoutConfig, getActiveHeroLayout } from './services/layoutService';
 import { initializeServices } from './services/initService';
+// Import dinâmico para contornar problema de resolução de export default
+const ArticlePage = React.lazy(() => import('./components/ArticlePage')
+  .then(mod => ({ default: (mod as any).default || (mod as any).ArticlePage }))
+  .catch(err => {
+    console.error('[App] Falha ao carregar ArticlePage:', err);
+    return { default: () => <div className="p-8 text-center text-red-600">Erro ao carregar matéria.</div> };
+  })
+);
 
 // Lazy loading para componentes pesados (admin/dashboard)
-const ArticlePage = React.lazy(() => import('./components/ArticlePage'));
 const R10PlayPage = React.lazy(() => import('./components/R10PlayPage'));
 const LoginPage = React.lazy(() => import('./components/LoginPage'));
 const Dashboard = React.lazy(() => import('./components/Dashboard'));
@@ -174,6 +181,24 @@ function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           
+          {/* Rota para artigos individuais */}
+          <Route 
+            path="/noticia/:categoria/:slug/:id" 
+            element={
+              <Suspense fallback={<div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-600"></div></div>}>
+                <ArticlePage />
+              </Suspense>
+            } 
+          />
+          <Route 
+            path="/noticia/:slug" 
+            element={
+              <Suspense fallback={<div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-600"></div></div>}>
+                <ArticlePage />
+              </Suspense>
+            } 
+          />
+          
           {/* Rotas de teste para layouts alternativos */}
           <Route 
             path="/test-vertical" 
@@ -210,6 +235,14 @@ function App() {
           />
           <Route 
             path="/noticia/:id" 
+            element={
+              <Suspense fallback={<div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-600"></div></div>}>
+                <ArticlePage />
+              </Suspense>
+            } 
+          />
+          <Route 
+            path="/post/:id" 
             element={
               <Suspense fallback={<div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-600"></div></div>}>
                 <ArticlePage />
