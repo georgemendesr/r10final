@@ -18,17 +18,10 @@ const R10PlaySection = () => {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(getChannelStats());
   
-  // Verificar se temos as chaves do YouTube
-  const hasYT = import.meta.env.VITE_YT_API_KEY && import.meta.env.VITE_YT_CHANNEL_ID;
-  
-  // Se não temos as chaves, não renderizar nada
-  if (!hasYT) return null;
+  // Sempre renderizar a seção: se não houver chaves, o youtubeService usa fallback real
 
   useEffect(() => {
     const loadVideos = async () => {
-      const hasYT = import.meta.env.VITE_YT_API_KEY && import.meta.env.VITE_YT_CHANNEL_ID;
-      if (!hasYT) return;
-      
       setLoading(true);
       try {
         const recentVideos = await fetchRecentVideos();

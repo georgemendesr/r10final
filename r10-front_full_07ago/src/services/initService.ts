@@ -23,6 +23,27 @@ export const initializeServices = async () => {
     console.log('📦 Inicializando outros servicos...');
     initializeReactionsData();
     
+    // Migração leve: garantir que a seção R10 Play esteja presente e habilitada no layout
+    try {
+      const LAYOUT_STORAGE_KEY = 'r10_homepage_layout';
+      const raw = localStorage.getItem(LAYOUT_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        const hasR10Play = Array.isArray(parsed) && parsed.some((s: any) => s.id === 'r10Play');
+        if (!hasR10Play) {
+          parsed.push({ id: 'r10Play', name: 'R10 Play', enabled: true });
+          localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(parsed));
+          console.log('🎬 R10 Play adicionado ao layout automaticamente.');
+        } else {
+          // Garantir enabled true
+          const updated = parsed.map((s: any) => s.id === 'r10Play' ? { ...s, enabled: true } : s);
+          localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(updated));
+        }
+      }
+    } catch (e) {
+      console.warn('Aviso: falha ao migrar layout para incluir R10 Play', e);
+    }
+    
     console.log('✅ Servicos inicializados com sucesso!');
   } catch (error) {
     console.error('❌ Erro ao inicializar servicos:', error);
