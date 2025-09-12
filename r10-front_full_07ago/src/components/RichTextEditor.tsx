@@ -40,10 +40,10 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          if (entry.isIntersecting && entry.target.getAttribute('data-animate') === 'true') {
+          if (entry.isIntersecting && (entry.target as HTMLElement).getAttribute('data-highlight') === 'animated') {
             const element = entry.target as HTMLElement;
-            element.style.backgroundSize = '100% 100%';
-            element.setAttribute('data-animate', 'false');
+            element.classList.add('animate-in-view');
+            observer.unobserve(element);
           }
         });
       },
@@ -51,7 +51,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     );
 
     // Observar elementos com animação
-    const animatedElements = editorRef.current.querySelectorAll('[data-animate="true"]');
+    const animatedElements = editorRef.current.querySelectorAll('[data-highlight="animated"]:not(.animate-in-view)');
     animatedElements.forEach((el) => observer.observe(el));
 
     return () => observer.disconnect();
@@ -167,6 +167,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
           padding: 2px 4px !important;
           border-radius: 4px !important;
           display: inline !important;
+          -webkit-box-decoration-break: clone; box-decoration-break: clone; line-height: inherit !important;
         `;
       } else {
         span.className = 'bg-yellow-200 px-1 rounded';
@@ -654,11 +655,10 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
           padding: 2px 4px !important;
           border-radius: 4px !important;
           display: inline !important;
+          -webkit-box-decoration-break: clone; box-decoration-break: clone;
         }
 
-        .highlight-animated.animate-in-view {
-          background-size: 100% 100% !important;
-        }
+        .highlight-animated.animate-in-view { background-size: 100% 100% !important; }
 
         /* CSS para quando renderizado fora do editor */
         [data-highlight="animated"] {
@@ -673,11 +673,10 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
           padding: 2px 4px !important;
           border-radius: 4px !important;
           display: inline !important;
+          -webkit-box-decoration-break: clone; box-decoration-break: clone;
         }
 
-        [data-highlight="animated"].animate-in-view {
-          background-size: 100% 100% !important;
-        }
+        [data-highlight="animated"].animate-in-view { background-size: 100% 100% !important; }
         `
       }} />
     </div>

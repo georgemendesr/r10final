@@ -136,7 +136,7 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
   // 3) Efeito para animar highlight quando aparecer na tela
   useEffect(() => {
     const animateHighlights = () => {
-      const highlightElements = document.querySelectorAll('span[data-highlight="animated"]:not([data-animated])');
+      const highlightElements = document.querySelectorAll('span[data-highlight="animated"]:not(.animate-in-view)');
       
       highlightElements.forEach((element) => {
         const rect = element.getBoundingClientRect();
@@ -145,8 +145,7 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
         // Se está visível (com margem para animar antes de aparecer totalmente)
         if (rect.top < windowHeight - 50 && rect.bottom > 50) {
           console.log('✨ ANIMAÇÃO: Ativando highlight para:', element.textContent?.substring(0, 30));
-          element.setAttribute('data-animated', 'true');
-          (element as HTMLElement).style.backgroundSize = '100% 100%';
+          (element as HTMLElement).classList.add('animate-in-view');
         }
       });
     };

@@ -470,15 +470,26 @@ span[style*="animation"] {
   animation: reveal-highlight 1.5s ease-out forwards;
 }
 
-.highlight-animated {
-  position: relative;
-  background: linear-gradient(120deg, #fecaca 0%, #fca5a5 100%) no-repeat !important;
+.highlight-animated,
+[data-highlight="animated"] {
+  position: relative !important;
+  background: linear-gradient(90deg, #fbbf24, #f59e0b) !important;
   background-size: 0% 100% !important;
+  background-repeat: no-repeat !important;
   background-position: left center !important;
+  transition: background-size 1.6s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  color: #111827 !important; /* gray-900 para melhor contraste */
+  font-weight: 600 !important;
+  padding: 2px 4px !important;
+  border-radius: 4px !important;
+  display: inline !important;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
 }
 
-.highlight-animated.in-viewport {
-  animation: reveal-highlight 1.5s ease-out forwards !important;
+.highlight-animated.animate-in-view,
+[data-highlight="animated"].animate-in-view {
+  background-size: 100% 100% !important;
 }
 
 /* Classes de cores das editorias (aplicadas via JavaScript/TitleLink) */
@@ -603,23 +614,7 @@ span[style*="animation"] {
 }
 
 /* Estilos globais para animações de destaque */
-[data-highlight="animated"] {
-  position: relative !important;
-  background: linear-gradient(90deg, #fbbf24, #f59e0b) !important;
-  background-size: 0% 100% !important;
-  background-repeat: no-repeat !important;
-  background-position: left center !important;
-  transition: background-size 2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-  color: #000 !important;
-  font-weight: 600 !important;
-  padding: 2px 4px !important;
-  border-radius: 4px !important;
-  display: inline !important;
-}
-
-[data-highlight="animated"].animate-in-view {
-  background-size: 100% 100% !important;
-}
+/* seção duplicada consolidada acima */
 
 /* Estilos para citações no conteúdo renderizado */
 [data-quote="true"] {
