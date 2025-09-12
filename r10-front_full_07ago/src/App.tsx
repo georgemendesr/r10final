@@ -79,8 +79,9 @@ function App() {
           });
         };
 
-        // Observer inicial
-        observeElements();
+  // Observer inicial e após breve atraso para conteúdo dinâmico
+  observeElements();
+  setTimeout(observeElements, 100);
 
         // Reobservar quando conteúdo mudar (para artigos carregados dinamicamente)
         const mutationObserver = new MutationObserver(() => {
