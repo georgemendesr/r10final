@@ -426,47 +426,91 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
                 />
               </figure>
 
-              {/* Resumo em Tópicos - Exibe se houver resumo gerado */}
-              {finalArticle.resumo && (
-                <div className="mb-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500 rounded-2xl max-w-2xl mx-auto">
-                  <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
-                    <span className="text-blue-600 mr-2">📋</span>
-                    Resumo da Notícia
-                  </h3>
-                  <div className="space-y-3">
-                    {(() => {
-                      // Primeiro, tentar usar os bullets já formatados do resumo
-                      let bulletPoints = finalArticle.resumo.split('\n')
-                        .map(line => line.trim())
-                        .filter(line => line.length > 0 && (line.startsWith('•') || line.startsWith('-') || line.startsWith('*')));
-                      
-                      // Se não encontrou bullets formatados, dividir por quebras de linha simples
-                      if (bulletPoints.length === 0) {
-                        bulletPoints = finalArticle.resumo.split('\n')
-                          .map(line => line.trim())
-                          .filter(line => line.length > 10);
-                      }
-                      
-                      // Se ainda não tem bullets, dividir por pontos finais
-                      if (bulletPoints.length === 0) {
-                        bulletPoints = finalArticle.resumo.split(/[.!?]+/)
-                          .map(sentence => sentence.trim())
-                          .filter(sentence => sentence.length > 10);
-                      }
-                      
-                      // Garantir máximo de 5 bullets para melhor visualização
-                      bulletPoints = bulletPoints.slice(0, 5);
-                      
-                      return bulletPoints.map((point, index) => (
+              {/* Resumo em Tópicos - Extraído do texto | sem invenções */}
+              {(() => {
+                // Utilidades
+                const stripTags = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+                const joinText = stripTags(finalArticle.content.join('\n\n'));
+                const hasMinLength = joinText.length >= 500;
+
+                const trimTo = (s: string, limit = 80) => {
+                  if (s.length <= limit) return s.trim();
+                  const idx = s.lastIndexOf(' ', limit);
+                  const cut = idx > 40 ? s.slice(0, idx) : s.slice(0, limit);
+                  return cut.trim();
+                };
+
+                const dedupe = (arr: string[]) => {
+                  const seen = new Set<string>();
+                  const out: string[] = [];
+                  for (const v of arr) {
+                    const key = v.toLowerCase();
+                    if (!seen.has(key)) { seen.add(key); out.push(v); }
+                  }
+                  return out;
+                };
+
+                const extractCandidates = (paragraphs: string[]): string[] => {
+                  const cleanedParas = paragraphs.map(stripTags).filter(p => p.length > 0);
+
+                  // 1) Bullets explícitos nos parágrafos
+                  const bullets: string[] = [];
+                  cleanedParas.forEach(p => {
+                    const parts = p.split(/\s*[•\-*]\s+/g).map(s => s.trim()).filter(Boolean);
+                    if (parts.length > 1) {
+                      parts.forEach(part => { if (part.length >= 20) bullets.push(part); });
+                    }
+                  });
+
+                  // 2) Títulos H3 (sem o marcador "### ")
+                  const headings = paragraphs
+                    .filter(p => p.startsWith('### '))
+                    .map(p => p.replace(/^###\s+/, '').trim())
+                    .filter(h => h.length >= 20);
+
+                  // 3) Sentenças do corpo
+                  const sentences: string[] = [];
+                  cleanedParas.forEach(p => {
+                    p.split(/[.!?]+\s+/g).forEach(s => {
+                      const t = s.replace(/^"|^'|^“|^”|^\s+|\s+$/g, '').trim();
+                      if (t.length >= 35) sentences.push(t);
+                    });
+                  });
+
+                  // 4) Fallback: cláusulas por vírgula/ponto e vírgula
+                  const clauses: string[] = [];
+                  cleanedParas.slice(0, 2).forEach(p => {
+                    p.split(/[;,]\s+/g).forEach(c => {
+                      const t = c.trim();
+                      if (t.length >= 25) clauses.push(t);
+                    });
+                  });
+
+                  return dedupe([...bullets, ...headings, ...sentences, ...clauses]);
+                };
+
+                const candidates = extractCandidates(finalArticle.content).map(c => trimTo(c, 80)).filter(Boolean);
+                const bullets = candidates.slice(0, 4);
+
+                if (!hasMinLength || bullets.length < 4) return null;
+
+                return (
+                  <div className="mb-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500 rounded-2xl max-w-2xl mx-auto">
+                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                      <span className="text-blue-600 mr-2">📋</span>
+                      Resumo da Notícia
+                    </h3>
+                    <div className="space-y-3">
+                      {bullets.map((point, index) => (
                         <div key={index} className="flex items-start">
                           <span className="text-blue-600 font-bold mr-3 mt-0.5 text-lg">•</span>
-                          <span className="text-gray-800 leading-relaxed">{point.replace(/^[•\-\*]\s*/, '').trim()}</span>
+                          <span className="text-gray-800 leading-relaxed">{point}</span>
                         </div>
-                      ));
-                    })()}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
 
 
