@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import WhatsAppShareButton from './WhatsAppShareButton';
 import { getPostsByPosition } from '../services/postsService';
 import OptimizedImage from './OptimizedImage';
+import TitleLink from './TitleLink';
 
 // Função para criar URL amigável com título
 const createSlug = (title: string): string => {
@@ -51,7 +52,17 @@ const HeroGridMosaico = () => {
         console.log('🔄 Buscando posts (Mosaico)...');
         
         // REGRA: Apenas notícias EXPLICITAMENTE setadas como 'destaque'
-        const destaques = await getPostsByPosition('destaque', 5);
+  let destaques = await getPostsByPosition('destaque', 5);
+        // Queremos idealmente 8 itens no mosaico (1 principal + 7 outros)
+        // Se vierem menos que 8 destaques, completar com 'geral' sem duplicar
+        const targetTotal = 8;
+        if (destaques.length < targetTotal) {
+          const faltamTotal = targetTotal - destaques.length;
+          const gerais = await getPostsByPosition('geral', Math.max(7, faltamTotal + 3));
+          const idsExistentes = new Set(destaques.map(d => d.id));
+          const extras = gerais.filter(g => !idsExistentes.has(g.id)).slice(0, faltamTotal);
+          destaques = [...destaques, ...extras];
+        }
         
         console.log('📊 Destaques encontrados (Mosaico):', {
           total: destaques.length,
@@ -69,12 +80,20 @@ const HeroGridMosaico = () => {
     fetchPosts();
   }, []);
 
-  // Filtrar posts por posição - Mosaico não usa supermanchete
-  const filteredPosts = posts;
+  // Filtrar posts por posição - Mosaico NÃO usa supermanchete
+  const filteredPosts = posts.filter(post => String(post.posicao || '').toLowerCase() !== 'supermanchete');
   const mainArticle = filteredPosts[0];
-  const sideArticles = filteredPosts
-    .filter(post => post.id !== mainArticle?.id) // Remove o artigo principal da lista lateral
-    .slice(0, 3); // Reduzido para 3 para não ficar com buracos
+  // Demais artigos (sem cortar aqui para poder usar nos grids lateral/esquerdo/rodapé)
+  const otherArticles = filteredPosts.filter(post => post.id !== mainArticle?.id);
+  const totalOthers = otherArticles.length;
+  const maxRight = 2;
+  const rightCount = Math.min(maxRight, totalOthers);
+  const leftCount = Math.min(2, Math.max(0, totalOthers - rightCount));
+  const bottomCount = 0; // não exibir linha inferior
+
+  const rightArticles = otherArticles.slice(0, rightCount);
+  const leftExtras = otherArticles.slice(rightCount, rightCount + leftCount);
+  const bottomArticles: any[] = [];
 
   if (loading) {
     return (
@@ -140,7 +159,11 @@ const HeroGridMosaico = () => {
                 </div>
                 <div className="flex items-start gap-3 mb-3 md:mb-4">
                   <h1 className={`destaque-principal-title flex-1 title-hover-combined large title-hover-shimmer`}>
-                    {getTitle(mainArticle)}
+                    <TitleLink
+                      title={getTitle(mainArticle)}
+                      categoria={getCategory(mainArticle)}
+                      href={`/noticia/${getCategory(mainArticle)}/${createSlug(getTitle(mainArticle))}/${mainArticle.id}`}
+                    />
                   </h1>
                   <WhatsAppShareButton 
                     title={getTitle(mainArticle)}
@@ -154,23 +177,120 @@ const HeroGridMosaico = () => {
                 </p>
               </article>
             </Link>
+
+            {/* Extras à esquerda abaixo da principal (2 cards pequenos) */}
+            {leftExtras.length > 0 && (
+              <div className={`grid grid-cols-1 ${leftExtras.length > 1 ? 'md:grid-cols-2' : ''} gap-4 md:gap-6 mt-4 md:mt-6`}>
+                {leftExtras.map((article, index) => (
+                  <Link 
+                    key={article.id} 
+                    to={`/noticia/${getCategory(article)}/${createSlug(getTitle(article))}/${article.id}`} 
+                    className="group"
+                  >
+                    <article className={`card card-hover`}>
+                      <div className={`w-full h-32 md:h-40 tint ${getEditorialClasses(getCategory(article)).tint}`}>
+                        <img 
+                          src={getImage(article) || `https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=400&h=160&fit=crop&seed=${index + 20}`}
+                          alt={getTitle(article)}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="p-3 md:p-4">
+                        {article.chapeu
+                          ? (<span className="destaque-outros-chapeu text-gray-500 mb-2 block">{article.chapeu}</span>)
+                          : (import.meta.env?.DEV ? (<span className="tag mb-2 block text-sm opacity-60">S/CHAPÉU</span>) : null)}
+                        <div className="flex items-start gap-2">
+                          <h2 className={`destaque-outros-title headline flex-1 title-hover-combined medium title-area-md clamp-2`}>
+                            <TitleLink
+                              title={getTitle(article)}
+                              categoria={getCategory(article)}
+                              href={`/noticia/${getCategory(article)}/${createSlug(getTitle(article))}/${article.id}`}
+                            />
+                          </h2>
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <WhatsAppShareButton 
+                              title={getTitle(article)}
+                              size="sm"
+                              className="flex-shrink-0 mt-0.5"
+                              category={getCategory(article)}
+                            />
+                          </div>
+                        </div>
+                        <p className="text-sm text-gray-600 mt-2 clamp-2">
+                          {getSubtitle(article)}
+                        </p>
+                      </div>
+                    </article>
+                  </Link>
+                ))}
+              </div>
+            )}
+
+            {/* Itens adicionais para preencher a coluna esquerda e evitar buracos */}
+            {bottomArticles.length > 0 && (
+              <div className={`grid grid-cols-1 ${bottomArticles.length > 1 ? 'md:grid-cols-2' : ''} gap-4 md:gap-6 mt-4 md:mt-6`}>
+                {bottomArticles.map((article, index) => (
+                  <Link 
+                    key={article.id} 
+                    to={`/noticia/${getCategory(article)}/${createSlug(getTitle(article))}/${article.id}`} 
+                    className="group"
+                  >
+                    <article className={`card card-hover`}>
+                      <div className={`w-full h-32 md:h-40 tint ${getEditorialClasses(getCategory(article)).tint}`}>
+                        <img 
+                          src={getImage(article) || `https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=400&h=160&fit=crop&seed=${index + 2}`}
+                          alt={getTitle(article)}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="p-3 md:p-4">
+                        {article.chapeu
+                          ? (<span className="destaque-outros-chapeu text-gray-500 mb-2 block">{article.chapeu}</span>)
+                          : (import.meta.env?.DEV ? (<span className="tag mb-2 block text-sm opacity-60">S/CHAPÉU</span>) : null)}
+                        <div className="flex items-start gap-2">
+                          <h2 className={`destaque-outros-title headline flex-1 title-hover-combined medium title-area-md clamp-2`}>
+                            <TitleLink
+                              title={getTitle(article)}
+                              categoria={getCategory(article)}
+                              href={`/noticia/${getCategory(article)}/${createSlug(getTitle(article))}/${article.id}`}
+                            />
+                          </h2>
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <WhatsAppShareButton 
+                              title={getTitle(article)}
+                              size="sm"
+                              className="flex-shrink-0 mt-0.5"
+                              category={getCategory(article)}
+                            />
+                          </div>
+                        </div>
+                        <p className="text-sm text-gray-600 mt-2 clamp-2">
+                          {getSubtitle(article)}
+                        </p>
+                      </div>
+                    </article>
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Coluna Lateral Direita - 2 notícias verticais */}
+          {/* Coluna Lateral Direita - 3 notícias verticais */}
           <div className="space-y-4 md:space-y-6">
-            {sideArticles.slice(0, 2).map((article, index) => (
+            {rightArticles.map((article, index) => (
               <Link 
                 key={article.id} 
                 to={`/noticia/${getCategory(article)}/${createSlug(getTitle(article))}/${article.id}`} 
                 className="group block"
               >
-                <article className={`overflow-hidden transition-shadow duration-300`}>
-                  <div className={`w-full h-48 md:h-52 rounded-xl overflow-hidden tint ${getEditorialClasses(getCategory(article)).tint}`}>
+                <article className={`card card-hover`}>
+                  <div
+                    className={`w-full ${index === 0 ? 'h-[202px] md:h-[234px] lg:h-[250px]' : 'h-[330px] md:h-[378px]'} tint ${getEditorialClasses(getCategory(article)).tint}`}
+                  >
                     <img 
                       src={getImage(article) || `https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=200&fit=crop&seed=${index}`}
                       alt={getTitle(article)}
                       className="w-full h-full object-cover"
-                      style={{ borderRadius: '12px' }}
                     />
                   </div>
                   <div className="p-3 md:p-4">
@@ -178,8 +298,12 @@ const HeroGridMosaico = () => {
                       ? (<span className="destaque-outros-chapeu text-gray-500 mb-2 block">{article.chapeu}</span>)
                       : (import.meta.env?.DEV ? (<span className="tag mb-2 block text-sm opacity-60">S/CHAPÉU</span>) : null)}
                     <div className="flex items-start gap-2">
-                      <h2 className={`destaque-outros-title group-hover:opacity-80 transition-opacity flex-1 title-hover-combined medium`}>
-                        {getTitle(article)}
+                      <h2 className={`destaque-outros-title headline flex-1 title-hover-combined medium title-area-md clamp-2`}>
+                        <TitleLink
+                          title={getTitle(article)}
+                          categoria={getCategory(article)}
+                          href={`/noticia/${getCategory(article)}/${createSlug(getTitle(article))}/${article.id}`}
+                        />
                       </h2>
                       <div onClick={(e) => e.stopPropagation()}>
                         <WhatsAppShareButton 
@@ -190,7 +314,7 @@ const HeroGridMosaico = () => {
                         />
                       </div>
                     </div>
-                    <p className="text-sm text-gray-600 mt-2 line-clamp-2">
+                    <p className="text-sm text-gray-600 mt-2 clamp-2">
                       {getSubtitle(article)}
                     </p>
                   </div>
@@ -200,50 +324,7 @@ const HeroGridMosaico = () => {
           </div>
         </div>
 
-        {/* Linha Inferior - Sempre exibir se houver mais artigos */}
-        {sideArticles.length > 2 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-            {sideArticles.slice(2, 4).map((article, index) => (
-              <Link 
-                key={article.id} 
-                to={`/noticia/${getCategory(article)}/${createSlug(getTitle(article))}/${article.id}`} 
-                className="group"
-              >
-                <article className={`overflow-hidden transition-shadow duration-300`}>
-                  <div className={`w-full h-32 md:h-40 rounded-xl overflow-hidden tint ${getEditorialClasses(getCategory(article)).tint}`}>
-                    <img 
-                      src={getImage(article) || `https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=400&h=160&fit=crop&seed=${index + 2}`}
-                      alt={getTitle(article)}
-                      className="w-full h-full object-cover"
-                      style={{ borderRadius: '12px' }}
-                    />
-                  </div>
-                  <div className="p-3 md:p-4">
-                    {article.chapeu
-                      ? (<span className="destaque-outros-chapeu text-gray-500 mb-2 block">{article.chapeu}</span>)
-                      : (import.meta.env?.DEV ? (<span className="tag mb-2 block text-sm opacity-60">S/CHAPÉU</span>) : null)}
-                    <div className="flex items-start gap-2">
-                      <h2 className={`destaque-outros-title group-hover:opacity-80 transition-opacity flex-1 title-hover-combined medium`}>
-                        {getTitle(article)}
-                      </h2>
-                      <div onClick={(e) => e.stopPropagation()}>
-                        <WhatsAppShareButton 
-                          title={getTitle(article)}
-                          size="sm"
-                          className="flex-shrink-0 mt-0.5"
-                          category={getCategory(article)}
-                        />
-                      </div>
-                    </div>
-                    <p className="text-sm text-gray-600 mt-2 line-clamp-2">
-                      {getSubtitle(article)}
-                    </p>
-                  </div>
-                </article>
-              </Link>
-            ))}
-          </div>
-        )}
+        {/* Linha inferior removida (integrada à coluna esquerda para evitar buracos) */}
       </div>
     </section>
   );

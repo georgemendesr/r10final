@@ -41,6 +41,11 @@
   line-height: 55px;
 }
 
+/* Remove qualquer arredondamento residual em spans de highlight dentro do h1 do premium */
+.premium .destaque-principal-title span {
+  border-radius: 0 !important;
+}
+
 .destaque-principal-subtitle {
   font-family: 'Figtree', sans-serif;
   font-weight: 500; /* medium */
@@ -53,6 +58,27 @@
   font-weight: 600; /* semibold */
   font-size: 20px;
   line-height: 25px;
+}
+
+/* Variantes de tamanho para outros destaques */
+.destaque-outros-title.small {
+  font-size: 18px;
+  line-height: 22px;
+}
+.destaque-outros-title.medium {
+  font-size: 20px;
+  line-height: 25px;
+}
+.destaque-outros-title.large {
+  font-size: 30px;
+  line-height: 36px;
+}
+
+@media (min-width: 768px) {
+  .destaque-outros-title.large {
+    font-size: 34px;
+    line-height: 40px;
+  }
 }
 
 .destaque-outros-subtitle {
@@ -93,6 +119,53 @@
   font-size: 12px;
   text-transform: uppercase;
   color: #9ca3af; /* cinza padrão */
+}
+
+/* Utilitários de clamp de linhas (sem plugin) */
+.clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Altura mínima para área do título (alinha cards no Vertical) */
+.title-area-lg {
+  min-height: 108px; /* 3 linhas x 36px (base) */
+}
+@media (min-width: 768px) {
+  .title-area-lg {
+    min-height: 120px; /* 3 linhas x 40px (md) */
+  }
+}
+
+/* Altura mínima para títulos médios (alinha cards no Mosaico) */
+.title-area-md {
+  min-height: 54px; /* ~2 linhas de 25px */
+}
+@media (min-width: 768px) {
+  .title-area-md {
+    min-height: 56px;
+  }
+}
+
+/* Utilitários de cartão: cantos arredondados e overflow oculto (sem fundo) */
+.card {
+  background-color: transparent;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.card-hover {
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
+}
+.card-hover:hover {
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
 }
 
 /* 4. SEÇÃO MUNICÍPIOS */

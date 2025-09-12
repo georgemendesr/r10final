@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import WhatsAppShareButton from './WhatsAppShareButton';
 import { getPostsByPosition } from '../services/postsService';
 import OptimizedImage from './OptimizedImage';
+import TitleLink from './TitleLink';
 
 // Função para criar URL amigável com título
 const createSlug = (title: string): string => {
@@ -68,8 +69,7 @@ const HeroGridVertical = () => {
     fetchPosts();
   }, []);
 
-  // Filtrar e organizar posts - INCLUI supermanchete no Vertical
-  const supermanchete = posts.find(post => String(post.posicao || '').toLowerCase() === 'supermanchete');
+  // Filtrar e organizar posts - NÃO inclui supermanchete neste layout
   const filteredPosts = posts.filter(post => String(post.posicao || '').toLowerCase() !== 'supermanchete');
   const topArticles = filteredPosts.slice(0, 2); // 2 artigos grandes no topo
   const bottomArticles = filteredPosts.slice(2, 5); // 3 artigos menores embaixo
@@ -79,12 +79,7 @@ const HeroGridVertical = () => {
       <section className="bg-gray-50 py-4 md:py-6 font-body">
         <div className="container mx-auto px-4 max-w-[1250px]">
           <div className="space-y-6">
-            {/* Loading para supermanchete */}
-            <div className="animate-pulse">
-              <div className="w-full h-[200px] bg-gray-300 rounded-xl mb-4"></div>
-              <div className="h-6 bg-gray-300 rounded mb-2"></div>
-              <div className="h-4 bg-gray-300 rounded"></div>
-            </div>
+            {/* Loading apenas para artigos do grid vertical */}
             {/* Loading para 2 artigos grandes */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {[1, 2].map(i => (
@@ -111,7 +106,7 @@ const HeroGridVertical = () => {
     );
   }
 
-  if (!posts.length) {
+  if (!filteredPosts.length) {
     return (
       <section className="bg-gray-50 py-4 md:py-6 font-body">
         <div className="container mx-auto px-4 max-w-[1250px]">
@@ -125,35 +120,7 @@ const HeroGridVertical = () => {
     <section className="bg-gray-50 py-4 md:py-6 font-body">
       <div className="container mx-auto px-4 max-w-[1250px]">
         <div className="space-y-6">
-          {/* Supermanchete - se existir */}
-          {supermanchete && (
-            <Link to={`/noticia/${getCategory(supermanchete)}/${createSlug(getTitle(supermanchete))}/${supermanchete.id}`} className="group block">
-              <article>
-                <div className={`w-full h-[180px] md:h-[200px] rounded-xl overflow-hidden mb-4 tint ${getEditorialClasses(getCategory(supermanchete)).tint}`}>
-                  <img 
-                    src={getImage(supermanchete) || "https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=1200&h=200&fit=crop"}
-                    alt={getTitle(supermanchete)}
-                    className="w-full h-full object-cover"
-                    style={{ borderRadius: '12px' }}
-                  />
-                </div>
-                <div className="flex items-start gap-3">
-                  <h1 className={`destaque-principal-title flex-1 title-hover-combined large title-hover-shimmer`}>
-                    {getTitle(supermanchete)}
-                  </h1>
-                  <WhatsAppShareButton 
-                    title={getTitle(supermanchete)}
-                    size="md"
-                    className="flex-shrink-0 mt-1"
-                    category={getCategory(supermanchete)}
-                  />
-                </div>
-                <p className="text-sm md:text-base text-gray-700 leading-relaxed font-body mt-2">
-                  {getSubtitle(supermanchete)}
-                </p>
-              </article>
-            </Link>
-          )}
+          {/* Supermanchete não é exibida neste layout */}
 
           {/* 2 Artigos Grandes - Linha Superior */}
           {topArticles.length > 0 && (
@@ -164,7 +131,7 @@ const HeroGridVertical = () => {
                   to={`/noticia/${getCategory(article)}/${createSlug(getTitle(article))}/${article.id}`} 
                   className="group"
                 >
-                  <article className={`overflow-hidden transition-shadow duration-300`}>
+                  <article className={`overflow-hidden transition-shadow duration-300 flex flex-col h-full`}>
                     <div className={`w-full h-48 md:h-56 rounded-xl overflow-hidden tint ${getEditorialClasses(getCategory(article)).tint}`}>
                       <img 
                         src={getImage(article) || `https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=600&h=250&fit=crop&seed=${index}`}
@@ -173,13 +140,17 @@ const HeroGridVertical = () => {
                         style={{ borderRadius: '12px' }}
                       />
                     </div>
-                    <div className="p-4">
+                    <div className="p-4 flex-1 flex flex-col">
                       {article.chapeu
                         ? (<span className="destaque-outros-chapeu text-gray-500 mb-2 block">{article.chapeu}</span>)
                         : (import.meta.env?.DEV ? (<span className="tag mb-2 block text-sm opacity-60">S/CHAPÉU</span>) : null)}
                       <div className="flex items-start gap-2">
-                        <h2 className={`destaque-outros-title group-hover:opacity-80 transition-opacity flex-1 title-hover-combined medium`}>
-                          {getTitle(article)}
+                        <h2 className={`destaque-outros-title group-hover:opacity-80 transition-opacity flex-1 title-hover-combined large title-area-lg clamp-3`}>
+                          <TitleLink
+                            title={getTitle(article)}
+                            categoria={getCategory(article)}
+                            href={`/noticia/${getCategory(article)}/${createSlug(getTitle(article))}/${article.id}`}
+                          />
                         </h2>
                         <div onClick={(e) => e.stopPropagation()}>
                           <WhatsAppShareButton 
@@ -209,7 +180,7 @@ const HeroGridVertical = () => {
                   to={`/noticia/${getCategory(article)}/${createSlug(getTitle(article))}/${article.id}`} 
                   className="group"
                 >
-                  <article className={`overflow-hidden transition-shadow duration-300`}>
+                  <article className={`overflow-hidden transition-shadow duration-300 flex flex-col h-full`}>
                     <div className={`w-full h-32 md:h-36 rounded-lg overflow-hidden tint ${getEditorialClasses(getCategory(article)).tint}`}>
                       <img 
                         src={getImage(article) || `https://images.unsplash.com/photo-1487088678257-3a541e6e3922?w=400&h=150&fit=crop&seed=${index + 10}`}
@@ -218,13 +189,17 @@ const HeroGridVertical = () => {
                         style={{ borderRadius: '8px' }}
                       />
                     </div>
-                    <div className="p-3">
+                    <div className="p-4 flex-1 flex flex-col">
                       {article.chapeu
                         ? (<span className="destaque-outros-chapeu text-gray-500 mb-1 block text-xs">{article.chapeu}</span>)
                         : (import.meta.env?.DEV ? (<span className="tag mb-1 block text-xs opacity-60">S/CHAPÉU</span>) : null)}
                       <div className="flex items-start gap-2">
                         <h2 className={`destaque-outros-title group-hover:opacity-80 transition-opacity flex-1 title-hover-combined small`}>
-                          {getTitle(article)}
+                          <TitleLink
+                            title={getTitle(article)}
+                            categoria={getCategory(article)}
+                            href={`/noticia/${getCategory(article)}/${createSlug(getTitle(article))}/${article.id}`}
+                          />
                         </h2>
                         <div onClick={(e) => e.stopPropagation()}>
                           <WhatsAppShareButton 
@@ -235,7 +210,7 @@ const HeroGridVertical = () => {
                           />
                         </div>
                       </div>
-                      <p className="text-xs text-gray-600 mt-1 line-clamp-2">
+                      <p className="text-sm text-gray-600 mt-2 line-clamp-2">
                         {getSubtitle(article)}
                       </p>
                     </div>

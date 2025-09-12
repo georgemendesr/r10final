@@ -10,17 +10,15 @@ interface TitleLinkProps {
   onClick?: () => void;
   className?: string;
   children?: React.ReactNode;
+  forceColor?: string;
+  highlightLines?: boolean;
+  highlightBg?: string;
+  highlightPaddingX?: number;
+  highlightPaddingY?: number;
+  highlightRadius?: number;
+  highlightGapY?: number;
 }
 
-/**
- * Componente de título clicável com cor por editoria e linha animada
- * Implementa:
- * - Cores de texto baseadas na editoria (paleta oficial)
- * - Linha animada L→R no hover
- * - Motion-safe para transições
- * - Focus-visible para acessibilidade
- * - Links funcionais para notícias
- */
 const TitleLink: React.FC<TitleLinkProps> = ({
   title,
   categoria,
@@ -29,19 +27,25 @@ const TitleLink: React.FC<TitleLinkProps> = ({
   href,
   onClick,
   className = '',
-  children
+  children,
+  forceColor,
+  highlightLines = false,
+  highlightBg = 'rgba(255,255,255,0.96)',
+  highlightPaddingX = 8,
+  highlightPaddingY = 2,
+  highlightRadius = 4,
+  highlightGapY = 0
 }) => {
-  const textColor = getEditoriaTextColor(categoria, subcategoria);
+  const textColor = forceColor || getEditoriaTextColor(categoria, subcategoria);
   const hoverColor = getEditoriaHoverColor(categoria, subcategoria);
 
-  // Gerar URL se não foi fornecida
-  const finalHref = href || (postId && categoria ? 
-    `/noticia/${categoria}/${title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}/${postId}` 
+  const finalHref = href || (postId && categoria ?
+    `/noticia/${categoria}/${title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}/${postId}`
     : undefined
   );
 
   const baseClasses = `
-    relative inline-block
+    relative
     transition-colors duration-200
     motion-safe:transition-colors
     focus-visible:outline-none
@@ -51,8 +55,7 @@ const TitleLink: React.FC<TitleLinkProps> = ({
     cursor-pointer
   `;
 
-  // Usar anchor tag quando há href, span quando há apenas onClick
-  const Component = finalHref ? 'a' : 'span';
+  const Component: any = finalHref ? 'a' : 'span';
 
   const handleClick = (e: React.MouseEvent<any>) => {
     if (onClick) {
@@ -60,25 +63,16 @@ const TitleLink: React.FC<TitleLinkProps> = ({
       e.stopPropagation();
       onClick();
     }
-    // Para elementos 'a' com href, deixar o navegador lidar com a navegação normalmente
   };
 
   const handleMouseEnter = (e: React.MouseEvent<any>) => {
-    // Não alterar cor do título - apenas animar a linha
     const line = e.currentTarget.querySelector('.title-line') as HTMLElement;
-    if (line) {
-      line.style.width = '100%';
-    }
+    if (line) line.style.width = '100%';
   };
-
   const handleMouseLeave = (e: React.MouseEvent<any>) => {
-    // Não alterar cor do título - apenas animar a linha
     const line = e.currentTarget.querySelector('.title-line') as HTMLElement;
-    if (line) {
-      line.style.width = '0';
-    }
+    if (line) line.style.width = '0';
   };
-
   const handleFocus = (e: React.FocusEvent<any>) => {
     const line = e.currentTarget.querySelector('.title-line') as HTMLElement;
     if (line) {
@@ -86,7 +80,6 @@ const TitleLink: React.FC<TitleLinkProps> = ({
       line.style.transition = 'none';
     }
   };
-
   const handleBlur = (e: React.FocusEvent<any>) => {
     const line = e.currentTarget.querySelector('.title-line') as HTMLElement;
     if (line) {
@@ -95,30 +88,52 @@ const TitleLink: React.FC<TitleLinkProps> = ({
     }
   };
 
+  const componentStyle: React.CSSProperties = {
+    color: textColor,
+    textDecoration: 'none'
+  };
+
   return (
     <Component
       onClick={onClick ? handleClick : undefined}
-      href={Component === 'a' ? finalHref : undefined}
-      className={`${baseClasses} ${className} title-with-line`}
-      style={{
-        color: textColor,
-        textDecoration: 'none'
-      }}
+      href={finalHref}
+      className={`${baseClasses} ${highlightLines ? 'inline' : 'inline-block'} ${className} title-with-line`}
+      style={componentStyle}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onFocus={handleFocus}
       onBlur={handleBlur}
     >
-      {children || title}
-      
-      {/* Linha animada */}
-      <span
-        className="title-line absolute bottom-0 left-0 h-px w-0 motion-safe:transition-all motion-safe:duration-300 motion-safe:ease-out"
-        style={{
-          backgroundColor: 'currentColor',
-          transition: 'width 0.3s ease'
-        }}
-      />
+      {highlightLines ? (
+        <span
+          style={{
+            backgroundColor: highlightBg,
+            padding: `${highlightPaddingY}px ${highlightPaddingX}px`,
+            borderRadius: highlightRadius,
+            backgroundClip: 'padding-box',
+            boxDecorationBreak: 'clone' as any,
+            WebkitBoxDecorationBreak: 'clone' as any,
+            borderTop: highlightGapY ? `${highlightGapY}px solid transparent` : undefined,
+            borderBottom: highlightGapY ? `${highlightGapY}px solid transparent` : undefined,
+            lineHeight: 'inherit',
+            display: 'inline'
+          }}
+        >
+          {children || title}
+        </span>
+      ) : (
+        children || title
+      )}
+
+      {!highlightLines && (
+        <span
+          className="title-line absolute bottom-0 left-0 h-px w-0 motion-safe:transition-all motion-safe:duration-300 motion-safe:ease-out"
+          style={{
+            backgroundColor: 'currentColor',
+            transition: 'width 0.3s ease'
+          }}
+        />
+      )}
     </Component>
   );
 };

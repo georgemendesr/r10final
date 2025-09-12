@@ -129,8 +129,9 @@ function App() {
       }
     };
 
+    const isOriginalHero = getActiveHeroLayout() === 'original';
     const sectionComponents: { [key: string]: React.ReactNode } = {
-      superManchete: <div data-e2e="hero-headline"><HeroHeadline /></div>,
+      superManchete: isOriginalHero ? <div data-e2e="hero-headline"><HeroHeadline /></div> : null,
       destaques: getActiveHeroGridComponent(),
       noticiasGerais: <NewsGeneralSection />,
       maisLidas: <MostReadSection />,
