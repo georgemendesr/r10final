@@ -133,14 +133,45 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
     return () => { alive = false; };
   }, [id]);
 
-  // 3) Efeito para animar destaque quando entrar na viewport (sempre chamado)
+  // 3) Efeito para animar destaques quando entrarem na viewport
   useEffect(() => {
+    const animateHighlight = (element: HTMLElement) => {
+      // Estilo de animação inline para garantir funcionamento
+      element.style.position = 'relative';
+      element.style.background = 'linear-gradient(90deg, rgb(251, 191, 36), rgb(245, 158, 11)) left center / 0% 100% no-repeat';
+      element.style.transition = 'background-size 2s cubic-bezier(0.4, 0, 0.2, 1)';
+      element.style.color = 'rgb(0, 0, 0)';
+      element.style.fontWeight = '600';
+      element.style.padding = '2px 4px';
+      element.style.borderRadius = '4px';
+      element.style.display = 'inline';
+      
+      // Animar o background-size para 100%
+      setTimeout(() => {
+        element.style.backgroundSize = '100% 100%';
+      }, 100);
+    };
+
     const observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
-          const highlightedSpans = entry.target.querySelectorAll('span[class*="bg-red-200"]');
-          highlightedSpans.forEach((span) => {
-            span.classList.add('animate-highlight-pulse');
+          // Buscar por múltiplos seletores de destaque
+          const highlightSelectors = [
+            'span[data-highlight="animated"]',
+            'span.highlight-animated',
+            'span[class*="highlight"]',
+            '.highlight-animated'
+          ];
+          
+          highlightSelectors.forEach(selector => {
+            const highlights = entry.target.querySelectorAll(selector);
+            highlights.forEach((highlight) => {
+              const htmlHighlight = highlight as HTMLElement;
+              if (!htmlHighlight.hasAttribute('data-animated')) {
+                htmlHighlight.setAttribute('data-animated', 'true');
+                animateHighlight(htmlHighlight);
+              }
+            });
           });
         }
       });
@@ -340,7 +371,15 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
             
             {/* Título Principal com Hierarquia Clara */}
             <div className="space-y-8">
-              <h1 className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-black leading-[1.05] font-rubik tracking-tight">
+              <h1 
+                className="tracking-tight"
+                style={{
+                  fontFamily: 'Inter, sans-serif',
+                  fontWeight: 900,
+                  fontSize: '48px',
+                  lineHeight: '1.1'
+                }}
+              >
                 <span 
                   className="title-gradient bg-gradient-to-r bg-clip-text text-transparent"
                   style={{ 
@@ -582,7 +621,23 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
               {/* Article Content */}
               <div ref={articleRef} className="prose prose-lg max-w-none font-poppins">
                 {finalArticle.content.map((paragraph, index) => {
-                  // Renderizar diferentes tipos de conteúdo
+                  // Se o conteúdo contém HTML (detectar por tags), processar elementos HTML específicos
+                  if (paragraph.includes('<') && paragraph.includes('>')) {
+                    // Processar conteúdo HTML preservando a estrutura correta
+                    return (
+                      <div key={index} 
+                           className="text-gray-800 leading-relaxed mb-6 text-base font-normal"
+                           dangerouslySetInnerHTML={{ __html: paragraph }}
+                           style={{
+                             lineHeight: '1.8',
+                             fontSize: '16px',
+                             fontFamily: 'Poppins, sans-serif'
+                           }}
+                      />
+                    );
+                  }
+                  
+                  // Renderizar diferentes tipos de conteúdo estruturado
                   if (paragraph.startsWith('### ')) {
                     // Subtítulo H3
                                         return (
@@ -711,6 +766,56 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
       </section>
       
       <Footer />
+      
+      {/* CSS para conteúdo HTML renderizado */}
+      <style jsx>{`
+        .article-html-content {
+          color: #374151;
+          line-height: 1.8;
+        }
+        
+        .article-html-content p {
+          margin-bottom: 1.5rem;
+          color: #374151;
+          font-size: 16px;
+          line-height: 1.7;
+        }
+        
+        .article-html-content div {
+          margin-bottom: 1rem;
+        }
+        
+        .article-html-content span {
+          color: inherit;
+        }
+        
+        .article-html-content blockquote {
+          border-left: 4px solid #3b82f6;
+          padding-left: 1.5rem;
+          padding-top: 0.75rem;
+          padding-bottom: 0.75rem;
+          margin: 1.5rem 0;
+          font-style: italic;
+          background-color: #eff6ff;
+          border-radius: 0 0.5rem 0.5rem 0;
+          color: #1f2937;
+        }
+        
+        .article-html-content br {
+          line-height: 2;
+        }
+        
+        .article-html-content .highlight-animated {
+          position: relative;
+          background: linear-gradient(90deg, rgb(251, 191, 36), rgb(245, 158, 11)) left center / 0% 100% no-repeat;
+          transition: background-size 2s cubic-bezier(0.4, 0, 0.2, 1);
+          color: rgb(0, 0, 0);
+          font-weight: 600;
+          padding: 2px 4px;
+          border-radius: 4px;
+          display: inline;
+        }
+      `}</style>
     </div>
   );
 };

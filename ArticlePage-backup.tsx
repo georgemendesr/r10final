@@ -2,6 +2,68 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { buildArticleMeta } from '../lib/seo';
 import { Calendar, User, Share2, Bookmark, Facebook, MessageCircle, Volume2, Twitter } from 'lucide-react';
+            con          // Sistema de animação no scroll - SIMPLES E FUNCIONAL
+          let hasAnimated = false;
+          
+          const animateElement = () => {
+            if (hasAnimated) return;
+            
+            const rect = htmlElement.getBoundingClientRect();
+            const windowHeight = window.innerHeight;
+            
+            console.log('📏 DEBUG: Checking scroll position', {
+              elementTop: rect.top,
+              elementBottom: rect.bottom,
+              windowHeight: windowHeight,
+              isVisible: rect.top < windowHeight && rect.bottom > 0
+            });
+            
+            // Se elemento está visível na tela (qualquer parte)
+            if (rect.top < windowHeight && rect.bottom > 0) {
+              console.log('✨ DEBUG: ANIMANDO elemento no scroll!');
+              htmlElement.style.backgroundSize = '100% 100%';
+              htmlElement.setAttribute('data-animated', 'true');
+              hasAnimated = true;
+              
+              // Remover listeners após animar
+              window.removeEventListener('scroll', animateElement);
+              window.removeEventListener('resize', animateElement);
+            }
+          };
+          
+          // Verificar imediatamente (caso já esteja visível)
+          setTimeout(animateElement, 100);
+          
+          // Adicionar listeners para scroll e resize
+          window.addEventListener('scroll', animateElement, { passive: true });
+          window.addEventListener('resize', animateElement, { passive: true });owHeight = window.innerHeight;
+            
+            console.log('📏 DEBUG: Verificando visibilidade', {
+              top: rect.top,
+              bottom: rect.bottom,
+              windowHeight: windowHeight,
+              isVisible: rect.top < windowHeight && rect.bottom > 0
+            });
+            
+            // Se elemento está visível na tela
+            if (rect.top < windowHeight && rect.bottom > 0) {
+              console.log('✨ DEBUG: ANIMANDO no scroll!');
+              htmlElement.style.backgroundSize = '100% 100%';
+              htmlElement.setAttribute('data-animated', 'true');
+              hasAnimated = true;
+              
+              // Remover listener após animar
+              window.removeEventListener('scroll', checkVisibility);
+              window.removeEventListener('resize', checkVisibility);
+            }
+          };
+          
+          // Verificar imediatamente (caso já esteja visível)
+          checkVisibility();
+          
+          // Verificar durante scroll e resize
+          window.addEventListener('scroll', checkVisibility, { passive: true });
+          window.addEventListener('resize', checkVisibility, { passive: true });ct';
 import { Link, useParams } from 'react-router-dom';
 import { getPostById } from '../services/postsService';
 import Header from './Header';
@@ -18,6 +80,30 @@ import { getEditoriaTextColor } from '../lib/editorias-colors';
 import ReactionVoting from './ReactionVoting';
 import Footer from './Footer';
 import usePostView from '../hooks/usePostView'; // Importar o hook de views
+
+// 🚨 ULTRA-AGGRESSIVE ALIGN CLEANER FUNCTION 🚨
+const cleanAlignMarkers = (text: string): string => {
+  console.log('🧹 LIMPANDO MARCADORES ALIGN do texto:', text.substring(0, 100));
+  
+  const cleaned = text
+    // Remove all ALIGN markers
+    .replace(/ALIGN_justify_START/g, '')
+    .replace(/ALIGN_justify_END/g, '')
+    .replace(/ALIGN_left_START/g, '')
+    .replace(/ALIGN_left_END/g, '')
+    .replace(/ALIGN_center_START/g, '')
+    .replace(/ALIGN_center_END/g, '')
+    .replace(/ALIGN_right_START/g, '')
+    .replace(/ALIGN_right_END/g, '')
+    .replace(/\*\*ALIGN_[^*]*\*\*/g, '')
+    .replace(/ALIGN_[A-Za-z_]+/g, '')
+    .replace(/\[ALIGN[^\]]*\]/g, '')
+    .replace(/<ALIGN[^>]*>/g, '')
+    .replace(/{{ALIGN[^}]*}}/g, '');
+    
+  console.log('✅ TEXTO LIMPO:', cleaned.substring(0, 100));
+  return cleaned;
+};
 
 interface ArticleData {
   id: string;
@@ -133,38 +219,120 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
     return () => { alive = false; };
   }, [id]);
 
-  // 3) Efeito para animar highlight quando aparecer na tela
+  // 3) Efeito para animar destaque quando entrar na viewport
   useEffect(() => {
-    const animateHighlights = () => {
-      const highlightElements = document.querySelectorAll('span[data-highlight="animated"]:not([data-animated])');
-      
-      highlightElements.forEach((element) => {
-        const rect = element.getBoundingClientRect();
-        const windowHeight = window.innerHeight;
-        
-        // Se está visível (com margem para animar antes de aparecer totalmente)
-        if (rect.top < windowHeight - 50 && rect.bottom > 50) {
-          console.log('✨ ANIMAÇÃO: Ativando highlight para:', element.textContent?.substring(0, 30));
-          element.setAttribute('data-animated', 'true');
-          (element as HTMLElement).style.backgroundSize = '100% 100%';
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          // Buscar por destaques animados com diferentes seletores
+          const animatedHighlights = entry.target.querySelectorAll(
+            '.highlight-animated, [data-highlight="animated"], span[class*="highlight-animated"]'
+          );
+          
+          animatedHighlights.forEach((span) => {
+            const htmlSpan = span as HTMLElement;
+            
+            // Aplicar estilos CSS diretamente para garantir a animação
+            htmlSpan.style.cssText = `
+              position: relative !important;
+              background: linear-gradient(90deg, #fbbf24, #f59e0b) !important;
+              background-size: 100% 100% !important;
+              background-repeat: no-repeat !important;
+              background-position: left center !important;
+              color: #000 !important;
+              font-weight: 600 !important;
+              padding: 2px 4px !important;
+              border-radius: 4px !important;
+              display: inline !important;
+              transition: background-size 2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            `;
+            
+            // Marcar como animado
+            htmlSpan.classList.add('animate-in-view');
+            htmlSpan.setAttribute('data-animated', 'true');
+            
+            // Remover do observer
+            observer.unobserve(htmlSpan);
+          });
         }
+      });
+    }, {
+      threshold: 0.3,
+      rootMargin: '0px 0px -100px 0px'
+    });
+
+    // Observar todos os parágrafos que podem conter destaques
+    if (articleRef.current) {
+      const paragraphs = articleRef.current.querySelectorAll('p');
+      paragraphs.forEach(p => observer.observe(p));
+    }
+
+    return () => observer.disconnect();
+  }, [id]); // Reexecutar quando o artigo mudar
+
+  // 4) Efeito específico para inicializar destaques animados após renderização
+  useEffect(() => {
+    console.log('🔥 DEBUG: useEffect para highlights executado!', { id, article });
+    
+    const initializeHighlights = () => {
+      console.log('🔍 DEBUG: initializeHighlights chamado!');
+      
+      // Buscar todos os elementos que podem ser destaques animados
+      const highlightSelectors = [
+        '.highlight-animated',
+        '[data-highlight="animated"]',
+        'span[class*="highlight-animated"]',
+        'strong[style*="background"]', // Para casos onde foi convertido para strong
+        'span[style*="linear-gradient"]'
+      ];
+
+      highlightSelectors.forEach(selector => {
+        const elements = document.querySelectorAll(selector);
+        console.log(`🎯 DEBUG: Seletor "${selector}" encontrou ${elements.length} elementos`);
+        
+        elements.forEach((element) => {
+          const htmlElement = element as HTMLElement;
+          
+          // Não processar se já foi animado
+          if (htmlElement.getAttribute('data-animated') === 'true') return;
+
+          // Aplicar estilos iniciais SEM animação (invisível)
+          htmlElement.style.cssText = `
+            position: relative !important;
+            background: linear-gradient(90deg, #fbbf24, #f59e0b) !important;
+            background-size: 0% 100% !important;
+            background-repeat: no-repeat !important;
+            background-position: left center !important;
+            transition: background-size 2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            color: #000 !important;
+            font-weight: 600 !important;
+            padding: 2px 4px !important;
+            border-radius: 4px !important;
+            display: inline !important;
+          `;
+
+          // FORÇAR ANIMAÇÃO IMEDIATA POR ENQUANTO
+          console.log('� DEBUG: FORÇANDO ANIMAÇÃO IMEDIATA!');
+          setTimeout(() => {
+            htmlElement.style.backgroundSize = '100% 100%';
+            htmlElement.setAttribute('data-animated', 'true');
+            console.log('✨ DEBUG: Animação forçada aplicada!');
+          }, 2000); // 2 segundos após carregar
+        });
       });
     };
 
-    // Verificar imediatamente após renderização
-    const checkTimer = setTimeout(() => {
-      console.log('🔍 Buscando elementos highlight...');
-      animateHighlights();
-    }, 100);
-
-    // Escutar scroll para animações futuras
-    window.addEventListener('scroll', animateHighlights, { passive: true });
+    // Executar múltiplas vezes para garantir que pegue o HTML renderizado
+    const timer1 = setTimeout(initializeHighlights, 100);
+    const timer2 = setTimeout(initializeHighlights, 500);
+    const timer3 = setTimeout(initializeHighlights, 1000);
     
     return () => {
-      clearTimeout(checkTimer);
-      window.removeEventListener('scroll', animateHighlights);
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
     };
-  }, [article, articleData]); // Executar quando conteúdo mudar
+  }, [id, article]); // Executar sempre que o artigo mudar
 
   // Dados padrão caso não sejam fornecidos
   const defaultArticle: ArticleData = {
@@ -505,16 +673,16 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
                                      } else if (paragraph.includes('==') && paragraph.includes('==') || 
                               paragraph.includes('<span class="highlight-simple">') ||
                               paragraph.includes('<span class="highlight-animated">')) {
-                     // Processar destaques com animação funcionando
-                     let highlightedText = paragraph
-                       // Formato antigo: ===texto=== = ANIMADO
-                       .replace(/===(.*?)===/g, '<span data-highlight="animated">$1</span>')
-                       // Formato antigo: ==texto== = SIMPLES
-                       .replace(/==(.*?)==/g, '<span class="bg-yellow-200 px-1 rounded border border-yellow-400">$1</span>')
-                       // Formato novo já com animação
-                       .replace(/<span class="highlight-animated"[^>]*>(.*?)<\/span>/g, '<span data-highlight="animated">$1</span>')
-                       // Formato simples
-                       .replace(/<span class="highlight-simple"[^>]*>(.*?)<\/span>/g, '<span class="bg-yellow-200 px-1 rounded border border-yellow-400">$1</span>')
+                     // Processar destaques - tanto formato antigo quanto novo
+                     let highlightedText = cleanAlignMarkers(paragraph)
+                       // Formato antigo: ==texto==
+                       .replace(/==(.*?)==/g, '<span class="bg-yellow-200 px-1 rounded border border-yellow-400" style="background: linear-gradient(120deg, #fef3c7 0%, #fde68a 100%); padding: 2px 4px; border-radius: 4px; border: 1px solid #f59e0b;">$1</span>')
+                       // Formato antigo: ===texto===
+                       .replace(/===(.*?)===/g, '<span class="bg-red-200 px-1 rounded border-2 border-red-400" style="background: linear-gradient(120deg, #fecaca 0%, #fca5a5 100%); padding: 2px 4px; border-radius: 4px; border: 2px solid #ef4444; animation: highlight-pulse 2s infinite;">$1</span>')
+                       // Formato novo: <span class="highlight-simple">texto</span>
+                       .replace(/<span class="highlight-simple"[^>]*>(.*?)<\/span>/g, '<span style="background: linear-gradient(120deg, #fef3c7 0%, #fde68a 100%); padding: 2px 4px; border-radius: 4px; border: 1px solid #f59e0b; display: inline;">$1</span>')
+                       // Formato novo: <span class="highlight-animated">texto</span>  
+                       .replace(/<span class="highlight-animated"[^>]*>(.*?)<\/span>/g, '<span style="background: linear-gradient(120deg, #fecaca 0%, #fca5a5 100%); padding: 2px 4px; border-radius: 4px; border: 2px solid #ef4444; animation: highlight-pulse 2s infinite; display: inline;">$1</span>')
                        // Processar formatação básica
                        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
                        .replace(/(?<!\*)\*([^*\n]+?)\*(?!\*)/g, '<em>$1</em>')
@@ -526,7 +694,7 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
                      );
                                      } else if (paragraph.includes('💡') || paragraph.includes('<div class="info-box">')) {
                      // Caixa de informação - processar HTML se necessário
-                     let processedText = paragraph
+                     let processedText = cleanAlignMarkers(paragraph)
                        .replace(/<div class="info-box"[^>]*>(.*?)<\/div>/g, '$1');
                        
                      return (
@@ -538,7 +706,7 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
                      );
                    } else if (paragraph.startsWith('### ') || paragraph.includes('<h3')) {
                      // Subtítulos H3
-                     let processedText = paragraph
+                     let processedText = cleanAlignMarkers(paragraph)
                        .replace(/### (.*?)(?=\n|$)/g, '$1')
                        .replace(/<h3[^>]*>(.*?)<\/h3>/g, '$1');
                        
@@ -547,22 +715,21 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
                          {processedText}
                        </h3>
                      );
-                   } else if (paragraph.startsWith('> ') || paragraph.includes('<blockquote')) {
-                     // Citações
-                     let processedText = paragraph
-                       .replace(/^> (.*?)(?=\n|$)/gm, '$1')
-                       .replace(/<blockquote[^>]*>(.*?)<\/blockquote>/g, '$1');
+                   } else if (paragraph.startsWith('> ')) {
+                     // Citações antigas (formato > texto)
+                     let processedText = cleanAlignMarkers(paragraph)
+                       .replace(/^> (.*?)(?=\n|$)/gm, '$1');
                        
                      return (
                        <blockquote key={index} className="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 text-blue-900 my-6 rounded-r-lg">
-                         <p className="text-base font-normal italic"
-                            dangerouslySetInnerHTML={{ __html: processedText }}>
+                         <p className="text-base font-normal italic">
+                           {processedText}
                          </p>
                        </blockquote>
                      );
                   } else {
                      // Parágrafo normal - processar formatação básica
-                     let processedText = paragraph
+                     let processedText = cleanAlignMarkers(paragraph)
                        // Processar formatação básica
                        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
                        .replace(/(?<!\*)\*([^*\n]+?)\*(?!\*)/g, '<em>$1</em>')

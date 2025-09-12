@@ -53,6 +53,53 @@ function App() {
     // Inicializar serviços na startup
     useEffect(() => {
       initializeServices();
+      
+      // Inicializar observador para animações de destaque
+      const initializeHighlightAnimations = () => {
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              const element = entry.target as HTMLElement;
+              if (element.getAttribute('data-highlight') === 'animated') {
+                element.classList.add('animate-in-view');
+                element.style.backgroundSize = '100% 100%';
+                observer.unobserve(element);
+              }
+            }
+          });
+        }, { threshold: 0.1 });
+
+        // Observar elementos existentes
+        const observeElements = () => {
+          const animatedElements = document.querySelectorAll('[data-highlight="animated"]');
+          animatedElements.forEach(element => {
+            if (!element.classList.contains('animate-in-view')) {
+              observer.observe(element);
+            }
+          });
+        };
+
+        // Observer inicial
+        observeElements();
+
+        // Reobservar quando conteúdo mudar (para artigos carregados dinamicamente)
+        const mutationObserver = new MutationObserver(() => {
+          setTimeout(observeElements, 100);
+        });
+
+        mutationObserver.observe(document.body, {
+          childList: true,
+          subtree: true
+        });
+
+        return () => {
+          observer.disconnect();
+          mutationObserver.disconnect();
+        };
+      };
+
+      const cleanup = initializeHighlightAnimations();
+      return cleanup;
     }, []);
 
     // Força atualização quando volta para a homepage

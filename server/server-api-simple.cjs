@@ -140,14 +140,18 @@ function reorganizePositionHierarchy(db, updatedPostId, newPosition, callback) {
       // Se está inserindo uma nova SUPER MANCHETE
       
       // 1. Super manchete anterior vira DESTAQUE
+      let willHaveExtraDestaque = false;
       if (superManchetes.length > 0) {
         const currentSuperManchete = superManchetes[0];
         updates.push({ id: currentSuperManchete.id, posicao: 'destaque' });
         console.log(`📰 [BACKEND] Super manchete anterior (ID: ${currentSuperManchete.id}) vira DESTAQUE`);
+        willHaveExtraDestaque = true;
       }
       
-      // 2. Se já temos 5+ destaques, o mais antigo vira GERAL
-      if (destaques.length >= 5) {
+      // 2. Se teremos 6+ destaques após mover a supermanchete, o mais antigo vira GERAL
+      const totalDestaques = destaques.length + (willHaveExtraDestaque ? 1 : 0);
+      console.log(`🔢 [BACKEND] Cálculo: ${destaques.length} destaques + ${willHaveExtraDestaque ? 1 : 0} (supermanchete) = ${totalDestaques} total`);
+      if (totalDestaques > 5) {
         // Ordenar destaques por data (mais antigo primeiro)
         const sortedDestaques = destaques.sort((a, b) => {
           const dateA = new Date(a.publishedAt || a.published_at || a.data || 0).getTime();
@@ -157,13 +161,16 @@ function reorganizePositionHierarchy(db, updatedPostId, newPosition, callback) {
         
         const oldestDestaque = sortedDestaques[0];
         updates.push({ id: oldestDestaque.id, posicao: 'geral' });
-        console.log(`📄 [BACKEND] Destaque mais antigo (ID: ${oldestDestaque.id}) vira GERAL`);
+        console.log(`📄 [BACKEND] Destaque mais antigo (ID: ${oldestDestaque.id}) vira GERAL (mantendo 5 destaques)`);
+      } else {
+        console.log(`✅ [BACKEND] Total de ${totalDestaques} destaques está OK (≤5), nada a rebaixar`);
       }
       
     } else if (normalizedNewPosition === 'destaque') {
       // Se está inserindo um novo DESTAQUE
       
-      // Se já temos 5+ destaques, o mais antigo vira GERAL
+      // 🔒 PROTEÇÃO: SÓ rebaixar se REALMENTE temos MAIS que 5 destaques
+      // (Considera que o post atual será atualizado, então +1 no total)
       if (destaques.length >= 5) {
         const sortedDestaques = destaques.sort((a, b) => {
           const dateA = new Date(a.publishedAt || a.published_at || a.data || 0).getTime();
@@ -372,11 +379,11 @@ function createApp({ dbPath }) {
           messages: [
             {
               role: 'system',
-              content: 'Você é um jornalista especializado em criar resumos detalhados e informativos. Responda sempre em português brasileiro. Crie exatamente 4 tópicos bem desenvolvidos com bullet points (•), cada um com pelo menos 20 palavras, destacando os pontos principais, contexto, impacto e consequências da notícia. Seja específico e informativo.'
+              content: 'Você é um jornalista especializado em criar resumos em bullet points. Responda sempre em português brasileiro. Crie exatamente 4 bullet points curtos e diretos com "•" destacando os pontos principais da notícia. Não use títulos como "Tópico 1" ou numeração. Apenas bullet points simples.'
             },
             {
               role: 'user', 
-              content: `Crie um resumo completo e detalhado em 4 tópicos desta notícia, incluindo contexto, dados importantes e impactos:\n\n${limitedContent}`
+              content: `Crie um resumo em 4 bullet points desta notícia:\n\n${limitedContent}`
             }
           ],
           max_tokens: 500,
@@ -393,18 +400,25 @@ function createApp({ dbPath }) {
       let summary = data.choices[0]?.message?.content?.trim();
       
       if (summary) {
-        // Garantir que o resumo tenha bullet points
-        const formattedSummary = summary
+        // Limpar e formatar o resumo com bullet points
+        const cleanSummary = summary
           .split('\n')
           .filter(line => line.trim())
           .map(line => {
-            const trimmed = line.trim();
-            return trimmed.startsWith('•') ? trimmed : `• ${trimmed}`;
+            const cleaned = line.trim()
+              .replace(/^Tópico \d+:/gi, '') // Remove "Tópico X:"
+              .replace(/^\d+\./g, '') // Remove numeração "1."
+              .replace(/^-\s*/, '') // Remove traços
+              .replace(/^\*\s*/, '') // Remove asteriscos
+              .trim();
+            
+            // Garantir que cada linha tenha bullet point
+            return cleaned.startsWith('•') ? cleaned : `• ${cleaned}`;
           })
           .join('\n');
         
-        console.log('✅ Resumo gerado automaticamente');
-        return formattedSummary;
+        console.log('✅ Resumo com bullet points gerado automaticamente');
+        return cleanSummary;
       }
       
       return null;
@@ -725,10 +739,20 @@ function createApp({ dbPath }) {
         return res.status(400).json({ error: 'Nada para atualizar (colunas inexistentes ou corpo vazio)' });
       }
 
-      const sql = `UPDATE noticias SET ${sets.join(', ')} WHERE id = ?`;
-      console.log(`🔍 [SQL] Executando: ${sql}`);
-      console.log(`📝 [SQL] Parâmetros:`, [...params, id]);
-      db.run(sql, [...params, id], function (uerr) {
+      // ✅ BUSCAR POSIÇÃO ATUAL ANTES DA ATUALIZAÇÃO
+      db.get('SELECT posicao FROM noticias WHERE id = ?', [id], (posErr, currentPost) => {
+        if (posErr) {
+          console.error('Erro ao buscar posição atual:', posErr);
+          return res.status(500).json({ error: 'Erro interno do servidor' });
+        }
+        
+        const currentPosition = currentPost ? currentPost.posicao : null;
+        console.log(`📍 [DEBUG] Posição atual: ${currentPosition} → Nova posição: ${desired.posicao}`);
+
+        const sql = `UPDATE noticias SET ${sets.join(', ')} WHERE id = ?`;
+        console.log(`🔍 [SQL] Executando: ${sql}`);
+        console.log(`📝 [SQL] Parâmetros:`, [...params, id]);
+        db.run(sql, [...params, id], function (uerr) {
         if (uerr) {
           console.error('Erro ao atualizar post:', uerr);
           return res.status(500).json({ error: 'Erro interno do servidor' });
@@ -758,12 +782,30 @@ function createApp({ dbPath }) {
         // Invalida cache home
         try { if (typeof invalidateHomeCache === 'function') invalidateHomeCache(); } catch(_) {}
         
-        // Se a posição foi alterada, reorganizar hierarquia
-        const positionChanged = desired.posicao && (desired.posicao === 'supermanchete' || desired.posicao === 'destaque');
+        // ✅ SÓ REORGANIZAR SE A POSIÇÃO REALMENTE MUDOU DE FORMA SIGNIFICATIVA
+        const hasExplicitPosition = desired.posicao && desired.posicao.trim() !== '';
+        const normalizedCurrentPosition = normalizePos(currentPosition || '');
+        const normalizedDesiredPosition = normalizePos(desired.posicao || '');
+        const isChangingToHighPriority = hasExplicitPosition && (normalizedDesiredPosition === 'supermanchete' || normalizedDesiredPosition === 'destaque');
+        const isChangingFromHighPriority = currentPosition && (normalizedCurrentPosition === 'supermanchete' || normalizedCurrentPosition === 'destaque');
+        const positionActuallyChanged = hasExplicitPosition && normalizedCurrentPosition && normalizedDesiredPosition !== normalizedCurrentPosition;
         
-        console.log(`🔍 [DEBUG] desired.posicao: ${desired.posicao}, positionChanged: ${positionChanged}`);
+        // 🔒 CONDIÇÃO ULTRA RESTRITIVA: só reorganizar se:
+        // 1. A posição realmente mudou (normalized comparison)
+        // 2. E está mudando PARA uma posição de alta prioridade (supermanchete/destaque)
+        // 3. E não está apenas editando uma matéria que JÁ ESTÁ em alta prioridade
+        const shouldReorganize = positionActuallyChanged && isChangingToHighPriority && !isChangingFromHighPriority;
         
-        if (positionChanged) {
+        console.log(`🔍 [DEBUG] Análise de reorganização:`);
+        console.log(`   - Posição atual: '${currentPosition}' (norm: '${normalizedCurrentPosition}')`);
+        console.log(`   - Posição desejada: '${desired.posicao}' (norm: '${normalizedDesiredPosition}')`);
+        console.log(`   - Posição mudou: ${positionActuallyChanged}`);
+        console.log(`   - Indo para alta prioridade: ${isChangingToHighPriority}`);
+        console.log(`   - Vindo de alta prioridade: ${isChangingFromHighPriority}`);
+        console.log(`   - DEVE REORGANIZAR: ${shouldReorganize}`);
+        
+        // ❌ NUNCA reorganizar edições simples em matérias que já estão em posições altas
+        if (shouldReorganize && hasExplicitPosition) {
           console.log(`🔄 [DEBUG] Chamando reorganizePositionHierarchy para post ${id} com posição ${desired.posicao}`);
           reorganizePositionHierarchy(db, id, desired.posicao, (hierarchyErr) => {
             if (hierarchyErr) {
@@ -788,6 +830,7 @@ function createApp({ dbPath }) {
             res.json(mapPost(row));
           });
         }
+        });  // Fecha o db.get que busca posição atual
       });
     });
   });

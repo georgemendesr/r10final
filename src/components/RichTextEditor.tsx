@@ -1,9 +1,8 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { 
-  Bold, Italic, Underline, Heading3, Quote, Lightbulb, 
-  List, SeparatorHorizontal, Highlighter, Sparkles, AlignJustify,
-  Image, Video, X, Upload, Link, AlignLeft, AlignCenter, AlignRight,
-  Undo, Redo, Eraser
+import React, { useState, useRef, useCallback, useEffect } from 'react';
+import {
+  Bold, Italic, Underline, Type, Quote, List, Palette,
+  AlignLeft, AlignCenter, AlignRight, AlignJustify,
+  Image, Video, Undo2, Redo2, Sparkles, Info, Minus, Eraser
 } from 'lucide-react';
 
 interface RichTextEditorProps {
@@ -22,1002 +21,627 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   onChange, 
   placeholder = "Digite o conteúdo da matéria aqui..." 
 }) => {
-  const [showImageModal, setShowImageModal] = useState(false);
-  const [showVideoModal, setShowVideoModal] = useState(false);
-  const [imageUrl, setImageUrl] = useState('');
-  const [imageAlt, setImageAlt] = useState('');
-  const [videoUrl, setVideoUrl] = useState('');
-  const [videoTitle, setVideoTitle] = useState('');
-  const [history, setHistory] = useState<HistoryState[]>([{ content: value, timestamp: Date.now() }]);
-  const [historyIndex, setHistoryIndex] = useState(0);
-  
   const editorRef = useRef<HTMLDivElement>(null);
-  const imageInputRef = useRef<HTMLInputElement>(null);
-  const videoInputRef = useRef<HTMLInputElement>(null);
+  const [history, setHistory] = useState<HistoryState[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const [isComposing, setIsComposing] = useState(false);
+
+  // Inicializar editor com conteúdo
+  useEffect(() => {
+    if (editorRef.current && editorRef.current.innerHTML !== value) {
+      editorRef.current.innerHTML = value || '';
+    }
+  }, [value]);
 
   // Adicionar ao histórico
   const addToHistory = useCallback((content: string) => {
-    const newHistory = history.slice(0, historyIndex + 1);
-    newHistory.push({ content, timestamp: Date.now() });
+    const newHistory = [...history.slice(0, historyIndex + 1), {
+      content,
+      timestamp: Date.now()
+    }];
     
-    // Manter apenas os últimos 50 estados
+    // Manter apenas últimas 50 entradas
     if (newHistory.length > 50) {
       newHistory.shift();
-    } else {
-      setHistoryIndex(prev => prev + 1);
     }
     
     setHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
   }, [history, historyIndex]);
 
-  // Desfazer (Ctrl+Z)
-  const undo = useCallback(() => {
-    if (historyIndex > 0) {
-      const newIndex = historyIndex - 1;
-      setHistoryIndex(newIndex);
-      onChange(history[newIndex].content);
+  // Manipular mudanças no conteúdo
+  const handleContentChange = useCallback(() => {
+    if (!editorRef.current || isComposing) return;
+    
+    const content = editorRef.current.innerHTML;
+    onChange(content);
+    
+    // Adicionar ao histórico apenas se o conteúdo mudou significativamente
+    const lastHistory = history[historyIndex];
+    if (!lastHistory || content !== lastHistory.content) {
+      addToHistory(content);
     }
-  }, [historyIndex, history, onChange]);
+  }, [onChange, isComposing, history, historyIndex, addToHistory]);
 
-  // Refazer (Ctrl+Y)
-  const redo = useCallback(() => {
-    if (historyIndex < history.length - 1) {
-      const newIndex = historyIndex + 1;
-      setHistoryIndex(newIndex);
-      onChange(history[newIndex].content);
-    }
-  }, [historyIndex, history, onChange]);
-
-  // Detectar atalhos de teclado
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey || e.metaKey) {
-        switch (e.key) {
-          case 'z':
-            e.preventDefault();
-            if (e.shiftKey) {
-              redo();
-            } else {
-              undo();
-            }
-            break;
-          case 'y':
-            e.preventDefault();
-            redo();
-            break;
-          case 'b':
-            e.preventDefault();
-            applyFormat('bold');
-            break;
-          case 'i':
-            e.preventDefault();
-            applyFormat('italic');
-            break;
-          case 'u':
-            e.preventDefault();
-            applyFormat('underline');
-            break;
-        }
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [undo, redo]);
-
-  // Aplicar formatação - ABORDAGEM MELHORADA
-  const applyFormat = (format: string) => {
+  // Aplicar formatação
+  const applyFormat = useCallback((format: string) => {
     if (!editorRef.current) return;
     
-    const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0) return;
-
-    const selectedText = selection.toString().trim();
+    editorRef.current.focus();
     
-    // Verificar se há texto selecionado para formatações que precisam dele
-    const needsSelection = ['highlight-simple', 'highlight-animated', 'info'];
-    if (needsSelection.includes(format) && selectedText.length === 0) {
-      alert('Por favor, selecione o texto que deseja destacar.');
-      return;
-    }
-    
-    if (selectedText.length === 0 && !['separator', 'justify-left', 'justify-center', 'justify-right', 'justify-full'].includes(format)) return;
-
-    // Verificar se a seleção está dentro do editor
-    const range = selection.getRangeAt(0);
-    if (!editorRef.current.contains(range.commonAncestorContainer)) {
-      return;
-    }
-
-    // Usar document.execCommand para formatação direta
     switch (format) {
       case 'bold':
-        document.execCommand('bold', false);
+        document.execCommand('bold');
         break;
       case 'italic':
-        document.execCommand('italic', false);
+        document.execCommand('italic');
         break;
       case 'underline':
-        document.execCommand('underline', false);
+        document.execCommand('underline');
         break;
       case 'h3':
         document.execCommand('formatBlock', false, 'h3');
         break;
       case 'quote':
-        document.execCommand('formatBlock', false, 'blockquote');
+        insertSpecialElement('blockquote', 'citação');
         break;
       case 'list':
-        document.execCommand('insertUnorderedList', false);
-        break;
-      case 'highlight-simple':
-        // Usar execCommand para manter a formatação
-        if (selectedText.length > 0) {
-          const span = document.createElement('span');
-          span.className = 'highlight-simple';
-          
-          try {
-            const range = selection.getRangeAt(0);
-            const contents = range.extractContents();
-            span.appendChild(contents);
-            range.insertNode(span);
-            
-            // Restaurar seleção
-            const newRange = document.createRange();
-            newRange.selectNodeContents(span);
-            selection.removeAllRanges();
-            selection.addRange(newRange);
-          } catch (error) {
-            console.warn('Erro ao aplicar destaque simples:', error);
-            // Fallback - apenas inserir o texto com destaque
-            span.textContent = selectedText;
-            const range = selection.getRangeAt(0);
-            range.deleteContents();
-            range.insertNode(span);
-          }
-        }
-        break;
-      case 'highlight-animated':
-        // Usar execCommand para manter a formatação
-        if (selectedText.length > 0) {
-          const spanAnim = document.createElement('span');
-          spanAnim.className = 'highlight-animated';
-          
-          try {
-            const range = selection.getRangeAt(0);
-            const contents = range.extractContents();
-            spanAnim.appendChild(contents);
-            range.insertNode(spanAnim);
-            
-            // Restaurar seleção
-            const newRange = document.createRange();
-            newRange.selectNodeContents(spanAnim);
-            selection.removeAllRanges();
-            selection.addRange(newRange);
-          } catch (error) {
-            console.warn('Erro ao aplicar destaque animado:', error);
-            // Fallback - apenas inserir o texto com destaque
-            spanAnim.textContent = selectedText;
-            const range = selection.getRangeAt(0);
-            range.deleteContents();
-            range.insertNode(spanAnim);
-          }
-        }
-        break;
-      case 'info':
-        const infoDiv = document.createElement('div');
-        infoDiv.className = 'info-box';
-        infoDiv.innerHTML = `💡 <strong>${selectedText}</strong>`;
-        const rangeInfo = selection.getRangeAt(0);
-        rangeInfo.deleteContents();
-        rangeInfo.insertNode(infoDiv);
-        break;
-      case 'separator':
-        const hr = document.createElement('hr');
-        hr.className = 'separator';
-        const rangeHr = selection.getRangeAt(0);
-        rangeHr.insertNode(hr);
+        document.execCommand('insertUnorderedList');
         break;
       case 'justify-left':
-        document.execCommand('justifyLeft', false);
+        document.execCommand('justifyLeft');
         break;
       case 'justify-center':
-        document.execCommand('justifyCenter', false);
+        document.execCommand('justifyCenter');
         break;
       case 'justify-right':
-        document.execCommand('justifyRight', false);
+        document.execCommand('justifyRight');
         break;
       case 'justify-full':
-        document.execCommand('justifyFull', false);
+        document.execCommand('justifyFull');
+        break;
+      case 'highlight-simple':
+        insertHighlight('simple');
+        break;
+      case 'highlight-animated':
+        insertHighlight('animated');
+        break;
+      case 'info':
+        insertSpecialElement('div', 'informação importante');
+        break;
+      case 'separator':
+        insertSeparator();
         break;
     }
+    
+    handleContentChange();
+  }, [handleContentChange]);
 
-    // Atualizar o valor
-    updateContent();
-  };
-
-  // Atualizar conteúdo do editor
-  const updateContent = () => {
+  // Limpar formatação
+  const clearFormatting = () => {
     if (!editorRef.current) return;
     
-    // Obter o HTML do editor
-    const html = editorRef.current.innerHTML;
-    
-    // Salvar posição do cursor
     const selection = window.getSelection();
-    const cursorPos = getSelectionStart();
+    if (!selection || selection.rangeCount === 0) return;
     
-    // Processar HTML para texto mantendo estrutura
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = html;
-    
-    // Preservar estrutura de parágrafos e quebras
-    let processedText = html
-      // Preservar parágrafos
-      .replace(/<p>/g, '')
-      .replace(/<\/p>/g, '\n\n')
-      // Preservar quebras de linha
-      .replace(/<br\s*\/?>/g, '\n')
-      // Preservar destaques
-      .replace(/<span class="highlight-simple">(.*?)<\/span>/g, '<span class="highlight-simple">$1</span>')
-      .replace(/<span class="highlight-animated">(.*?)<\/span>/g, '<span class="highlight-animated">$1</span>')
-      // Preservar formatação básica
-      .replace(/<strong>(.*?)<\/strong>/g, '**$1**')
-      .replace(/<em>(.*?)<\/em>/g, '*$1*')
-      .replace(/<u>(.*?)<\/u>/g, '__$1__')
-      // Remover outras tags HTML mas manter o conteúdo
-      .replace(/<[^>]+>/g, '')
-      // Limpar quebras excessivas
-      .replace(/\n{3,}/g, '\n\n')
-      .trim();
-    
-    // Restaurar formatação especial
-    processedText = processedText
-      .replace(/<span class="highlight-simple">(.*?)<\/span>/g, '<span class="highlight-simple">$1</span>')
-      .replace(/<span class="highlight-animated">(.*?)<\/span>/g, '<span class="highlight-animated">$1</span>');
-    
-    onChange(processedText);
-    addToHistory(processedText);
-    
-    // Tentar restaurar posição do cursor
-    setTimeout(() => {
-      if (editorRef.current) {
-        editorRef.current.focus();
-        try {
-          const newSelection = window.getSelection();
-          if (newSelection && editorRef.current.firstChild) {
-            const range = document.createRange();
-            const textNode = editorRef.current.firstChild;
-            const maxPos = Math.min(cursorPos, (textNode.textContent || '').length);
-            range.setStart(textNode, maxPos);
-            range.collapse(true);
-            newSelection.removeAllRanges();
-            newSelection.addRange(range);
+    // Se há texto selecionado, limpar apenas a seleção
+    if (!selection.isCollapsed) {
+      // Remove formatação da seleção
+      document.execCommand('removeFormat');
+      document.execCommand('unlink');
+      
+      // Remove classes e estilos inline da seleção
+      const range = selection.getRangeAt(0);
+      const contents = range.extractContents();
+      
+      // Função recursiva para limpar nós
+      const cleanNode = (node: Node): Node => {
+        if (node.nodeType === Node.TEXT_NODE) {
+          return node;
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+          const element = node as HTMLElement;
+          
+          // Remove atributos de formatação
+          element.removeAttribute('style');
+          element.removeAttribute('class');
+          element.removeAttribute('data-highlight');
+          
+          // Limpa filhos recursivamente
+          Array.from(element.childNodes).forEach(child => {
+            const cleaned = cleanNode(child);
+            if (cleaned !== child) {
+              element.replaceChild(cleaned, child);
+            }
+          });
+          
+          // Se o elemento é apenas formatação visual (span, b, i, etc.), extrair o conteúdo
+          if (['SPAN', 'B', 'I', 'U', 'STRONG', 'EM'].includes(element.tagName)) {
+            const fragment = document.createDocumentFragment();
+            while (element.firstChild) {
+              fragment.appendChild(element.firstChild);
+            }
+            return fragment;
           }
-        } catch (error) {
-          // Silenciosamente falhar se não conseguir restaurar o cursor
+          
+          return element;
         }
-      }
-    }, 0);
-  };
-
-  // Função para limpar formatação problemática
-  const cleanupFormattingIssues = () => {
-    if (!editorRef.current) return;
-    
-    // Remover elementos vazios ou problemáticos
-    const emptyElements = editorRef.current.querySelectorAll('span:empty, mark:empty, strong:empty, em:empty');
-    emptyElements.forEach(el => el.remove());
-    
-    // Corrigir spans aninhados desnecessários
-    const spans = editorRef.current.querySelectorAll('span');
-    spans.forEach(span => {
-      if (span.childNodes.length === 1 && span.firstChild?.nodeType === Node.TEXT_NODE) {
-        // Preservar apenas spans com classes específicas
-        if (!span.className.includes('highlight')) {
-          const parent = span.parentNode;
-          if (parent) {
-            parent.insertBefore(span.firstChild, span);
-            parent.removeChild(span);
+        return node;
+      };
+      
+      const cleanedContents = document.createDocumentFragment();
+      Array.from(contents.childNodes).forEach(node => {
+        cleanedContents.appendChild(cleanNode(node));
+      });
+      
+      range.insertNode(cleanedContents);
+      
+    } else {
+      // Se não há seleção, limpar todo o editor
+      const content = editorRef.current.innerHTML;
+      
+      // Remove toda formatação mas preserva quebras de linha e parágrafos
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = content;
+      
+      const cleanAllNodes = (node: Node): string => {
+        if (node.nodeType === Node.TEXT_NODE) {
+          return node.textContent || '';
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+          const element = node as HTMLElement;
+          
+          // Preserva quebras de linha importantes
+          if (['BR', 'P', 'DIV'].includes(element.tagName)) {
+            const childText = Array.from(element.childNodes)
+              .map(child => cleanAllNodes(child))
+              .join('');
+            return element.tagName === 'BR' ? '\n' : `${childText}\n`;
           }
+          
+          // Para outros elementos, apenas extrair o texto
+          return Array.from(element.childNodes)
+            .map(child => cleanAllNodes(child))
+            .join('');
         }
-      }
-    });
-  };
-
-  // Obter início da seleção
-  const getSelectionStart = () => {
-    const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0) return value.length;
-    
-    const range = selection.getRangeAt(0);
-    
-    // Verificar se a seleção está dentro do editor
-    if (!editorRef.current?.contains(range.commonAncestorContainer)) {
-      return value.length;
+        return '';
+      };
+      
+      const plainText = cleanAllNodes(tempDiv);
+      
+      // Reconstroi o HTML apenas com parágrafos simples
+      const paragraphs = plainText
+        .split('\n')
+        .filter(line => line.trim())
+        .map(line => `<p>${line.trim()}</p>`)
+        .join('');
+      
+      editorRef.current.innerHTML = paragraphs || '<p></p>';
     }
     
-    try {
-      const preCaretRange = range.cloneRange();
-      preCaretRange.selectNodeContents(editorRef.current!);
-      preCaretRange.setEnd(range.startContainer, range.startOffset);
+    handleContentChange();
+  };
+
+  // Inserir highlight
+  const insertHighlight = (type: 'simple' | 'animated') => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+    
+    const range = selection.getRangeAt(0);
+    const selectedText = range.toString();
+    
+    if (selectedText) {
+      const span = document.createElement('span');
       
-      const start = preCaretRange.toString().length;
-      return Math.max(0, Math.min(start, value.length));
-    } catch (error) {
-      console.warn('Erro ao calcular início da seleção:', error);
-      return value.length;
+      if (type === 'animated') {
+        span.className = 'highlight-animated';
+        span.setAttribute('data-highlight', 'animated');
+        span.style.position = 'relative';
+        span.style.background = 'linear-gradient(90deg, rgb(251, 191, 36), rgb(245, 158, 11)) left center / 0% 100% no-repeat';
+        span.style.transition = 'background-size 2s cubic-bezier(0.4, 0, 0.2, 1)';
+        span.style.color = 'rgb(0, 0, 0)';
+        span.style.fontWeight = '600';
+        span.style.padding = '2px 4px';
+        span.style.borderRadius = '4px';
+        span.style.display = 'inline';
+      } else {
+        span.className = 'bg-yellow-200 px-1 rounded';
+      }
+      
+      span.textContent = selectedText;
+      range.deleteContents();
+      range.insertNode(span);
+      selection.removeAllRanges();
+      
+      handleContentChange();
+    }
+  };
+
+  // Inserir elemento especial
+  const insertSpecialElement = (tag: string, placeholder: string) => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+    
+    const range = selection.getRangeAt(0);
+    const selectedText = range.toString().trim();
+    
+    const element = document.createElement(tag);
+    
+    if (tag === 'blockquote') {
+      element.className = 'bg-gray-50 border-l-4 border-blue-500 pl-4 py-2 my-2 italic';
+    } else if (tag === 'div') {
+      element.className = 'bg-blue-50 border border-blue-200 rounded-lg p-3 my-2 text-blue-800';
+    }
+    
+    element.contentEditable = 'true';
+    
+    // Se há texto selecionado, usar esse texto; senão usar placeholder
+    if (selectedText) {
+      element.textContent = selectedText;
+      range.deleteContents();
+    } else {
+      element.textContent = placeholder;
+    }
+    
+    range.insertNode(element);
+    selection.removeAllRanges();
+    
+    // Se inserimos um placeholder, posicionar cursor dentro do elemento
+    if (!selectedText) {
+      const newRange = document.createRange();
+      newRange.selectNodeContents(element);
+      selection.addRange(newRange);
+    }
+    
+    handleContentChange();
+  };
+
+  // Inserir separador
+  const insertSeparator = () => {
+    const separator = document.createElement('hr');
+    separator.className = 'my-4 border-gray-300';
+    
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      range.insertNode(separator);
     }
   };
 
   // Inserir imagem
   const insertImage = () => {
-    if (!imageUrl.trim()) return;
-    
-    const imageMarkdown = `\n<div class="image-container"><img src="${imageUrl}" alt="${imageAlt || 'Imagem'}" class="max-w-full h-auto rounded-lg border border-gray-200" /></div>\n`;
-    const cursorPosition = getSelectionStart();
-    const before = value.substring(0, cursorPosition);
-    const after = value.substring(cursorPosition);
-    
-    const newContent = before + imageMarkdown + after;
-    onChange(newContent);
-    addToHistory(newContent);
-    
-    setShowImageModal(false);
-    setImageUrl('');
-    setImageAlt('');
+    const url = prompt('URL da imagem:');
+    if (url) {
+      const img = document.createElement('img');
+      img.src = url;
+      img.className = 'max-w-full h-auto rounded-lg my-2';
+      img.alt = 'Imagem da matéria';
+      
+      const selection = window.getSelection();
+      if (selection && selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        range.insertNode(img);
+        handleContentChange();
+      }
+    }
   };
 
   // Inserir vídeo
   const insertVideo = () => {
-    if (!videoUrl.trim()) return;
-    
-    const videoMarkdown = `\n<div class="video-container"><div class="video-title">🎥 <strong>${videoTitle || 'Vídeo'}</strong></div><div class="video-url">${videoUrl}</div></div>\n`;
-    const cursorPosition = getSelectionStart();
-    const before = value.substring(0, cursorPosition);
-    const after = value.substring(cursorPosition);
-    
-    const newContent = before + videoMarkdown + after;
-    onChange(newContent);
-    addToHistory(newContent);
-    
-    setShowVideoModal(false);
-    setVideoUrl('');
-    setVideoTitle('');
-  };
-
-  // Upload de imagem
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result as string;
-      setImageUrl(result);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  // Upload de vídeo
-  const handleVideoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result as string;
-      setVideoUrl(result);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  // Renderizar conteúdo formatado
-  const renderFormattedContent = (content: string) => {
-    if (!content) return '';
-    
-    let formattedContent = content
-      // Primeiro, preservar destaques existentes
-      .replace(/<span class="highlight-simple">(.*?)<\/span>/g, '**HIGHLIGHT_SIMPLE_START**$1**HIGHLIGHT_SIMPLE_END**')
-      .replace(/<span class="highlight-animated">(.*?)<\/span>/g, '**HIGHLIGHT_ANIMATED_START**$1**HIGHLIGHT_ANIMATED_END**')
+    const url = prompt('URL do vídeo (YouTube, etc):');
+    if (url) {
+      let embedUrl = url;
       
-      // Aplicar formatações markdown básicas
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/__(.*?)__/g, '<u>$1</u>')
-      .replace(/### (.*?)(?=\n|$)/g, '<h3 class="text-lg font-semibold text-gray-900 my-3">$1</h3>')
-      .replace(/> (.*?)(?=\n|$)/g, '<blockquote class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 text-blue-900 my-2">$1</blockquote>')
-      .replace(/• (.*?)(?=\n|$)/g, '<li class="ml-4 my-1">$1</li>')
-      
-      // Restaurar destaques preservados
-      .replace(/\*\*HIGHLIGHT_SIMPLE_START\*\*(.*?)\*\*HIGHLIGHT_SIMPLE_END\*\*/g, '<span class="highlight-simple">$1</span>')
-      .replace(/\*\*HIGHLIGHT_ANIMATED_START\*\*(.*?)\*\*HIGHLIGHT_ANIMATED_END\*\*/g, '<span class="highlight-animated">$1</span>')
-      
-      // Preservar tags HTML dos destaques diretos
-      .replace(/<mark class="highlight-simple">(.*?)<\/mark>/g, '<span class="highlight-simple">$1</span>')
-      .replace(/<mark class="highlight-animated">(.*?)<\/mark>/g, '<span class="highlight-animated">$1</span>');
-
-    // Processar quebras de linha e parágrafos
-    // Dividir por quebras duplas para parágrafos
-    const paragraphs = formattedContent.split(/\n\s*\n/).filter(p => p.trim());
-    
-    if (paragraphs.length > 1) {
-      // Múltiplos parágrafos
-      formattedContent = paragraphs.map(paragraph => {
-        const lines = paragraph.trim().replace(/\n/g, '<br>');
-        return lines ? `<p>${lines}</p>` : '';
-      }).filter(p => p).join('');
-    } else {
-      // Parágrafo único - apenas converter quebras simples
-      formattedContent = formattedContent.replace(/\n/g, '<br>');
-      if (formattedContent.trim() && !formattedContent.startsWith('<p>')) {
-        formattedContent = `<p>${formattedContent}</p>`;
+      if (url.includes('youtube.com/watch')) {
+        const videoId = url.split('v=')[1]?.split('&')[0];
+        embedUrl = `https://www.youtube.com/embed/${videoId}`;
+      } else if (url.includes('youtu.be/')) {
+        const videoId = url.split('youtu.be/')[1]?.split('?')[0];
+        embedUrl = `https://www.youtube.com/embed/${videoId}`;
       }
-    }
-
-    return formattedContent;
-  };
-
-  // Lidar com mudanças no editor - SIMPLIFICADO
-  const handleEditorChange = () => {
-    updateContent();
-  };
-
-  // Detectar seleção de texto
-  const handleSelectionChange = () => {
-    const selection = window.getSelection();
-    if (selection && selection.rangeCount > 0) {
-      const selectedText = selection.toString().trim();
-      if (selectedText.length > 0) {
-        // Mostrar feedback visual de que o texto está selecionado
-        console.log('Texto selecionado:', selectedText);
+      
+      const iframe = document.createElement('iframe');
+      iframe.src = embedUrl;
+      iframe.className = 'w-full h-64 rounded-lg my-2';
+      iframe.setAttribute('frameborder', '0');
+      iframe.setAttribute('allowfullscreen', 'true');
+      
+      const selection = window.getSelection();
+      if (selection && selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        range.insertNode(iframe);
+        handleContentChange();
       }
     }
   };
 
-  // Manipular evento de colar (paste) para preservar quebras de linha
-  const handlePaste = (e: React.ClipboardEvent) => {
-    e.preventDefault();
-    
-    const pastedText = e.clipboardData.getData('text/plain');
-    if (!pastedText) return;
-    
-    // Salvar a posição atual do cursor
-    const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0) return;
-    
-    const range = selection.getRangeAt(0);
-    const cursorPos = getSelectionStart();
-    
-    // Processar o texto para preservar quebras de linha
-    let processedText = pastedText
-      // Normalizar quebras de linha
-      .replace(/\r\n/g, '\n')
-      .replace(/\r/g, '\n')
-      // Converter quebras duplas em marcadores de parágrafo
-      .replace(/\n\s*\n/g, '\n\n**PARAGRAPH_BREAK**\n\n')
-      // Converter quebras simples em marcadores de linha
-      .replace(/\n/g, '**LINE_BREAK**')
-      // Restaurar quebras de parágrafo
-      .replace(/\*\*PARAGRAPH_BREAK\*\*/g, '\n\n')
-      // Envolver em HTML
-      .split('\n\n')
-      .filter(p => p.trim())
-      .map(paragraph => {
-        const lines = paragraph
-          .replace(/\*\*LINE_BREAK\*\*/g, '<br>')
-          .trim();
-        return lines ? `<p>${lines}</p>` : '';
-      })
-      .filter(p => p)
-      .join('');
-    
-    // Atualizar o valor diretamente sem usar DOM manipulation
-    const before = value.substring(0, cursorPos);
-    const after = value.substring(cursorPos);
-    const newContent = before + processedText + after;
-    
-    // Atualizar o conteúdo
-    onChange(newContent);
-    addToHistory(newContent);
-    
-    // Atualizar o cursor para depois do texto colado
-    setTimeout(() => {
-      if (editorRef.current) {
-        editorRef.current.focus();
-        // Mover cursor para o final do texto inserido
-        const newPos = cursorPos + processedText.length;
-        try {
-          const newSelection = window.getSelection();
-          if (newSelection && editorRef.current.firstChild) {
-            const range = document.createRange();
-            const textNode = editorRef.current.firstChild;
-            const maxPos = Math.min(newPos, (textNode.textContent || '').length);
-            range.setStart(textNode, maxPos);
-            range.collapse(true);
-            newSelection.removeAllRanges();
-            newSelection.addRange(range);
-          }
-        } catch (error) {
-          // Silenciosamente falhar se não conseguir restaurar o cursor
-        }
+  // Undo
+  const handleUndo = () => {
+    if (historyIndex > 0) {
+      const newIndex = historyIndex - 1;
+      const previousState = history[newIndex];
+      
+      if (editorRef.current && previousState) {
+        editorRef.current.innerHTML = previousState.content;
+        onChange(previousState.content);
+        setHistoryIndex(newIndex);
       }
-    }, 100);
+    }
+  };
+
+  // Redo
+  const handleRedo = () => {
+    if (historyIndex < history.length - 1) {
+      const newIndex = historyIndex + 1;
+      const nextState = history[newIndex];
+      
+      if (editorRef.current && nextState) {
+        editorRef.current.innerHTML = nextState.content;
+        onChange(nextState.content);
+        setHistoryIndex(newIndex);
+      }
+    }
   };
 
   return (
-    <div className="space-y-3">
+    <div className="border border-gray-300 rounded-lg overflow-hidden">
       {/* Toolbar */}
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-        <div className="flex items-center space-x-1 flex-wrap gap-2">
-          <span className="text-xs font-semibold text-gray-600 mr-2">Formatação:</span>
-          
-          {/* Desfazer/Refazer */}
+      <div className="bg-gray-50 border-b border-gray-300 p-2 flex flex-wrap gap-1">
+        
+        {/* Formatação Básica */}
+        <div className="flex gap-1 pr-2 border-r border-gray-300">
           <button
-            onClick={undo}
-            disabled={historyIndex <= 0}
-            className="p-2 hover:bg-white rounded transition-colors border border-transparent hover:border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Desfazer (Ctrl+Z)"
-            aria-label="Desfazer (Ctrl+Z)"
-          >
-            <Undo className="w-4 h-4" aria-hidden="true" />
-          </button>
-          <button
-            onClick={redo}
-            disabled={historyIndex >= history.length - 1}
-            className="p-2 hover:bg-white rounded transition-colors border border-transparent hover:border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Refazer (Ctrl+Y)"
-            aria-label="Refazer (Ctrl+Y)"
-          >
-            <Redo className="w-4 h-4" aria-hidden="true" />
-          </button>
-          
-          <div className="w-px h-6 bg-gray-300 mx-1"></div>
-          
-          {/* Formatação básica */}
-          <button
+            type="button"
             onClick={() => applyFormat('bold')}
-            className="p-2 hover:bg-white rounded transition-colors border border-transparent hover:border-gray-300"
-            title="Negrito (Ctrl+B)"
+            className="p-2 hover:bg-gray-200 rounded text-gray-700 transition-colors"
+            title="Negrito"
           >
-            <Bold className="w-4 h-4" />
+            <Bold size={16} />
           </button>
           <button
+            type="button"
             onClick={() => applyFormat('italic')}
-            className="p-2 hover:bg-white rounded transition-colors border border-transparent hover:border-gray-300"
-            title="Itálico (Ctrl+I)"
+            className="p-2 hover:bg-gray-200 rounded text-gray-700 transition-colors"
+            title="Itálico"
           >
-            <Italic className="w-4 h-4" />
+            <Italic size={16} />
           </button>
           <button
+            type="button"
             onClick={() => applyFormat('underline')}
-            className="p-2 hover:bg-white rounded transition-colors border border-transparent hover:border-gray-300"
-            title="Sublinhado (Ctrl+U)"
+            className="p-2 hover:bg-gray-200 rounded text-gray-700 transition-colors"
+            title="Sublinhado"
           >
-            <Underline className="w-4 h-4" />
-          </button>
-          
-          <div className="w-px h-6 bg-gray-300 mx-1"></div>
-          
-          {/* Alinhamento */}
-          <button
-            onClick={() => applyFormat('justify-left')}
-            className="p-2 hover:bg-white rounded transition-colors border border-transparent hover:border-gray-300"
-            title="Alinhar à Esquerda"
-          >
-            <AlignLeft className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => applyFormat('justify-center')}
-            className="p-2 hover:bg-white rounded transition-colors border border-transparent hover:border-gray-300"
-            title="Centralizar"
-          >
-            <AlignCenter className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => applyFormat('justify-right')}
-            className="p-2 hover:bg-white rounded transition-colors border border-transparent hover:border-gray-300"
-            title="Alinhar à Direita"
-          >
-            <AlignRight className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => applyFormat('justify-full')}
-            className="p-2 hover:bg-white rounded transition-colors border border-transparent hover:border-gray-300"
-            title="Justificar Texto"
-          >
-            <AlignJustify className="w-4 h-4" />
-          </button>
-          
-          <div className="w-px h-6 bg-gray-300 mx-1"></div>
-          
-          {/* Elementos estruturais */}
-          <button
-            onClick={() => applyFormat('h3')}
-            className="p-2 hover:bg-white rounded transition-colors border border-transparent hover:border-gray-300"
-            title="Subtítulo H3"
-          >
-            <Heading3 className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => applyFormat('quote')}
-            className="p-2 hover:bg-white rounded transition-colors border border-transparent hover:border-gray-300"
-            title="Citação"
-          >
-            <Quote className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => applyFormat('list')}
-            className="p-2 hover:bg-white rounded transition-colors border border-transparent hover:border-gray-300"
-            title="Lista"
-          >
-            <List className="w-4 h-4" />
-          </button>
-          
-          <div className="w-px h-6 bg-gray-300 mx-1"></div>
-          
-          {/* Destaques */}
-          <button
-            onClick={() => applyFormat('highlight-simple')}
-            className="p-2 hover:bg-white rounded transition-colors border border-transparent hover:border-gray-300"
-            title="Destaque Simples"
-          >
-            <Highlighter className="w-4 h-4 text-yellow-600" />
-          </button>
-          <button
-            onClick={() => applyFormat('highlight-animated')}
-            className="p-2 hover:bg-white rounded transition-colors border border-transparent hover:border-gray-300"
-            title="Destaque Animado"
-          >
-            <Sparkles className="w-4 h-4 text-red-500" />
-          </button>
-          
-          <div className="w-px h-6 bg-gray-300 mx-1"></div>
-          
-          {/* Mídia */}
-          <button
-            onClick={() => setShowImageModal(true)}
-            className="p-2 hover:bg-white rounded transition-colors border border-transparent hover:border-gray-300"
-            title="Inserir Imagem"
-            aria-label="Inserir Imagem"
-          >
-            <Image className="w-4 h-4 text-blue-600" aria-hidden="true" />
-          </button>
-          <button
-            onClick={() => setShowVideoModal(true)}
-            className="p-2 hover:bg-white rounded transition-colors border border-transparent hover:border-gray-300"
-            title="Inserir Vídeo"
-            aria-label="Inserir Vídeo"
-          >
-            <Video className="w-4 h-4 text-purple-600" aria-hidden="true" />
-          </button>
-          
-          <div className="w-px h-6 bg-gray-300 mx-1"></div>
-          
-          {/* Limpeza */}
-          <button
-            onClick={cleanupFormattingIssues}
-            className="p-2 hover:bg-white rounded transition-colors border border-transparent hover:border-gray-300"
-            title="Limpar Formatação Problemática"
-          >
-            <Eraser className="w-4 h-4 text-red-500" />
-          </button>
-          
-          <div className="w-px h-6 bg-gray-300 mx-1"></div>
-          
-          {/* Extras */}
-          <button
-            onClick={() => applyFormat('info')}
-            className="p-2 hover:bg-white rounded transition-colors border border-transparent hover:border-gray-300"
-            title="Caixa de Informação"
-          >
-            <Lightbulb className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => applyFormat('separator')}
-            className="p-2 hover:bg-white rounded transition-colors border border-transparent hover:border-gray-300"
-            title="Separador"
-          >
-            <SeparatorHorizontal className="w-4 h-4" />
+            <Underline size={16} />
           </button>
         </div>
-        
-        <div className="mt-2 text-xs text-gray-500">
-          💡 <strong>Dica:</strong> Selecione o texto e clique nos botões para formatar. Os destaques (amarelo/vermelho) só funcionam com texto selecionado. Use Ctrl+Z para desfazer e Ctrl+Y para refazer.<br/>
-          📋 <strong>Cole texto:</strong> Ao colar texto do bloco de notas, as quebras de linha e parágrafos serão preservados automaticamente.
+
+        {/* Alinhamento */}
+        <div className="flex gap-1 pr-2 border-r border-gray-300">
+          <button
+            type="button"
+            onClick={() => applyFormat('justify-left')}
+            className="p-2 hover:bg-gray-200 rounded text-gray-700 transition-colors"
+            title="Alinhar à esquerda"
+          >
+            <AlignLeft size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={() => applyFormat('justify-center')}
+            className="p-2 hover:bg-gray-200 rounded text-gray-700 transition-colors"
+            title="Centralizar"
+          >
+            <AlignCenter size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={() => applyFormat('justify-right')}
+            className="p-2 hover:bg-gray-200 rounded text-gray-700 transition-colors"
+            title="Alinhar à direita"
+          >
+            <AlignRight size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={() => applyFormat('justify-full')}
+            className="p-2 hover:bg-gray-200 rounded text-gray-700 transition-colors"
+            title="Justificar"
+          >
+            <AlignJustify size={16} />
+          </button>
+        </div>
+
+        {/* Elementos Estruturais */}
+        <div className="flex gap-1 pr-2 border-r border-gray-300">
+          <button
+            type="button"
+            onClick={() => applyFormat('h3')}
+            className="p-2 hover:bg-gray-200 rounded text-gray-700 transition-colors"
+            title="Título H3"
+          >
+            <Type size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={() => applyFormat('quote')}
+            className="p-2 hover:bg-gray-200 rounded text-gray-700 transition-colors"
+            title="Citação"
+          >
+            <Quote size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={() => applyFormat('list')}
+            className="p-2 hover:bg-gray-200 rounded text-gray-700 transition-colors"
+            title="Lista"
+          >
+            <List size={16} />
+          </button>
+        </div>
+
+        {/* Destaques */}
+        <div className="flex gap-1 pr-2 border-r border-gray-300">
+          <button
+            type="button"
+            onClick={() => applyFormat('highlight-simple')}
+            className="p-2 hover:bg-gray-200 rounded text-yellow-600 transition-colors"
+            title="Destaque Simples"
+          >
+            <Palette size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={() => applyFormat('highlight-animated')}
+            className="p-2 hover:bg-gray-200 rounded text-yellow-600 transition-colors animate-pulse"
+            title="Destaque Animado"
+          >
+            <Sparkles size={16} />
+          </button>
+        </div>
+
+        {/* Elementos Especiais */}
+        <div className="flex gap-1 pr-2 border-r border-gray-300">
+          <button
+            type="button"
+            onClick={() => applyFormat('info')}
+            className="p-2 hover:bg-gray-200 rounded text-blue-600 transition-colors"
+            title="Caixa de Informação"
+          >
+            <Info size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={() => applyFormat('separator')}
+            className="p-2 hover:bg-gray-200 rounded text-gray-700 transition-colors"
+            title="Separador"
+          >
+            <Minus size={16} />
+          </button>
+        </div>
+
+        {/* Mídia */}
+        <div className="flex gap-1 pr-2 border-r border-gray-300">
+          <button
+            type="button"
+            onClick={insertImage}
+            className="p-2 hover:bg-gray-200 rounded text-green-600 transition-colors"
+            title="Inserir Imagem"
+          >
+            <Image size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={insertVideo}
+            className="p-2 hover:bg-gray-200 rounded text-red-600 transition-colors"
+            title="Inserir Vídeo"
+          >
+            <Video size={16} />
+          </button>
+        </div>
+
+        {/* Undo/Redo */}
+        <div className="flex gap-1">
+          <button
+            type="button"
+            onClick={handleUndo}
+            disabled={historyIndex <= 0}
+            className="p-2 hover:bg-gray-200 rounded text-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Desfazer"
+          >
+            <Undo2 size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={handleRedo}
+            disabled={historyIndex >= history.length - 1}
+            className="p-2 hover:bg-gray-200 rounded text-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Refazer"
+          >
+            <Redo2 size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={clearFormatting}
+            className="p-2 hover:bg-gray-200 rounded text-gray-700 transition-colors"
+            title="Limpar Formatação"
+          >
+            <Eraser size={16} />
+          </button>
         </div>
       </div>
 
       {/* Editor */}
-      <div className="relative">
-        <div
-          ref={editorRef}
-          contentEditable
-          className="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent min-h-64 resize-none outline-none bg-white prose prose-sm max-w-none"
-          style={{ fontSize: '15px', lineHeight: '1.6' }}
-          onInput={handleEditorChange}
-          onMouseUp={handleSelectionChange}
-          onKeyUp={handleSelectionChange}
-          onPaste={handlePaste}
-          dangerouslySetInnerHTML={{ __html: renderFormattedContent(value) }}
-          suppressContentEditableWarning={true}
-        />
-        
-        {!value && (
-          <div className="absolute top-4 left-4 text-gray-400 pointer-events-none text-sm">
-            {placeholder}
-          </div>
-        )}
-      </div>
-
-      {/* Modal de Imagem */}
-      {showImageModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                <Image className="w-5 h-5 text-blue-600 mr-2" />
-                Inserir Imagem
-              </h3>
-              <button
-                onClick={() => setShowImageModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  URL da Imagem
-                </label>
-                <input
-                  type="url"
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
-                  placeholder="https://exemplo.com/imagem.jpg"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Texto Alternativo
-                </label>
-                <input
-                  type="text"
-                  value={imageAlt}
-                  onChange={(e) => setImageAlt(e.target.value)}
-                  placeholder="Descrição da imagem"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              
-              <div className="border-t pt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Ou fazer upload
-                </label>
-                <input
-                  ref={imageInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                />
-                <button
-                  onClick={() => imageInputRef.current?.click()}
-                  className="w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-400 transition-colors flex items-center justify-center space-x-2"
-                >
-                  <Upload className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-600">Escolher arquivo</span>
-                </button>
-              </div>
-              
-              {imageUrl && (
-                <div className="border rounded-lg p-3 bg-gray-50">
-                  <img src={imageUrl} alt={imageAlt} className="max-w-full h-auto rounded" />
-                </div>
-              )}
-            </div>
-            
-            <div className="flex space-x-3 mt-6">
-              <button
-                onClick={() => setShowImageModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={insertImage}
-                disabled={!imageUrl.trim()}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-              >
-                Inserir
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal de Vídeo */}
-      {showVideoModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                <Video className="w-5 h-5 text-purple-600 mr-2" />
-                Inserir Vídeo
-              </h3>
-              <button
-                onClick={() => setShowVideoModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  URL do Vídeo
-                </label>
-                <input
-                  type="url"
-                  value={videoUrl}
-                  onChange={(e) => setVideoUrl(e.target.value)}
-                  placeholder="https://youtube.com/watch?v=..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Título do Vídeo
-                </label>
-                <input
-                  type="text"
-                  value={videoTitle}
-                  onChange={(e) => setVideoTitle(e.target.value)}
-                  placeholder="Título do vídeo"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
-              </div>
-              
-              <div className="border-t pt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Ou fazer upload
-                </label>
-                <input
-                  ref={videoInputRef}
-                  type="file"
-                  accept="video/*"
-                  onChange={handleVideoUpload}
-                  className="hidden"
-                />
-                <button
-                  onClick={() => videoInputRef.current?.click()}
-                  className="w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg hover:border-purple-400 transition-colors flex items-center justify-center space-x-2"
-                >
-                  <Upload className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-600">Escolher arquivo</span>
-                </button>
-              </div>
-            </div>
-            
-            <div className="flex space-x-3 mt-6">
-              <button
-                onClick={() => setShowVideoModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={insertVideo}
-                disabled={!videoUrl.trim()}
-                className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-              >
-                Inserir
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <div
+        ref={editorRef}
+        contentEditable
+        className="min-h-[400px] p-4 focus:outline-none prose prose-lg max-w-none"
+        style={{
+          lineHeight: '1.6',
+          fontSize: '16px'
+        }}
+        onInput={handleContentChange}
+        onCompositionStart={() => setIsComposing(true)}
+        onCompositionEnd={() => {
+          setIsComposing(false);
+          handleContentChange();
+        }}
+        onPaste={(e) => {
+          setTimeout(handleContentChange, 0);
+        }}
+        suppressContentEditableWarning={true}
+        data-placeholder={placeholder}
+      />
 
       {/* Estilos CSS */}
-      <style dangerouslySetInnerHTML={{
-        __html: `
-        .highlight-simple {
-          background: linear-gradient(120deg, #fef3c7 0%, #fde68a 100%);
-          padding: 2px 4px;
-          border-radius: 4px;
-          border: 1px solid #f59e0b;
+      <style jsx>{`
+        [contenteditable]:empty:before {
+          content: attr(data-placeholder);
+          color: #9ca3af;
+          pointer-events: none;
         }
         
-        .highlight-animated {
-          background: linear-gradient(120deg, #fecaca 0%, #fca5a5 100%);
-          padding: 2px 4px;
-          border-radius: 4px;
-          border: 2px solid #ef4444;
-          animation: highlight-pulse 2s infinite;
-        }
-        
-        @keyframes highlight-pulse {
-          0%, 100% { 
-            transform: scale(1);
-            opacity: 1;
-          }
-          50% { 
-            transform: scale(1.02);
-            opacity: 0.9;
-          }
-        }
-        
-        .info-box {
-          background: #dbeafe;
-          border-left: 4px solid #3b82f6;
-          padding: 12px;
-          margin: 8px 0;
-          border-radius: 4px;
-          font-weight: 500;
-        }
-        
-        .image-container {
-          margin: 16px 0;
-          text-align: center;
-        }
-        
-        .video-container {
-          margin: 16px 0;
-          padding: 16px;
-          background: #f8fafc;
-          border: 1px solid #e2e8f0;
-          border-radius: 8px;
-        }
-        
-        .video-title {
+        [contenteditable] h3 {
+          font-size: 1.5rem;
           font-weight: 600;
-          margin-bottom: 8px;
+          margin: 1rem 0 0.5rem 0;
+          color: #1f2937;
         }
         
-        .separator {
+        [contenteditable] blockquote {
+          background-color: #f9fafb;
+          border-left: 4px solid #3b82f6;
+          padding: 0.5rem 1rem;
+          margin: 0.5rem 0;
+          font-style: italic;
+        }
+        
+        [contenteditable] ul {
+          padding-left: 1.5rem;
+          margin: 0.5rem 0;
+        }
+        
+        [contenteditable] hr {
+          margin: 1rem 0;
           border: none;
-          height: 2px;
-          background: linear-gradient(90deg, transparent, #d1d5db, transparent);
-          margin: 20px 0;
+          height: 1px;
+          background-color: #d1d5db;
         }
         
-        .video-url {
-          color: #64748b;
-          font-size: 14px;
-          word-break: break-all;
+        [contenteditable] img {
+          max-width: 100%;
+          height: auto;
+          border-radius: 0.5rem;
+          margin: 0.5rem 0;
         }
         
-        /* Estilos para parágrafos e formatação de texto */
-        [contenteditable] p {
-          margin: 8px 0;
-          line-height: 1.6;
+        [contenteditable] iframe {
+          width: 100%;
+          height: 16rem;
+          border-radius: 0.5rem;
+          margin: 0.5rem 0;
         }
-        
-        [contenteditable] p:first-child {
-          margin-top: 0;
-        }
-        
-        [contenteditable] p:last-child {
-          margin-bottom: 0;
-        }
-        
-        [contenteditable] br {
-          line-height: 1.6;
-        }
-        
-        .text-left { text-align: left; }
-        .text-center { text-align: center; }
-        .text-right { text-align: right; }
-        .text-justify { text-align: justify; }
-        `
-      }} />
+      `}</style>
     </div>
   );
 };
 
-export default RichTextEditor; 
+export default RichTextEditor;

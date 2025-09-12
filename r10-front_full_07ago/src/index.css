@@ -236,7 +236,17 @@
   }
 }
 
-/* Animação para destaques animados */
+/* Animação para destaques animados - revelação da esquerda para direita */
+@keyframes reveal-highlight {
+  0% {
+    background-size: 0% 100%;
+  }
+  100% {
+    background-size: 100% 100%;
+  }
+}
+
+/* Animação antiga (mantida para compatibilidade) */
 @keyframes highlight-pulse {
   0%, 100% { 
     transform: scale(1);
@@ -246,6 +256,27 @@
     transform: scale(1.02);
     opacity: 0.9;
   }
+}
+
+/* Estilos para destaques animados na página final */
+span[style*="highlight-pulse"], 
+span[style*="animation"] {
+  position: relative;
+  background: linear-gradient(120deg, #fecaca 0%, #fca5a5 100%) no-repeat;
+  background-size: 0% 100%;
+  background-position: left center;
+  animation: reveal-highlight 1.5s ease-out forwards;
+}
+
+.highlight-animated {
+  position: relative;
+  background: linear-gradient(120deg, #fecaca 0%, #fca5a5 100%) no-repeat !important;
+  background-size: 0% 100% !important;
+  background-position: left center !important;
+}
+
+.highlight-animated.in-viewport {
+  animation: reveal-highlight 1.5s ease-out forwards !important;
 }
 
 /* Classes de cores das editorias (aplicadas via JavaScript/TitleLink) */
@@ -367,4 +398,33 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Estilos globais para animações de destaque */
+[data-highlight="animated"] {
+  position: relative !important;
+  background: linear-gradient(90deg, #fbbf24, #f59e0b) !important;
+  background-size: 0% 100% !important;
+  background-repeat: no-repeat !important;
+  background-position: left center !important;
+  transition: background-size 2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  color: #000 !important;
+  font-weight: 600 !important;
+  padding: 2px 4px !important;
+  border-radius: 4px !important;
+  display: inline !important;
+}
+
+[data-highlight="animated"].animate-in-view {
+  background-size: 100% 100% !important;
+}
+
+/* Estilos para citações no conteúdo renderizado */
+[data-quote="true"] {
+  border-left: 4px solid #3b82f6 !important;
+  padding-left: 1rem !important;
+  font-style: italic !important;
+  background-color: transparent !important;
+  margin: 1rem 0 !important;
+  display: block !important;
 }

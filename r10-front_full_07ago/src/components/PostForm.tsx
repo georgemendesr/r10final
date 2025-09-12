@@ -320,12 +320,7 @@ const PostForm = () => {
         setPostId(result.id);
       }
 
-      // Reorganizar hierarquia de posições após salvar
-      if (post.posicao === 'supermanchete' || post.posicao === 'destaque') {
-        console.log('🔄 Reorganizando hierarquia de posições após salvar rascunho...');
-        const targetPostId = postId || result.id;
-        await reorganizePositionHierarchy(targetPostId, post.posicao as 'supermanchete' | 'destaque');
-      }
+      // ❌ REMOVIDO: Reorganização já é feita no backend automaticamente
       
       setSuccess('Rascunho salvo com sucesso!');
       setTimeout(() => setSuccess(null), 3000);
@@ -390,12 +385,7 @@ const PostForm = () => {
         result = await createPost(postData);
       }
 
-      // Reorganizar hierarquia de posições após publicar
-      if (post.posicao === 'supermanchete' || post.posicao === 'destaque') {
-        console.log('🔄 Reorganizando hierarquia de posições após publicar...');
-        const targetPostId = postId || result.id;
-        await reorganizePositionHierarchy(targetPostId, post.posicao as 'supermanchete' | 'destaque');
-      }
+      // ❌ REMOVIDO: Reorganização já é feita no backend automaticamente
       
       setSuccess('Matéria publicada com sucesso!');
       setTimeout(() => {

@@ -17,7 +17,7 @@
     "dev:frontend": "cd r10-front_full_07ago && npm run dev",
     "dev:backend": "node server/server-api-simple.cjs",
     "dev:instagram": "cross-env PORT=8080 node server.js",
-  "stable:single": "node stable-single.cjs",
+    "stable:single": "node stable-single.cjs",
     "start:9000": "cmd /c \"set PORT=9000&& node server.js\"",
     "start:instagram": "set PORT=8080&& node server.js",
     "start:backend": "node server/server-api-simple.cjs",
@@ -56,6 +56,8 @@
     "express": "^4.21.2",
     "fs-extra": "^11.1.1",
     "multer": "^1.4.5-lts.1",
+    "node-fetch": "^3.3.2",
+    "puppeteer": "^24.20.0",
     "sharp": "^0.33.0",
     "sqlite3": "^5.1.7"
   },
