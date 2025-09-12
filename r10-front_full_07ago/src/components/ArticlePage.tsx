@@ -426,18 +426,49 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
                 />
               </figure>
 
-              {/* Resumo em Tópicos - Extraído do texto | sem invenções */}
+              {/* Resumo em Tópicos - Extraído do texto | sem invenções | término lógico */}
               {(() => {
                 // Utilidades
                 const stripTags = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
                 const joinText = stripTags(finalArticle.content.join('\n\n'));
                 const hasMinLength = joinText.length >= 500;
 
-                const trimTo = (s: string, limit = 80) => {
-                  if (s.length <= limit) return s.trim();
-                  const idx = s.lastIndexOf(' ', limit);
-                  const cut = idx > 40 ? s.slice(0, idx) : s.slice(0, limit);
-                  return cut.trim();
+                const endsWithPunct = (s: string) => /[.!?]$/.test(s);
+                const normalizeSpaces = (s: string) => s.replace(/\s+/g, ' ').trim();
+                const finalizeHeading = (s: string) => normalizeSpaces(s).slice(0, 80);
+
+                // Corta respeitando fim lógico: tenta pontuação primeiro; se não houver, usa separadores fracos e fecha com ponto.
+                const toBullet = (s: string, limit = 80) => {
+                  let t = normalizeSpaces(s);
+                  if (t.length <= limit) {
+                    return t;
+                  }
+                  // 1) Procurar pontuação forte até o limite
+                  const strong = /[.!?]/g; let m: RegExpExecArray | null; let lastStrong = -1;
+                  while ((m = strong.exec(t)) && m.index <= limit) lastStrong = m.index;
+                  if (lastStrong >= 40) {
+                    return t.slice(0, lastStrong + 1).trim();
+                  }
+                  // 2) Procurar separadores médios (ponto e vírgula, dois-pontos, travessão)
+                  const mediumIdx = Math.max(
+                    t.lastIndexOf(';', limit),
+                    t.lastIndexOf(':', limit),
+                    t.lastIndexOf(' — ', limit),
+                    t.lastIndexOf(' – ', limit),
+                    t.lastIndexOf(' - ', limit)
+                  );
+                  if (mediumIdx >= 40) {
+                    return (t.slice(0, mediumIdx).trim() + '.');
+                  }
+                  // 3) Vírgula como última alternativa para encerrar ideia
+                  const commaIdx = t.lastIndexOf(',', limit);
+                  if (commaIdx >= 40) {
+                    return (t.slice(0, commaIdx).trim() + '.');
+                  }
+                  // 4) Sem separadores: corta na última palavra e usa reticências com parcimônia
+                  const spaceIdx = t.lastIndexOf(' ', limit);
+                  const cut = spaceIdx > 40 ? t.slice(0, spaceIdx) : t.slice(0, limit);
+                  return cut.trim() + '…';
                 };
 
                 const dedupe = (arr: string[]) => {
@@ -450,7 +481,7 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
                   return out;
                 };
 
-                const extractCandidates = (paragraphs: string[]): string[] => {
+                const extractCandidates = (paragraphs: string[]): { bullets: string[]; headings: string[]; sentences: string[] } => {
                   const cleanedParas = paragraphs.map(stripTags).filter(p => p.length > 0);
 
                   // 1) Bullets explícitos nos parágrafos
@@ -471,26 +502,48 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
                   // 3) Sentenças do corpo
                   const sentences: string[] = [];
                   cleanedParas.forEach(p => {
-                    p.split(/[.!?]+\s+/g).forEach(s => {
-                      const t = s.replace(/^"|^'|^“|^”|^\s+|\s+$/g, '').trim();
-                      if (t.length >= 35) sentences.push(t);
+                    // mantém a pontuação original na sentença
+                    p.split(/(?<=[.!?])\s+/g).forEach(s => {
+                      const t = s.replace(/^["'“”\s]+|[\s]+$/g, '').trim();
+                      if (t.length >= 20) sentences.push(t);
                     });
                   });
-
-                  // 4) Fallback: cláusulas por vírgula/ponto e vírgula
-                  const clauses: string[] = [];
-                  cleanedParas.slice(0, 2).forEach(p => {
-                    p.split(/[;,]\s+/g).forEach(c => {
-                      const t = c.trim();
-                      if (t.length >= 25) clauses.push(t);
-                    });
-                  });
-
-                  return dedupe([...bullets, ...headings, ...sentences, ...clauses]);
+                  return { bullets, headings, sentences };
                 };
 
-                const candidates = extractCandidates(finalArticle.content).map(c => trimTo(c, 80)).filter(Boolean);
-                const bullets = candidates.slice(0, 4);
+                const { bullets: b1, headings: h1, sentences: s1 } = extractCandidates(finalArticle.content);
+                const uniq = (arr: string[]) => dedupe(arr.map(normalizeSpaces));
+
+                const pick: string[] = [];
+                // Preferência 1: bullets explícitos (finalizados logicamente)
+                for (const x of uniq(b1)) {
+                  if (pick.length >= 4) break;
+                  const v = toBullet(x, 80);
+                  // Aceitar com término lógico (pontuação) ou com reticências apenas se não houver alternativa
+                  pick.push(v);
+                }
+                // Preferência 2: headings (tópicos curtos)
+                for (const x of uniq(h1)) {
+                  if (pick.length >= 4) break;
+                  const v = finalizeHeading(x);
+                  pick.push(v);
+                }
+                // Preferência 3: sentenças completas que já terminam em pontuação e cabem até 80
+                for (const x of uniq(s1)) {
+                  if (pick.length >= 4) break;
+                  if (x.length <= 80 && endsWithPunct(x)) {
+                    pick.push(x);
+                  }
+                }
+                // Preferência 4: sentenças maiores, cortar por pontuação/separadores mantendo sentido
+                for (const x of uniq(s1)) {
+                  if (pick.length >= 4) break;
+                  const v = toBullet(x, 80);
+                  pick.push(v);
+                }
+
+                // Consolidar e garantir 4, descartando duplicatas vazias
+                const bullets = dedupe(pick.filter(Boolean)).slice(0, 4);
 
                 if (!hasMinLength || bullets.length < 4) return null;
 
