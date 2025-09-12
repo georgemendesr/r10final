@@ -435,19 +435,20 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
 
                 const endsWithPunct = (s: string) => /[.!?]$/.test(s);
                 const normalizeSpaces = (s: string) => s.replace(/\s+/g, ' ').trim();
-                const finalizeHeading = (s: string) => normalizeSpaces(s).slice(0, 80);
+                const ensurePeriod = (s: string) => endsWithPunct(s) ? s : (s.replace(/[\.,;:!?]+$/, '').trim() + '.');
+                const finalizeHeading = (s: string) => ensurePeriod(normalizeSpaces(s).slice(0, 80));
 
                 // Corta respeitando fim lógico: tenta pontuação primeiro; se não houver, usa separadores fracos e fecha com ponto.
                 const toBullet = (s: string, limit = 80) => {
                   let t = normalizeSpaces(s);
                   if (t.length <= limit) {
-                    return t;
+                    return ensurePeriod(t);
                   }
                   // 1) Procurar pontuação forte até o limite
                   const strong = /[.!?]/g; let m: RegExpExecArray | null; let lastStrong = -1;
                   while ((m = strong.exec(t)) && m.index <= limit) lastStrong = m.index;
                   if (lastStrong >= 40) {
-                    return t.slice(0, lastStrong + 1).trim();
+                    return ensurePeriod(t.slice(0, lastStrong + 1).trim());
                   }
                   // 2) Procurar separadores médios (ponto e vírgula, dois-pontos, travessão)
                   const mediumIdx = Math.max(
@@ -458,17 +459,27 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
                     t.lastIndexOf(' - ', limit)
                   );
                   if (mediumIdx >= 40) {
-                    return (t.slice(0, mediumIdx).trim() + '.');
+                    return ensurePeriod(t.slice(0, mediumIdx).trim());
+                  }
+                  // 2.1) Conectores comuns em PT-BR para encerrar a ideia sem diluir
+                  const connectors = [' que ', ' com ', ' para ', ' por ', ' onde ', ' quando ', ' porque ', ' e '];
+                  let connIdx = -1;
+                  for (const c of connectors) {
+                    const idx = t.lastIndexOf(c, limit);
+                    if (idx > connIdx) connIdx = idx;
+                  }
+                  if (connIdx >= 40) {
+                    return ensurePeriod(t.slice(0, connIdx).trim());
                   }
                   // 3) Vírgula como última alternativa para encerrar ideia
                   const commaIdx = t.lastIndexOf(',', limit);
                   if (commaIdx >= 40) {
-                    return (t.slice(0, commaIdx).trim() + '.');
+                    return ensurePeriod(t.slice(0, commaIdx).trim());
                   }
                   // 4) Sem separadores: corta na última palavra e usa reticências com parcimônia
                   const spaceIdx = t.lastIndexOf(' ', limit);
                   const cut = spaceIdx > 40 ? t.slice(0, spaceIdx) : t.slice(0, limit);
-                  return cut.trim() + '…';
+                  return ensurePeriod(cut.trim());
                 };
 
                 const dedupe = (arr: string[]) => {
