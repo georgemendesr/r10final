@@ -21,12 +21,11 @@ const DailyEmotionsSection: React.FC = memo(() => {
     <section className="bg-gradient-to-b from-blue-50 to-white py-6 font-body">
       <div className="container mx-auto px-4 max-w-[1250px]">
         {/* Título da Seção */}
-        <div className="text-center mb-8">
-          <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-4 tracking-tight">
-            COMO OS LEITORES SE SENTEM
+        <div className="text-center mb-6">
+          <h2 className="text-[35px] leading-[1.1] text-[#57534f] font-body">
+            <span className="font-medium italic">como os leitores</span> <span className="font-bold italic">se sentem</span>
           </h2>
-          <div className="w-32 h-1.5 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 mx-auto rounded-full shadow-lg"></div>
-          <p className="text-gray-600 text-lg mt-4 font-medium">Acompanhe o sentimento da nossa comunidade</p>
+          <div className="w-32 h-1.5 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 mx-auto rounded-full shadow-lg mt-2"></div>
         </div>
 
         {/* Grid de Emoções */}

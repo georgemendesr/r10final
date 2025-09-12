@@ -154,10 +154,11 @@ const MunicipiosSection: React.FC = () => {
       <div className="bg-white py-6">
         <div className="max-w-7xl mx-auto px-4">
           {/* Título da seção */}
-          <div className="text-center mb-8">
-            <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-4 tracking-tight">MUNICÍPIOS</h2>
-            <div className="w-32 h-1.5 bg-gradient-to-r from-green-600 via-blue-600 to-purple-600 mx-auto rounded-full shadow-lg"></div>
-            <p className="text-gray-600 text-lg mt-4 font-medium">Notícias das principais cidades do Piauí</p>
+          <div className="text-center mb-6">
+            <h2 className="text-[35px] leading-[1.1] text-[#57534f] font-body">
+              <span className="font-medium italic">destaques</span> <span className="font-bold italic">da região</span>
+            </h2>
+            <div className="w-32 h-1.5 bg-gradient-to-r from-green-600 via-blue-600 to-purple-600 mx-auto rounded-full shadow-lg mt-2"></div>
           </div>
           
           {/* Loading skeleton */}
@@ -183,10 +184,11 @@ const MunicipiosSection: React.FC = () => {
     <div className="bg-white py-6">
       <div className="max-w-7xl mx-auto px-4">
         {/* Título da seção */}
-        <div className="text-center mb-8">
-          <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-4 tracking-tight">MUNICÍPIOS</h2>
-          <div className="w-32 h-1.5 bg-gradient-to-r from-green-600 via-blue-600 to-purple-600 mx-auto rounded-full shadow-lg"></div>
-          <p className="text-gray-600 text-lg mt-4 font-medium">Notícias das principais cidades do Piauí</p>
+        <div className="text-center mb-6">
+          <h2 className="text-[35px] leading-[1.1] text-[#57534f] font-body">
+            <span className="font-medium italic">destaques</span> <span className="font-bold italic">da região</span>
+          </h2>
+          <div className="w-32 h-1.5 bg-gradient-to-r from-green-600 via-blue-600 to-purple-600 mx-auto rounded-full shadow-lg mt-2"></div>
         </div>
 
         {/* Grid de municípios - 3 colunas, 2 linhas */}
@@ -200,7 +202,7 @@ const MunicipiosSection: React.FC = () => {
               <div key={index} className="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200">
                 {/* Header colorido com nome do município */}
                 <div className={`bg-gradient-to-r ${colors.header} text-white py-3 px-4`}>
-                  <h3 className="font-bold text-lg text-center">{municipio.nome}</h3>
+                  <h3 className="municipios-nome text-center">{municipio.nome}</h3>
                 </div>
 
                 {/* Imagem da notícia principal */}
@@ -224,10 +226,10 @@ const MunicipiosSection: React.FC = () => {
                         to={`/noticia/${mainPost.categoria || 'geral'}/${createSlug(mainPost.titulo)}/${mainPost.id}`}
                         className="block group"
                       >
-                        <h4 className={`font-bold text-lg mb-2 ${colors.title} group-hover:opacity-80 transition-opacity`}>
+                        <h4 className={`municipios-title mb-2 ${colors.title} group-hover:opacity-80 transition-opacity`}>
                           {mainPost.titulo}
                         </h4>
-                        <p className="text-gray-600 text-sm leading-relaxed mb-3">
+                        <p className="municipios-subtitle text-gray-600 leading-relaxed mb-3">
                           {mainPost.subtitulo || mainPost.conteudo?.substring(0, 120) + '...'}
                         </p>
                       </Link>

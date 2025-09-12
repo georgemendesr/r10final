@@ -126,17 +126,14 @@ const HeroGridPremium = () => {
                   {/* Chapéu Editorial Premium (opcional) */}
           {featuredPost.chapeu && (
                     <div className="absolute top-6 left-6">
-            <div className={`inline-flex items-center px-4 py-2 rounded-full ${getEditorialClasses(getCategory(featuredPost)).tag} font-medium text-sm shadow-lg`}>
-                        <span className="w-2 h-2 bg-white rounded-full mr-2 animate-pulse"></span>
-                        {featuredPost.chapeu}
-                      </div>
+            <span className="destaque-outros-chapeu text-gray-300 bg-black/20 backdrop-blur-sm px-3 py-1 rounded-full">{featuredPost.chapeu}</span>
                     </div>
                   )}
                   
                   {/* Conteúdo Principal */}
                   <div className="absolute bottom-0 left-0 right-0 p-8 lg:p-12">
                     <div className="max-w-4xl">
-                      <h1 className={`headline ${getEditorialClasses(getCategory(featuredPost)).title} text-3xl lg:text-5xl xl:text-6xl mb-4 leading-none title-hover-combined large title-hover-shimmer`}>
+                      <h1 className={`destaque-principal-title mb-4 title-hover-combined large title-hover-shimmer`}>
                         {getTitle(featuredPost)}
                       </h1>
                       {getSubtitle(featuredPost) && (
@@ -192,14 +189,12 @@ const HeroGridPremium = () => {
                     
                     <div className="absolute top-3 left-3">
                       {post.chapeu && (
-                        <span className={`inline-block px-3 py-1 text-xs font-medium rounded-full ${getEditorialClasses(getCategory(post)).tag}`}>
-                          {post.chapeu}
-                        </span>
+                        <span className={`destaque-outros-chapeu inline-block px-3 py-1 rounded-full bg-white/80`}>{post.chapeu}</span>
                       )}
                     </div>
                     
                     <div className="absolute bottom-3 left-3 right-3">
-                      <h3 className={`headline ${getEditorialClasses(getCategory(post)).title} text-sm leading-tight group-hover:opacity-80 transition-opacity line-clamp-2 title-hover-combined small`}>
+                      <h3 className={`destaque-outros-title group-hover:opacity-80 transition-opacity line-clamp-2 title-hover-combined small`}>
                         {getTitle(post)}
                       </h3>
                     </div>
@@ -254,9 +249,7 @@ const HeroGridPremium = () => {
                   </div>
                   <div className="flex-1 min-w-0">
                     {post.chapeu && (
-                      <span className={`inline-block px-2 py-1 text-xs font-medium rounded ${getEditorialClasses(getCategory(post)).tag} mb-1`}>
-                      {post.chapeu}
-                      </span>
+                      <span className={`destaque-outros-chapeu inline-block px-2 py-1 rounded mb-1`}>{post.chapeu}</span>
                     )}
                     <h4 className="font-bold text-sm text-gray-900 group-hover:text-red-600 transition-colors line-clamp-2">
                       {getTitle(post)}

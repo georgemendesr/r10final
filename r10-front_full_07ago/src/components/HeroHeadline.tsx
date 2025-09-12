@@ -80,17 +80,17 @@ const HeroHeadline = () => {
                 {/* Chapéu da Matéria - sempre cinza claro, sem underline, sem animação */}
                 {supermanchete.chapeu && (
                   <div className="mb-2">
-                    <span className="inline-block text-gray-300 px-3 py-1 text-sm font-semibold uppercase tracking-wide">
+                    <span className="inline-block text-gray-300 px-3 py-1 super-manchete-chapeu">
                       {supermanchete.chapeu}
                     </span>
                   </div>
                 )}
                 
                 {/* Título sempre branco para supermanchete */}
-                <h1 className="text-4xl md:text-5xl mb-4 font-black text-white drop-shadow-lg leading-tight font-rubik">
+                <h1 className="super-manchete-title mb-4 text-white drop-shadow-lg">
                   <span className="block">{supermanchete.titulo}</span>
                 </h1>
-                <p className="text-white/90 drop-shadow text-lg mb-6 leading-relaxed tracking-wide">
+                <p className="super-manchete-subtitle text-white/90 drop-shadow mb-6">
                   {supermanchete.subtitulo || supermanchete.conteudo?.substring(0, 150) + '...'}
                 </p>
               </div>

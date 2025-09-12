@@ -138,7 +138,7 @@ const HeroGridVertical = () => {
                   />
                 </div>
                 <div className="flex items-start gap-3">
-                  <h1 className={`headline ${getEditorialClasses(getCategory(supermanchete)).title} text-xl md:text-2xl lg:text-3xl leading-tight flex-1 title-hover-combined large title-hover-shimmer`}>
+                  <h1 className={`destaque-principal-title flex-1 title-hover-combined large title-hover-shimmer`}>
                     {getTitle(supermanchete)}
                   </h1>
                   <WhatsAppShareButton 
@@ -148,7 +148,7 @@ const HeroGridVertical = () => {
                     category={getCategory(supermanchete)}
                   />
                 </div>
-                <p className="text-sm md:text-base text-gray-700 leading-relaxed font-rubik mt-2">
+                <p className="text-sm md:text-base text-gray-700 leading-relaxed font-body mt-2">
                   {getSubtitle(supermanchete)}
                 </p>
               </article>
@@ -175,10 +175,10 @@ const HeroGridVertical = () => {
                     </div>
                     <div className="p-4">
                       {article.chapeu
-                        ? (<span className="tag mb-2 block text-sm">{article.chapeu}</span>)
+                        ? (<span className="destaque-outros-chapeu text-gray-500 mb-2 block">{article.chapeu}</span>)
                         : (import.meta.env?.DEV ? (<span className="tag mb-2 block text-sm opacity-60">S/CHAPÉU</span>) : null)}
                       <div className="flex items-start gap-2">
-                        <h2 className={`headline ${getEditorialClasses(getCategory(article)).title} text-lg md:text-xl lg:text-2xl leading-tight group-hover:opacity-80 transition-opacity flex-1 title-hover-combined medium`}>
+                        <h2 className={`destaque-outros-title group-hover:opacity-80 transition-opacity flex-1 title-hover-combined medium`}>
                           {getTitle(article)}
                         </h2>
                         <div onClick={(e) => e.stopPropagation()}>
@@ -220,10 +220,10 @@ const HeroGridVertical = () => {
                     </div>
                     <div className="p-3">
                       {article.chapeu
-                        ? (<span className="tag mb-1 block text-xs">{article.chapeu}</span>)
+                        ? (<span className="destaque-outros-chapeu text-gray-500 mb-1 block text-xs">{article.chapeu}</span>)
                         : (import.meta.env?.DEV ? (<span className="tag mb-1 block text-xs opacity-60">S/CHAPÉU</span>) : null)}
                       <div className="flex items-start gap-2">
-                        <h2 className={`headline ${getEditorialClasses(getCategory(article)).title} text-sm md:text-base leading-tight group-hover:opacity-80 transition-opacity flex-1 title-hover-combined small`}>
+                        <h2 className={`destaque-outros-title group-hover:opacity-80 transition-opacity flex-1 title-hover-combined small`}>
                           {getTitle(article)}
                         </h2>
                         <div onClick={(e) => e.stopPropagation()}>

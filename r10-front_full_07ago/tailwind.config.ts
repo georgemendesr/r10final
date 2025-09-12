@@ -17,11 +17,12 @@ export default {
 		},
 		extend: {
 			fontFamily: {
+				'outfit': ['Outfit', 'sans-serif'],
+				'figtree': ['Figtree', 'sans-serif'],
 				'inter': ['Inter', 'sans-serif'],
-				'rubik': ['Rubik', 'sans-serif'],
 				'sans': ['Inter', 'sans-serif'], // Inter como fonte padrão
-				'title': ['Inter', 'sans-serif'],
-				'body': ['Inter', 'sans-serif'],
+				'title': ['Outfit', 'sans-serif'],
+				'body': ['Figtree', 'sans-serif'],
 			},
 			colors: {
 				brand: '#C62828', /* Vermelho mais escuro para contraste 4.5:1 */

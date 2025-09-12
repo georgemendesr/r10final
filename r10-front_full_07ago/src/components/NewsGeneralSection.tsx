@@ -67,7 +67,7 @@ const NewsGeneralSection = () => {
     <section className="py-6 md:py-8 bg-white font-body">
       <div className="container mx-auto px-4 max-w-[1250px]">
         {/* Título da Seção SEO */}
-        <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6 border-l-4 border-brand pl-4 font-rubik">
+        <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6 border-l-4 border-brand pl-4 font-title">
           {getHomeSectionTitles().geral}
         </h2>
 
@@ -99,7 +99,7 @@ const NewsGeneralSection = () => {
                     title={mainNews.titulo}
                     categoria={mainNews.categoria}
                     postId={mainNews.id}
-                    className="text-lg md:text-xl lg:text-2xl leading-title flex-1 headline text-left"
+                    className="geral-principal-title flex-1 text-left"
                   />
                   <WhatsAppShareButton 
                     title={mainNews.titulo}
@@ -108,11 +108,6 @@ const NewsGeneralSection = () => {
                     category={mainNews.categoria}
                   />
                 </div>
-                {mainNews.subtitulo && (
-                  <p className="text-gray-600 text-sm md:text-base">
-                    {mainNews.subtitulo}
-                  </p>
-                )}
               </div>
             </div>
           </div>
@@ -130,7 +125,7 @@ const NewsGeneralSection = () => {
                     />
                   </div>
                   <div className="flex-1">
-                    <span className="tag mb-1 block text-xs md:text-sm">
+                    <span className="geral-outros-chapeu mb-1 block">
                       {news.chapeu || news.categoria?.toUpperCase()}
                     </span>
                     <div className="flex items-start gap-2">
@@ -138,7 +133,7 @@ const NewsGeneralSection = () => {
                         title={news.titulo}
                         categoria={news.categoria}
                         postId={news.id}
-                        className="text-sm md:text-base lg:text-lg leading-tight flex-1 headline text-left"
+                        className="geral-outros-title flex-1 text-left"
                       />
                       <WhatsAppShareButton 
                         title={news.titulo}
@@ -165,7 +160,7 @@ const NewsGeneralSection = () => {
               {rightNews.map((news, index) => (
                 <div key={news.id || index} className="group cursor-pointer border-b border-gray-50 last:border-b-0 pb-3 last:pb-0">
                   <div>
-                    <span className="tag mb-1 block text-xs md:text-sm">
+                    <span className="geral-outros-chapeu mb-1 block">
                       {news.chapeu || news.categoria?.toUpperCase()}
                     </span>
                     <div className="flex items-start gap-2">
@@ -173,7 +168,7 @@ const NewsGeneralSection = () => {
                         title={news.titulo}
                         categoria={news.categoria}
                         postId={news.id}
-                        className="text-sm md:text-base lg:text-lg leading-tight flex-1 headline text-left"
+                        className="geral-outros-title flex-1 text-left"
                       />
                       <WhatsAppShareButton 
                         title={news.titulo}

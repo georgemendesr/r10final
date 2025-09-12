@@ -157,12 +157,12 @@ const HeroGrid = () => {
               />
             </div>
                             <div className="flex items-start gap-3 mb-3 md:mb-4">
-                              <h1 className="text-2xl md:text-3xl lg:text-4xl xl:text-5xl leading-title flex-1">
+                              <h1 className="destaque-principal-title flex-1">
                                 <TitleLink
                                   title={getTitle(mainArticle)}
                                   categoria={getCategory(mainArticle)}
                                   href={`/noticia/${getCategory(mainArticle)}/${createSlug(getTitle(mainArticle))}/${mainArticle.id}`}
-                                  className="headline font-bold"
+                                  className=""
                                 />
                               </h1>
                               <WhatsAppShareButton 
@@ -172,7 +172,7 @@ const HeroGrid = () => {
                                 category={getCategory(mainArticle)}
                               />
                             </div>
-            <p className="text-base md:text-lg text-gray-700 leading-relaxed font-rubik">
+            <p className="destaque-principal-subtitle text-gray-700 leading-relaxed font-body">
               {getSubtitle(mainArticle)}
             </p>
           </article>
@@ -196,15 +196,15 @@ const HeroGrid = () => {
                     <div className="p-3 md:p-4 flex flex-col h-full">
                       {/* Chapéu - sempre cinza claro, sem underline, sem animação */}
                       {sideArticles[0]?.chapeu
-                        ? (<span className="text-gray-500 text-xs font-semibold uppercase mb-2 block">{sideArticles[0].chapeu}</span>)
+                        ? (<span className="destaque-outros-chapeu text-gray-500 mb-2 block">{sideArticles[0].chapeu}</span>)
                         : (import.meta.env?.DEV ? (<span className="text-gray-400 text-xs font-semibold uppercase mb-2 block opacity-60">S/CHAPÉU</span>) : null)}
                       <div className="flex items-start gap-2">
-                        <h2 className="text-lg md:text-xl leading-title flex-1">
+                        <h2 className="destaque-outros-title flex-1">
                           <TitleLink
                             title={getTitle(sideArticles[0])}
                             categoria={getCategory(sideArticles[0])}
                             href={`/noticia/${getCategory(sideArticles[0])}/${createSlug(getTitle(sideArticles[0]))}/${sideArticles[0].id}`}
-                            className="headline font-medium"
+                            className=""
                           />
                         </h2>
                         <div onClick={(e) => e.stopPropagation()}>
@@ -216,7 +216,7 @@ const HeroGrid = () => {
                           />
                         </div>
                       </div>
-                      <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                      <p className="destaque-outros-subtitle text-gray-600 mt-1 line-clamp-2">
                         {getSubtitle(sideArticles[0])}
                       </p>
                     </div>
@@ -238,15 +238,15 @@ const HeroGrid = () => {
                     <div className="p-3 md:p-4 flex flex-col h-full">
                       {/* Chapéu - sempre cinza claro, sem underline, sem animação */}
                       {sideArticles[1]?.chapeu
-                        ? (<span className="text-gray-500 text-xs font-semibold uppercase mb-2 block">{sideArticles[1].chapeu}</span>)
+                        ? (<span className="destaque-outros-chapeu text-gray-500 mb-2 block">{sideArticles[1].chapeu}</span>)
                         : (import.meta.env?.DEV ? (<span className="text-gray-400 text-xs font-semibold uppercase mb-2 block opacity-60">S/CHAPÉU</span>) : null)}
                       <div className="flex items-start gap-2">
-                        <h2 className="text-lg md:text-xl leading-title flex-1">
+                        <h2 className="destaque-outros-title flex-1">
                           <TitleLink
                             title={getTitle(sideArticles[1])}
                             categoria={getCategory(sideArticles[1])}
                             href={`/noticia/${getCategory(sideArticles[1])}/${createSlug(getTitle(sideArticles[1]))}/${sideArticles[1].id}`}
-                            className="headline font-medium"
+                            className=""
                           />
                         </h2>
                         <div onClick={(e) => e.stopPropagation()}>
@@ -258,7 +258,7 @@ const HeroGrid = () => {
                           />
                         </div>
                       </div>
-                      <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                      <p className="destaque-outros-subtitle text-gray-600 mt-1 line-clamp-2">
                         {getSubtitle(sideArticles[1])}
                       </p>
                     </div>
@@ -288,15 +288,15 @@ const HeroGrid = () => {
                     <div className="p-3 md:p-4 flex flex-col h-full">
                       {/* Chapéu - sempre cinza claro, sem underline, sem animação */}
                       {sideArticles[2]?.chapeu
-                        ? (<span className="text-gray-500 text-xs font-semibold uppercase mb-2 block">{sideArticles[2].chapeu}</span>)
+                        ? (<span className="destaque-outros-chapeu text-gray-500 mb-2 block">{sideArticles[2].chapeu}</span>)
                         : (import.meta.env?.DEV ? (<span className="text-gray-400 text-xs font-semibold uppercase mb-2 block opacity-60">S/CHAPÉU</span>) : null)}
                       <div className="flex items-start gap-2">
-                        <h2 className="text-lg md:text-xl leading-title flex-1">
+                        <h2 className="destaque-outros-title flex-1">
                           <TitleLink
                             title={getTitle(sideArticles[2])}
                             categoria={getCategory(sideArticles[2])}
                             href={`/noticia/${getCategory(sideArticles[2])}/${createSlug(getTitle(sideArticles[2]))}/${sideArticles[2].id}`}
-                            className="headline font-medium"
+                            className=""
                           />
                         </h2>
                         <div onClick={(e) => e.stopPropagation()}>
@@ -308,7 +308,7 @@ const HeroGrid = () => {
                           />
                         </div>
                       </div>
-                      <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                      <p className="destaque-outros-subtitle text-gray-600 mt-1 line-clamp-2">
                         {getSubtitle(sideArticles[2])}
                       </p>
                     </div>
@@ -329,15 +329,15 @@ const HeroGrid = () => {
                       </div>
                       <div className="p-3 md:p-4 flex flex-col h-full">
                         {sideArticles[3]?.chapeu
-                          ? (<span className="text-gray-500 text-xs font-semibold uppercase mb-2 block">{sideArticles[3].chapeu}</span>)
+                          ? (<span className="destaque-outros-chapeu text-gray-500 mb-2 block">{sideArticles[3].chapeu}</span>)
                           : (import.meta.env?.DEV ? (<span className="text-gray-400 text-xs font-semibold uppercase mb-2 block opacity-60">S/CHAPÉU</span>) : null)}
                         <div className="flex items-start gap-2">
-                          <h2 className="text-lg md:text-xl leading-title flex-1">
+                          <h2 className="destaque-outros-title flex-1">
                             <TitleLink
                               title={getTitle(sideArticles[3])}
                               categoria={getCategory(sideArticles[3])}
                               href={`/noticia/${getCategory(sideArticles[3])}/${createSlug(getTitle(sideArticles[3]))}/${sideArticles[3].id}`}
-                              className="headline font-medium"
+                              className=""
                             />
                           </h2>
                           <div onClick={(e) => e.stopPropagation()}>
@@ -349,7 +349,7 @@ const HeroGrid = () => {
                             />
                           </div>
                         </div>
-                        <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                        <p className="destaque-outros-subtitle text-gray-600 mt-1 line-clamp-2">
                           {getSubtitle(sideArticles[3])}
                         </p>
                       </div>

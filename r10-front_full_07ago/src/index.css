@@ -1,11 +1,140 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Rubik:wght@500;600;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Tipografia oficial do portal */
+/* Nova Tipografia Oficial do R10 Piauí */
 :root {
-  --font-inter: 'Inter', sans-serif;
+  --font-outfit: 'Outfit', sans-serif;
+  --font-figtree: 'Figtree', sans-serif;
+}
+
+/* === TIPOGRAFIA R10 PIAUÍ === */
+
+/* 1. SEÇÃO SUPER MANCHETE */
+.super-manchete-title {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 600; /* semibold */
+  font-size: 50px;
+  line-height: 55px;
+}
+
+.super-manchete-subtitle {
+  font-family: 'Figtree', sans-serif;
+  font-weight: 500; /* medium */
+  font-size: 18px;
+}
+
+.super-manchete-chapeu {
+  font-family: 'Figtree', sans-serif;
+  font-weight: 800; /* extrabold */
+  font-size: 12px;
+  text-transform: uppercase;
+  color: #9ca3af; /* cinza padrão */
+}
+
+/* 2. SEÇÃO DESTAQUE */
+/* 2.1 Destaque Principal */
+.destaque-principal-title {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 600; /* semibold */
+  font-size: 50px;
+  line-height: 55px;
+}
+
+.destaque-principal-subtitle {
+  font-family: 'Figtree', sans-serif;
+  font-weight: 500; /* medium */
+  font-size: 18px;
+}
+
+/* 2.2 Outros Destaques */
+.destaque-outros-title {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 600; /* semibold */
+  font-size: 20px;
+  line-height: 25px;
+}
+
+.destaque-outros-subtitle {
+  font-family: 'Figtree', sans-serif;
+  font-weight: 500; /* medium */
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.destaque-outros-chapeu {
+  font-family: 'Figtree', sans-serif;
+  font-weight: 800; /* extrabold */
+  font-size: 12px;
+  text-transform: uppercase;
+  color: #9ca3af; /* cinza padrão */
+}
+
+/* 3. SEÇÃO GERAL */
+/* 3.1 Geral Principal */
+.geral-principal-title {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 500; /* medium */
+  font-size: 36px;
+  line-height: 42px;
+}
+
+/* 3.2 Outros Geral */
+.geral-outros-title {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 500; /* medium */
+  font-size: 20px;
+  line-height: 25px;
+}
+
+.geral-outros-chapeu {
+  font-family: 'Figtree', sans-serif;
+  font-weight: 800; /* extrabold */
+  font-size: 12px;
+  text-transform: uppercase;
+  color: #9ca3af; /* cinza padrão */
+}
+
+/* 4. SEÇÃO MUNICÍPIOS */
+.municipios-nome {
+  font-family: 'Figtree', sans-serif;
+  font-weight: 700; /* bold */
+  font-size: 30px;
+}
+
+.municipios-title {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 600; /* semibold */
+  font-size: 20px;
+  line-height: 25px;
+}
+
+.municipios-subtitle {
+  font-family: 'Figtree', sans-serif;
+  font-weight: 500; /* medium */
+  font-size: 14px;
+  line-height: 20px;
+}
+
+/* 5. ARTIGOS/MATÉRIAS */
+.artigo-title {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 600; /* semibold */
+  font-size: 50px;
+  line-height: 55px;
+}
+
+.artigo-subtitle {
+  font-family: 'Figtree', sans-serif;
+  font-weight: 500; /* medium */
+  font-size: 24px;
+}
+
+.artigo-texto {
+  font-family: 'Figtree', sans-serif;
+  font-weight: 400; /* regular */
+  font-size: 18px;
+  line-height: 1.6;
 }
 
 /* Estilos para cabeçalho profissional de matérias */
@@ -131,11 +260,11 @@
   --ed-geral-700:#c2410c;
 }
 
-/* Tipografia Inter - Sistema oficial do portal */
+/* Tipografia Oficial R10 (Outfit + Figtree) */
 
 /* Títulos principais - H1, H2 principais */
 .titulo-principal {
-  font-family: var(--font-inter);
+  font-family: var(--font-outfit);
   font-weight: 600;
   font-size: 32px;
   line-height: 1.2;
@@ -143,7 +272,7 @@
 
 /* Corpo de texto - Parágrafos, descrições */
 .corpo-texto {
-  font-family: var(--font-inter);
+  font-family: var(--font-figtree);
   font-weight: 400;
   font-size: 16px;
   line-height: 1.5;
@@ -151,7 +280,7 @@
 
 /* Labels/categorias - Tags, chapéus, labels */
 .label-categoria {
-  font-family: var(--font-inter);
+  font-family: var(--font-figtree);
   font-weight: 500;
   font-size: 12px;
   letter-spacing: 0.5px;
@@ -160,7 +289,7 @@
 
 /* Chapéu - sempre cinza claro, sem underline, sem animação */
 .chapeu { 
-  font-family: var(--font-inter);
+  font-family: var(--font-figtree);
   font-weight: 500;
   font-size: 12px;
   letter-spacing: 0.5px;
@@ -171,7 +300,7 @@
 
 /* Tag/Chapéu - estilo padrão para seções */
 .tag {
-  font-family: var(--font-inter);
+  font-family: var(--font-figtree);
   font-weight: 500;
   font-size: 12px;
   letter-spacing: 0.5px;
@@ -183,8 +312,8 @@
 
 /* Base dos títulos - PADRONIZAÇÃO DE ALTURA DE LINHA */
 .headline{
-  font-family:'Rubik',sans-serif; 
-  font-weight:600; 
+  font-family: inherit; 
+  font-weight: inherit; 
   line-height:1.25 !important; /* Padronização: 1.25 para todos os títulos */
   letter-spacing:-0.025em; /* Melhor ajuste tipográfico */
 }

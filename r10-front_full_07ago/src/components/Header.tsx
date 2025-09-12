@@ -61,7 +61,7 @@ const Header = () => {
               {/* Botão Buscar - Oculto no mobile */}
               <button 
                 onClick={() => setIsSearchOpen(true)}
-                className="hidden md:flex h-10 lg:h-12 px-3 lg:px-4 border border-gray-300 rounded-full items-center gap-2 hover:bg-gray-50 transition-colors font-rubik shadow-sm"
+                className="hidden md:flex h-10 lg:h-12 px-3 lg:px-4 border border-gray-300 rounded-full items-center gap-2 hover:bg-gray-50 transition-colors font-body shadow-sm"
                 aria-label="Buscar"
                 data-e2e="btn-buscar"
               >
@@ -103,7 +103,7 @@ const Header = () => {
                     setIsSearchOpen(true);
                     setIsMenuOpen(false);
                   }}
-                  className="w-full h-12 px-4 border border-gray-300 rounded-lg flex items-center gap-3 hover:bg-gray-50 transition-colors font-rubik shadow-sm"
+                  className="w-full h-12 px-4 border border-gray-300 rounded-lg flex items-center gap-3 hover:bg-gray-50 transition-colors font-body shadow-sm"
                   aria-label="Buscar"
                 >
                   <Search className="w-5 h-5 text-gray-600" aria-hidden="true" />

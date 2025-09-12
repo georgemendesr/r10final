@@ -139,7 +139,7 @@ const HeroGridMosaico = () => {
                   />
                 </div>
                 <div className="flex items-start gap-3 mb-3 md:mb-4">
-                  <h1 className={`headline ${getEditorialClasses(getCategory(mainArticle)).title} text-2xl md:text-3xl lg:text-4xl xl:text-5xl leading-tight flex-1 title-hover-combined large title-hover-shimmer`}>
+                  <h1 className={`destaque-principal-title flex-1 title-hover-combined large title-hover-shimmer`}>
                     {getTitle(mainArticle)}
                   </h1>
                   <WhatsAppShareButton 
@@ -149,7 +149,7 @@ const HeroGridMosaico = () => {
                     category={getCategory(mainArticle)}
                   />
                 </div>
-                <p className="text-base md:text-lg text-gray-700 leading-relaxed font-rubik">
+                <p className="text-base md:text-lg text-gray-700 leading-relaxed font-body">
                   {getSubtitle(mainArticle)}
                 </p>
               </article>
@@ -175,10 +175,10 @@ const HeroGridMosaico = () => {
                   </div>
                   <div className="p-3 md:p-4">
                     {article.chapeu
-                      ? (<span className="tag mb-2 block text-sm">{article.chapeu}</span>)
+                      ? (<span className="destaque-outros-chapeu text-gray-500 mb-2 block">{article.chapeu}</span>)
                       : (import.meta.env?.DEV ? (<span className="tag mb-2 block text-sm opacity-60">S/CHAPÉU</span>) : null)}
                     <div className="flex items-start gap-2">
-                      <h2 className={`headline ${getEditorialClasses(getCategory(article)).title} text-lg md:text-xl leading-tight group-hover:opacity-80 transition-opacity flex-1 title-hover-combined medium`}>
+                      <h2 className={`destaque-outros-title group-hover:opacity-80 transition-opacity flex-1 title-hover-combined medium`}>
                         {getTitle(article)}
                       </h2>
                       <div onClick={(e) => e.stopPropagation()}>
@@ -220,10 +220,10 @@ const HeroGridMosaico = () => {
                   </div>
                   <div className="p-3 md:p-4">
                     {article.chapeu
-                      ? (<span className="tag mb-2 block text-sm">{article.chapeu}</span>)
+                      ? (<span className="destaque-outros-chapeu text-gray-500 mb-2 block">{article.chapeu}</span>)
                       : (import.meta.env?.DEV ? (<span className="tag mb-2 block text-sm opacity-60">S/CHAPÉU</span>) : null)}
                     <div className="flex items-start gap-2">
-                      <h2 className={`headline ${getEditorialClasses(getCategory(article)).title} text-lg md:text-xl leading-tight group-hover:opacity-80 transition-opacity flex-1 title-hover-combined medium`}>
+                      <h2 className={`destaque-outros-title group-hover:opacity-80 transition-opacity flex-1 title-hover-combined medium`}>
                         {getTitle(article)}
                       </h2>
                       <div onClick={(e) => e.stopPropagation()}>

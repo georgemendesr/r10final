@@ -315,14 +315,14 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
               </span>
             </div>
             
-            <h1 className="text-4xl lg:text-5xl font-black leading-tight mb-6 font-rubik">
+            <h1 className="artigo-title" style={{ color: '#111' }}>
               <span style={{ color: getEditoriaTextColor(finalArticle.category) }}>
                 {finalArticle.title}
               </span>
             </h1>
             
             {finalArticle.subtitle && (
-              <p className="text-xl lg:text-2xl text-gray-600 leading-relaxed font-light">
+              <p className="artigo-subtitle text-gray-600 leading-relaxed mb-6">
                 {finalArticle.subtitle}
               </p>
             )}
@@ -472,7 +472,7 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
 
 
               {/* Article Content */}
-              <div ref={articleRef} className="prose prose-lg max-w-none font-poppins">
+              <div ref={articleRef} className="prose prose-lg max-w-none artigo-texto">
                 {finalArticle.content.map((paragraph, index) => {
                   // Renderizar diferentes tipos de conteúdo
                   if (paragraph.startsWith('### ')) {
@@ -521,7 +521,8 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
                        .replace(/__(.*?)__/g, '<u>$1</u>');
                        
                      return (
-                       <p key={index} className="text-gray-800 leading-relaxed mb-6 text-base font-normal" 
+                       <p key={index} className="text-gray-800 leading-relaxed mb-6" 
+                          style={{ fontFamily: 'Figtree, sans-serif', fontSize: '18px', lineHeight: '1.6' }}
                           dangerouslySetInnerHTML={{ __html: highlightedText }} />
                      );
                                      } else if (paragraph.includes('💡') || paragraph.includes('<div class="info-box">')) {
@@ -569,7 +570,8 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
                        .replace(/__(.*?)__/g, '<u>$1</u>');
                        
                     return (
-                      <p key={index} className="text-gray-700 leading-relaxed mb-6 text-base font-normal font-poppins"
+                      <p key={index} className="text-gray-700 leading-relaxed mb-6" 
+                         style={{ fontFamily: 'Figtree, sans-serif', fontSize: '18px', lineHeight: '1.6' }}
                          dangerouslySetInnerHTML={{ __html: processedText }}>
                       </p>
                     );

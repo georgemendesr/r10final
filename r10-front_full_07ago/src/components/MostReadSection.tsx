@@ -49,12 +49,11 @@ const MostReadSection = memo(() => {
   return (
     <section className="bg-white py-6">
       <div className="container mx-auto px-4 max-w-[1250px]">
-        <div className="text-center mb-12">
-          <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-4 tracking-tight">
-            MAIS LIDAS
+        <div className="text-center mb-8">
+          <h2 className="text-[35px] leading-[1.1] text-[#57534f] font-body">
+            <span className="font-medium italic">mais</span> <span className="font-bold italic">lidas</span>
           </h2>
-          <div className="w-32 h-1.5 bg-gradient-to-r from-red-600 via-orange-600 to-yellow-600 mx-auto rounded-full shadow-lg"></div>
-          <p className="text-gray-600 text-lg mt-4 font-medium">As notícias mais lidas pelos piauienses</p>
+          <div className="w-32 h-1.5 bg-gradient-to-r from-red-600 via-orange-600 to-yellow-600 mx-auto rounded-full shadow-lg mt-2"></div>
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">

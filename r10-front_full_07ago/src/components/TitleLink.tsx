@@ -42,7 +42,6 @@ const TitleLink: React.FC<TitleLinkProps> = ({
 
   const baseClasses = `
     relative inline-block
-    font-medium leading-relaxed
     transition-colors duration-200
     motion-safe:transition-colors
     focus-visible:outline-none

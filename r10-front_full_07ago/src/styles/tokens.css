@@ -1,7 +1,7 @@
 :root{
   /* Fontes oficiais */
-  --font-heading: "Poppins", system-ui, -apple-system, sans-serif;
-  --font-body: "Rubik", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-heading: "Outfit", system-ui, -apple-system, sans-serif;
+  --font-body: "Figtree", ui-sans-serif, system-ui, -apple-system, sans-serif;
 
   /* Texto dos títulos (sempre legível) */
   --title-text: #0B1220;
@@ -53,4 +53,136 @@
   font-size: 16px;
   line-height: 1.75;
   color: var(--ui-700);
+}
+
+/* Tipologia R10 - Nova especificação */
+/* 1. Seção Super Manchete */
+.sm-title {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 50px;
+  line-height: 55px;
+}
+.sm-subtitle {
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 18px;
+  line-height: 24px;
+}
+.sm-hat {
+  font-family: var(--font-body);
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 14px;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  color: var(--hat-fg);
+}
+
+/* 2. Seção Destaque */
+/* 2.1 Principal */
+.destaque-title {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 50px;
+  line-height: 55px;
+}
+.destaque-subtitle {
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 18px;
+  line-height: 24px;
+}
+/* 2.2 Outros destaques */
+.destaque-outros-title {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 20px;
+  line-height: 25px;
+}
+.destaque-outros-subtitle {
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 20px;
+}
+.destaque-outros-hat {
+  font-family: var(--font-body);
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 14px;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  color: var(--hat-fg);
+}
+
+/* 3. Seção Geral */
+/* 3.1 Principal */
+.geral-title {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 40px;
+  line-height: 45px;
+}
+.geral-subtitle {
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 18px;
+  line-height: 24px;
+}
+/* 3.2 Outros */
+.geral-outros-title {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 20px;
+  line-height: 25px;
+}
+.geral-outros-hat {
+  font-family: var(--font-body);
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 14px;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  color: var(--hat-fg);
+}
+
+/* 4. Seção Municípios */
+.municipio-nome {
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 30px;
+  line-height: 34px;
+}
+.municipio-title {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 20px;
+  line-height: 25px;
+}
+.municipio-subtitle {
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+/* 5. Artigos */
+.artigo-title {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 50px;
+  line-height: 55px;
+}
+.artigo-subtitle {
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 24px;
+  line-height: 30px;
+}
+.artigo-texto {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 18px;
+  line-height: 28px;
 }
