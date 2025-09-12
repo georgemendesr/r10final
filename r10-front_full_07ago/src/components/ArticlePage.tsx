@@ -507,11 +507,11 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
                      // Processar destaques com animação funcionando
                      let highlightedText = paragraph
                        // Formato antigo: ===texto=== = ANIMADO
-                       .replace(/===(.*?)===/g, '<span data-highlight="animated">$1</span>')
+                       .replace(/===(.*?)===/g, '<span data-highlight="animated" class="animate-in-view">$1<\/span>')
                        // Formato antigo: ==texto== = SIMPLES
                        .replace(/==(.*?)==/g, '<span class="bg-yellow-200 px-1 rounded border border-yellow-400">$1</span>')
                        // Formato novo já com animação
-                       .replace(/<span class="highlight-animated"[^>]*>(.*?)<\/span>/g, '<span data-highlight="animated">$1</span>')
+                       .replace(/<span class="highlight-animated"[^>]*>(.*?)<\/span>/g, '<span data-highlight="animated" class="animate-in-view">$1<\/span>')
                        // Formato simples
                        .replace(/<span class="highlight-simple"[^>]*>(.*?)<\/span>/g, '<span class="bg-yellow-200 px-1 rounded border border-yellow-400">$1</span>')
                        // Processar formatação básica

@@ -478,7 +478,7 @@ span[style*="animation"] {
   background-repeat: no-repeat !important;
   background-position: left center !important;
   transition: background-size 1.6s cubic-bezier(0.4, 0, 0.2, 1) !important;
-  color: #111827 !important; /* gray-900 para melhor contraste */
+  color: #111827 !important;
   font-weight: 600 !important;
   padding: 2px 4px !important;
   border-radius: 4px !important;
