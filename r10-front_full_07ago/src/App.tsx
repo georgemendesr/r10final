@@ -73,8 +73,13 @@ function App() {
         const observeElements = () => {
           const animatedElements = document.querySelectorAll('[data-highlight="animated"]');
           animatedElements.forEach(element => {
-            if (!element.classList.contains('animate-in-view')) {
-              observer.observe(element);
+            const el = element as HTMLElement;
+            // Normalizar estado inicial: evitar que estilos inline prejudiquem a animação
+            if (el.style.backgroundSize && el.style.backgroundSize !== '0% 100%') {
+              el.style.backgroundSize = '0% 100%';
+            }
+            if (!el.classList.contains('animate-in-view')) {
+              observer.observe(el);
             }
           });
         };

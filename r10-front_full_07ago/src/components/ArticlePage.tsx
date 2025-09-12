@@ -512,6 +512,8 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
                        .replace(/==(.*?)==/g, '<span class="bg-yellow-200 px-1 rounded border border-yellow-400">$1</span>')
                        // Formato novo já com animação
                        .replace(/<span class="highlight-animated"[^>]*>(.*?)<\/span>/g, '<span data-highlight="animated">$1<\/span>')
+                       // Normalizar spans já com data-highlight (remover estilos inline vindos do editor)
+                       .replace(/<span[^>]*data-highlight=\"animated\"[^>]*>(.*?)<\/span>/g, '<span data-highlight="animated">$1<\/span>')
                        // Formato simples
                        .replace(/<span class="highlight-simple"[^>]*>(.*?)<\/span>/g, '<span class="bg-yellow-200 px-1 rounded border border-yellow-400">$1</span>')
                        // Processar formatação básica
