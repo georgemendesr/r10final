@@ -13,7 +13,7 @@
 /* 1. SEÇÃO SUPER MANCHETE */
 .super-manchete-title {
   font-family: 'Outfit', sans-serif;
-  font-weight: 600; /* semibold */
+  font-weight: 700; /* bold */
   font-size: 50px;
   line-height: 55px;
 }
@@ -36,7 +36,7 @@
 /* 2.1 Destaque Principal */
 .destaque-principal-title {
   font-family: 'Outfit', sans-serif;
-  font-weight: 600; /* semibold */
+  font-weight: 700; /* bold */
   font-size: 50px;
   line-height: 55px;
 }
@@ -55,7 +55,7 @@
 /* 2.2 Outros Destaques */
 .destaque-outros-title {
   font-family: 'Outfit', sans-serif;
-  font-weight: 600; /* semibold */
+  font-weight: 700; /* bold */
   font-size: 20px;
   line-height: 25px;
 }
@@ -100,7 +100,7 @@
 /* 3.1 Geral Principal */
 .geral-principal-title {
   font-family: 'Outfit', sans-serif;
-  font-weight: 500; /* medium */
+  font-weight: 700; /* bold */
   font-size: 36px;
   line-height: 42px;
 }
@@ -108,7 +108,7 @@
 /* 3.2 Outros Geral */
 .geral-outros-title {
   font-family: 'Outfit', sans-serif;
-  font-weight: 500; /* medium */
+  font-weight: 700; /* bold */
   font-size: 20px;
   line-height: 25px;
 }
@@ -177,7 +177,7 @@
 
 .municipios-title {
   font-family: 'Outfit', sans-serif;
-  font-weight: 600; /* semibold */
+  font-weight: 700; /* bold */
   font-size: 20px;
   line-height: 25px;
 }
@@ -192,7 +192,7 @@
 /* 5. ARTIGOS/MATÉRIAS */
 .artigo-title {
   font-family: 'Outfit', sans-serif;
-  font-weight: 600; /* semibold */
+  font-weight: 700; /* bold */
   font-size: 50px;
   line-height: 55px;
 }

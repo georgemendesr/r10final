@@ -42,22 +42,45 @@ const HeroGridPremium = () => {
   const getSubtitle = (p?: any) => (p?.subtitle || p?.subtitulo || '') as string;
   const getImage = (p?: any) => (p?.imagemDestaque || p?.imagemUrl || '') as string;
   const getCategory = (p?: any) => (p?.categoria || p?.subcategorias?.[0] || 'geral') as string;
-  const getAuthor = (p?: any) => (p?.author || p?.autor || '') as string;
+  const getAuthor = (p?: any) => (p?.author || p?.autor || '') as string; // não será exibido no Premium
 
   useEffect(() => {
-  const fetchPosts = async () => {
+    const fetchPosts = async () => {
       try {
         console.log('🔄 Buscando posts (Premium)...');
-        
-        // REGRA: Apenas notícias EXPLICITAMENTE setadas como 'destaque'
+
+        const targetTotal = 9; // 1 principal + 8 secundárias
+
+        // Busca até 5 destaques definidos
         const destaques = await getPostsByPosition('destaque', 5);
-        
+
         console.log('📊 Destaques encontrados (Premium):', {
           total: destaques.length,
           postIds: destaques.map((d: any) => d.id)
         });
-        
-        setPosts(destaques as any);
+
+        // Se faltar conteúdo, completa com "geral" sem duplicar
+        let combined: any[] = Array.isArray(destaques) ? [...destaques] : [];
+        const seen = new Set(combined.map((p: any) => p.id));
+
+        if (combined.length < targetTotal) {
+          const needed = targetTotal - combined.length;
+          // Pede um pouco a mais para garantir variedade
+          const gerais = await getPostsByPosition('geral', Math.max(8, needed));
+          for (const g of gerais as any[]) {
+            if (!seen.has(g.id)) {
+              combined.push(g);
+              seen.add(g.id);
+              if (combined.length >= targetTotal) break;
+            }
+          }
+          console.log('🧩 Completando com geral:', {
+            usadosDeGeral: combined.length - destaques.length,
+            totalFinal: combined.length
+          });
+        }
+
+        setPosts(combined as any);
       } catch (error) {
         console.error('❌ Erro ao buscar posts:', error);
       } finally {
@@ -100,7 +123,7 @@ const HeroGridPremium = () => {
   }
 
   return (
-    <section className="bg-gray-50 py-8">
+    <section className="premium bg-gray-50 py-8">
       <div className="container mx-auto px-4 max-w-[1250px]">
         
         {/* Layout Premium Magazine Style */}
@@ -136,7 +159,7 @@ const HeroGridPremium = () => {
                   {/* Conteúdo Principal */}
                   <div className="absolute bottom-0 left-0 right-0 p-8 lg:p-12">
                     <div className="max-w-4xl">
-                      <h1 className={`headline ${getEditorialClasses(getCategory(featuredPost)).title} text-3xl lg:text-5xl xl:text-6xl mb-4 leading-none title-hover-combined large title-hover-shimmer`}>
+                      <h1 className={`headline text-white text-3xl lg:text-5xl xl:text-6xl mb-4 leading-none title-hover-combined large title-hover-shimmer`}>
                         {getTitle(featuredPost)}
                       </h1>
                       {getSubtitle(featuredPost) && (
@@ -144,25 +167,10 @@ const HeroGridPremium = () => {
                           {getSubtitle(featuredPost)}
                         </p>
                       )}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4">
-                          <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
-                            <span className="text-white font-bold text-lg">
-                {getAuthor(featuredPost).charAt(0)}
-                            </span>
-                          </div>
-                          <div>
-                            <p className="text-white font-semibold">
-                {getAuthor(featuredPost)}
-                            </p>
-                            <p className="text-gray-300 text-sm">
-                              Há 2 horas
-                            </p>
-                          </div>
-                        </div>
+                      <div className="flex items-center justify-end">
                         <WhatsAppShareButton 
-              title={getTitle(featuredPost)}
-              url={`${window.location.origin}/noticia/${getCategory(featuredPost)}/${createSlug(getTitle(featuredPost))}/${featuredPost.id}`}
+                          title={getTitle(featuredPost)}
+                          url={`${window.location.origin}/noticia/${getCategory(featuredPost)}/${createSlug(getTitle(featuredPost))}/${featuredPost.id}`}
                           size="lg"
                         />
                       </div>
@@ -175,7 +183,7 @@ const HeroGridPremium = () => {
 
           {/* Grid Secundário Premium */}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-            {secondaryPosts.slice(0, 4).map((post, index) => (
+            {secondaryPosts.slice(0, 4).map((post: any, index: number) => (
               <Link 
                 key={post.id}
                 to={`/noticia/${getCategory(post)}/${createSlug(getTitle(post))}/${post.id}`}
@@ -199,22 +207,19 @@ const HeroGridPremium = () => {
                     </div>
                     
                     <div className="absolute bottom-3 left-3 right-3">
-                      <h3 className={`headline ${getEditorialClasses(getCategory(post)).title} text-sm leading-tight group-hover:opacity-80 transition-opacity line-clamp-2 title-hover-combined small`}>
+                      <h3 className={`headline text-white text-sm leading-tight group-hover:opacity-80 transition-opacity line-clamp-2 title-hover-combined small`}>
                         {getTitle(post)}
                       </h3>
                     </div>
                   </div>
                   
                   <div className="p-4">
-                        {getSubtitle(post) && (
+                    {getSubtitle(post) && (
                       <p className="text-gray-600 text-sm line-clamp-2 mb-3">
                         {getSubtitle(post)}
                       </p>
                     )}
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-500 text-xs font-medium">
-                        {getAuthor(post)}
-                      </span>
+                    <div className="flex items-center justify-end">
                       <WhatsAppShareButton 
                         title={getTitle(post)}
                         url={`${window.location.origin}/noticia/${getCategory(post)}/${createSlug(getTitle(post))}/${post.id}`}
@@ -239,7 +244,7 @@ const HeroGridPremium = () => {
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-              {secondaryPosts.slice(4, 8).map((post, index) => (
+              {secondaryPosts.slice(4, 8).map((post: any, index: number) => (
                 <Link 
                   key={post.id}
                   to={`/noticia/${getCategory(post)}/${createSlug(getTitle(post))}/${post.id}`}
@@ -261,9 +266,6 @@ const HeroGridPremium = () => {
                     <h4 className="font-bold text-sm text-gray-900 group-hover:text-red-600 transition-colors line-clamp-2">
                       {getTitle(post)}
                     </h4>
-                    <p className="text-gray-500 text-xs mt-1">
-                      {getAuthor(post)}
-                    </p>
                   </div>
                 </Link>
               ))}

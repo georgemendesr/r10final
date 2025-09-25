@@ -1,1 +1,6 @@
-{}
+{
+  "restartCounts": {
+    "backend": 24,
+    "frontend": 22
+  }
+}

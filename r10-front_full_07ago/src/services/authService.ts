@@ -1,3 +1,4 @@
+import { API_BASE_URL, get as apiGet, post as apiPost } from './api';
 // Tipos e interfaces para autenticação
 export interface User {
   id: string;
@@ -12,7 +13,6 @@ export type UserRole = 'admin' | 'editor' | 'reporter' | 'viewer';
 
 export interface AuthState {
   user: User | null;
-  token: string | null;
   isAuthenticated: boolean;
 }
 
@@ -25,7 +25,7 @@ const loadAuthFromStorage = (): AuthState => {
   const storedAuth = localStorage.getItem(AUTH_STORAGE_KEY);
   return storedAuth 
     ? JSON.parse(storedAuth) 
-    : { user: null, token: null, isAuthenticated: false };
+    : { user: null, isAuthenticated: false };
 };
 
 const saveAuthToStorage = (authState: AuthState): void => {
@@ -46,62 +46,76 @@ const generateId = (): string => {
   return Date.now().toString(36) + Math.random().toString(36).substring(2);
 };
 
-// Gerar token simulado
-const generateToken = (): string => {
-  return Math.random().toString(36).substring(2) + 
-         Math.random().toString(36).substring(2) + 
-         Math.random().toString(36).substring(2);
-};
+// Gerar token simulado (não usado quando backend disponível)
+const generateToken = (): string => Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2);
 
 // Funções de autenticação
 export const login = async (email: string, password: string): Promise<AuthState> => {
-  // Em uma implementação real, validaríamos as credenciais no servidor
-  // Para simulação, verificamos os usuários no localStorage
+  // Tentar backend primeiro
+  try {
+    const res = await fetch(`${API_BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+      credentials: 'include'
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const authState: AuthState = { user: data.user, isAuthenticated: true };
+      // Persistir token (fallback Authorization) além dos cookies HttpOnly
+      try {
+        const raw = localStorage.getItem('r10_auth');
+        const cur = raw ? JSON.parse(raw) : {};
+        const next = { ...cur, token: data?.token || null };
+        localStorage.setItem('r10_auth', JSON.stringify(next));
+      } catch (_) {}
+      saveAuthToStorage(authState);
+      return authState;
+    }
+  } catch (_) { /* cairá para fallback */ }
+
+  // Fallback localStorage (modo dev offline)
   const users = loadUsersFromStorage();
-  
-  // Simulando verificação de senha (em produção, usaríamos bcrypt ou similar)
-  // Aqui, qualquer senha funciona para usuários existentes
   const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
-  
-  if (!user) {
-    return Promise.reject(new Error('Usuário não encontrado'));
-  }
-  
-  // Criar estado de autenticação
-  const authState: AuthState = {
-    user,
-    token: generateToken(),
-    isAuthenticated: true
-  };
-  
-  // Salvar no localStorage
+  if (!user) throw new Error('Usuário não encontrado');
+  const authState: AuthState = { user, isAuthenticated: true };
   saveAuthToStorage(authState);
-  
-  // Simular chamada assíncrona
-  return new Promise(resolve => {
-    setTimeout(() => resolve(authState), 500);
-  });
+  return authState;
 };
 
 export const logout = async (): Promise<void> => {
-  // Limpar estado de autenticação
-  const emptyAuthState: AuthState = {
-    user: null,
-    token: null,
-    isAuthenticated: false
-  };
-  
+  try {
+    await fetch(`${API_BASE_URL}/auth/logout`, { method: 'POST', credentials: 'include' });
+  } catch (_) {}
+  // Limpar estado e token (fallback Authorization)
+  const emptyAuthState: AuthState = { user: null, isAuthenticated: false };
+  try {
+    const raw = localStorage.getItem('r10_auth');
+    const cur = raw ? JSON.parse(raw) : {};
+    const next = { ...cur, token: null };
+    localStorage.setItem('r10_auth', JSON.stringify(next));
+  } catch (_) {}
   saveAuthToStorage(emptyAuthState);
-  
-  // Simular chamada assíncrona
-  return new Promise(resolve => {
-    setTimeout(() => resolve(), 300);
-  });
 };
 
 export const getCurrentUser = async (): Promise<User | null> => {
-  const authState = loadAuthFromStorage();
-  return Promise.resolve(authState.user);
+  try {
+    const user = await apiGet<User>(`/auth/me`);
+    const next = { user, isAuthenticated: true } as AuthState;
+    saveAuthToStorage(next);
+    return user;
+  } catch (_) {}
+  // tentar refresh e reconectar usando o cliente central (com Authorization)
+  try {
+    const r = await apiPost<any>(`/auth/refresh`);
+    if (r && r.user) {
+      const user = await apiGet<User>(`/auth/me`);
+      const next = { user, isAuthenticated: true } as AuthState;
+      saveAuthToStorage(next);
+      return user;
+    }
+  } catch (_) {}
+  return null;
 };
 
 export const isAuthenticated = async (): Promise<boolean> => {
@@ -110,8 +124,7 @@ export const isAuthenticated = async (): Promise<boolean> => {
 };
 
 export const getToken = (): string | null => {
-  const authState = loadAuthFromStorage();
-  return authState.token;
+  return null; // não expomos mais token no front (httpOnly cookies)
 };
 
 // Gerenciamento de usuários (normalmente seria uma API separada)
@@ -241,12 +254,32 @@ export const initializeTestData = () => {
   
   saveUsersToStorage(testUsers);
   
-  // Fazer login automático com o usuário admin para testes
-  const authState: AuthState = {
-    user: testUsers[0],
-    token: generateToken(),
-    isAuthenticated: true
-  };
-  
-  saveAuthToStorage(authState);
+  // Não fazer login automático; backend agora pode autenticar
 }; 
+
+// Recuperação de senha
+export async function requestPasswordReset(email: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/auth/request-reset`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    return res.ok;
+  } catch (_) {
+    return false;
+  }
+}
+
+export async function resetPassword(token: string, password: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/auth/reset`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, password })
+    });
+    return res.ok;
+  } catch (_) {
+    return false;
+  }
+}

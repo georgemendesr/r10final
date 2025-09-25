@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Navigate } from 'react-router-dom';
+import { useNavigate, Navigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const LoginPage: React.FC = () => {
@@ -95,12 +95,19 @@ const LoginPage: React.FC = () => {
                 {isLoading ? 'Entrando...' : 'Entrar'}
               </button>
             </form>
+            <div className="mt-4 text-center">
+              <Link to="/esqueci-minha-senha" className="text-sm text-red-600 hover:text-red-700 font-medium">
+                Esqueci minha senha
+              </Link>
+            </div>
             
             <div className="mt-6 text-center">
               <p className="text-sm text-gray-600">
-                Para testes, use: <span className="font-medium">joao@r10piaui.com</span>
+                Para testes, use:
                 <br />
-                Qualquer senha funcionará
+                <span className="font-medium">joao@r10piaui.com</span> ou <span className="font-medium">george@r10piaui.com</span>
+                <br />
+                Senha: <span className="font-medium">admin</span>
               </p>
             </div>
           </div>

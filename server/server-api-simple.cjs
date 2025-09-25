@@ -221,16 +221,22 @@ function createApp({ dbPath }) {
   
   // Configuração CORS específica para o frontend
   const corsOptions = {
-    origin: [
-      'http://localhost:5175',
-      'http://127.0.0.1:5175',
-      'http://localhost:5176',
-      'http://127.0.0.1:5176', 
-      'http://localhost:5177',
-      'http://127.0.0.1:5177',
-      'http://localhost:3000', // fallback para outros ambientes
-      'http://127.0.0.1:3000'
-    ],
+    origin: (origin, callback) => {
+      const staticAllowed = new Set([
+        'http://localhost:5175',
+        'http://127.0.0.1:5175',
+        'http://localhost:5176',
+        'http://127.0.0.1:5176',
+        'http://localhost:5177',
+        'http://127.0.0.1:5177',
+        'http://localhost:3000',
+        'http://127.0.0.1:3000'
+      ]);
+      const lanRegex = /^http:\/\/192\.168\.[0-9]{1,3}\.[0-9]{1,3}:[0-9]{2,5}$/;
+      if (!origin) return callback(null, true); // same-origin / tools
+      if (staticAllowed.has(origin) || lanRegex.test(origin)) return callback(null, true);
+      return callback(null, false);
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control']
@@ -307,6 +313,1223 @@ function createApp({ dbPath }) {
   
   app.locals.db = db; // expor conexão para testes/cleanup
   console.log('🗄️ Conectado ao banco SQLite:', resolvedDbPath);
+
+  // ======= AUTH (local) =======
+  const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-r10';
+  const ACCESS_TTL_SECONDS = 60 * 15; // 15 minutos
+  const REFRESH_TTL_DAYS = 7; // 7 dias
+  const ACCESS_COOKIE = 'r10_access';
+  const REFRESH_COOKIE = 'r10_refresh';
+  function b64url(input) {
+    return Buffer.from(input).toString('base64').replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+  }
+  function b64urlJson(obj) { return b64url(JSON.stringify(obj)); }
+  function signJWT(payload, expSeconds = 60 * 60 * 4) {
+    const header = { alg: 'HS256', typ: 'JWT' };
+    const now = Math.floor(Date.now() / 1000);
+    const body = { iat: now, exp: now + expSeconds, ...payload };
+    const signingInput = `${b64urlJson(header)}.${b64urlJson(body)}`;
+    const sig = crypto.createHmac('sha256', JWT_SECRET).update(signingInput).digest('base64')
+      .replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+    return `${signingInput}.${sig}`;
+  }
+  function verifyJWT(token) {
+    try {
+      const [h,p,s] = String(token||'').split('.');
+      if (!h || !p || !s) return null;
+      const sig = crypto.createHmac('sha256', JWT_SECRET).update(`${h}.${p}`).digest('base64')
+        .replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+      if (sig !== s) return null;
+      const payload = JSON.parse(Buffer.from(p, 'base64').toString('utf8'));
+      if (payload.exp && Math.floor(Date.now()/1000) > payload.exp) return null;
+      return payload;
+    } catch(_) { return null; }
+  }
+  function hashPassword(password) {
+    const salt = crypto.randomBytes(16).toString('hex');
+    const key = crypto.scryptSync(password, salt, 32);
+    return `scrypt:${salt}:${key.toString('hex')}`;
+  }
+  function verifyPassword(password, stored) {
+    try {
+      const [scheme, salt, hashHex] = String(stored||'').split(':');
+      if (scheme !== 'scrypt' || !salt || !hashHex) return false;
+      const key = crypto.scryptSync(password, salt, 32).toString('hex');
+      return crypto.timingSafeEqual(Buffer.from(key,'hex'), Buffer.from(hashHex,'hex'));
+    } catch(_) { return false; }
+  }
+
+  function ensureUsersTable(cb) {
+    db.run(`CREATE TABLE IF NOT EXISTS usuarios (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      email TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'editor',
+      avatar TEXT,
+      created_at TEXT NOT NULL
+    )`, [], (err) => {
+      if (err) return cb && cb(err);
+      // Seed admin se tabela vazia
+      db.get('SELECT COUNT(*) as c FROM usuarios', [], (e, row) => {
+        if (e) return cb && cb(e);
+        if ((row?.c||0) === 0) {
+          const now = new Date().toISOString();
+          const admin = {
+            name: 'João Silva',
+            email: 'joao@r10piaui.com',
+            password_hash: hashPassword('admin'),
+            role: 'admin',
+            avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face',
+            created_at: now
+          };
+          db.run('INSERT INTO usuarios (name,email,password_hash,role,avatar,created_at) VALUES (?,?,?,?,?,?)',
+            [admin.name, admin.email.toLowerCase(), admin.password_hash, admin.role, admin.avatar, admin.created_at],
+            () => cb && cb()
+          );
+        } else cb && cb();
+      });
+    });
+  }
+
+  ensureUsersTable((err)=>{
+    if (err) console.error('⚠️ Erro ao garantir tabela usuarios:', err);
+    else console.log('👤 Tabela de usuários pronta');
+  });
+
+  // ======= REFRESH TOKENS =======
+  function ensureRefreshTokensTable(cb) {
+    db.run(`CREATE TABLE IF NOT EXISTS refresh_tokens (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      token_hash TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      revoked_at TEXT,
+      user_agent TEXT,
+      ip TEXT
+    )`, [], (err) => cb && cb(err));
+  }
+
+  ensureRefreshTokensTable((err)=>{
+    if (err) console.error('⚠️ Erro ao garantir tabela refresh_tokens:', err);
+    else console.log('🔑 Tabela de refresh tokens pronta');
+  });
+
+  function base64urlBuffer(bytes = 48) {
+    return crypto.randomBytes(bytes).toString('base64').replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+  }
+  function sha256Hex(s) { return crypto.createHash('sha256').update(String(s)).digest('hex'); }
+
+  function parseCookies(req) {
+    const hdr = req.headers['cookie'] || '';
+    const out = {};
+    hdr.split(';').forEach(p => {
+      const idx = p.indexOf('=');
+      if (idx > -1) {
+        const k = p.slice(0, idx).trim();
+        const v = decodeURIComponent(p.slice(idx+1).trim());
+        if (k) out[k] = v;
+      }
+    });
+    return out;
+  }
+
+  function setAuthCookies(res, accessToken, refreshToken) {
+    try {
+      res.cookie(ACCESS_COOKIE, accessToken, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: false,
+        maxAge: ACCESS_TTL_SECONDS * 1000,
+        path: '/'
+      });
+      res.cookie(REFRESH_COOKIE, refreshToken, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: false,
+        maxAge: REFRESH_TTL_DAYS * 24 * 60 * 60 * 1000,
+        path: '/'
+      });
+    } catch (_) {}
+  }
+
+  function clearAuthCookies(res) {
+    try {
+      res.cookie(ACCESS_COOKIE, '', { httpOnly: true, sameSite: 'lax', secure: false, expires: new Date(0), path: '/' });
+      res.cookie(REFRESH_COOKIE, '', { httpOnly: true, sameSite: 'lax', secure: false, expires: new Date(0), path: '/' });
+      // Limpeza extra para casos legados com path antigo
+      res.cookie(ACCESS_COOKIE, '', { httpOnly: true, sameSite: 'lax', secure: false, expires: new Date(0), path: '/api/auth' });
+      res.cookie(REFRESH_COOKIE, '', { httpOnly: true, sameSite: 'lax', secure: false, expires: new Date(0), path: '/api/auth' });
+    } catch (_) {}
+  }
+
+  function authMiddleware(req, res, next) {
+    const hdr = req.headers['authorization'] || '';
+    let token = hdr.startsWith('Bearer ') ? hdr.slice(7) : null;
+    if (!token) {
+      const cookies = parseCookies(req);
+      if (!cookies || (!cookies[ACCESS_COOKIE] && !cookies[REFRESH_COOKIE])) {
+        console.warn('[auth] sem cookies de auth na requisição', {
+          hasCookieHeader: !!req.headers['cookie'],
+          cookieLen: (req.headers['cookie']||'').length
+        });
+      }
+      if (cookies && cookies[ACCESS_COOKIE]) {
+        // Não logar valor do token, apenas comprimento
+        console.log('[auth] r10_access presente (len=', String(cookies[ACCESS_COOKIE]||'').length, ')');
+      }
+      if (cookies && cookies[ACCESS_COOKIE]) token = cookies[ACCESS_COOKIE];
+    }
+    const payload = token ? verifyJWT(token) : null;
+    if (!payload) return res.status(401).json({ error: 'unauthorized' });
+    req.user = payload;
+    next();
+  }
+
+  function requireRole(...roles) {
+    return (req, res, next) => {
+      if (!req.user) return res.status(401).json({ error: 'unauthorized' });
+      if (roles.length && !roles.includes(req.user.role)) return res.status(403).json({ error: 'forbidden' });
+      next();
+    };
+  }
+
+  // Rotas de autenticação
+  app.post('/api/auth/login', (req, res) => {
+    const { email, password } = req.body || {};
+    if (!email || !password) return res.status(400).json({ error: 'email e senha obrigatórios' });
+    db.get('SELECT * FROM usuarios WHERE LOWER(email) = LOWER(?)', [String(email).trim()], (err, user) => {
+      if (err) return res.status(500).json({ error: 'erro de servidor' });
+      if (!user) return res.status(401).json({ error: 'credenciais inválidas' });
+      if (!verifyPassword(String(password), user.password_hash)) return res.status(401).json({ error: 'credenciais inválidas' });
+      const payload = { sub: user.id, email: user.email, role: user.role, name: user.name };
+      const accessToken = signJWT(payload, ACCESS_TTL_SECONDS);
+      const refreshRaw = base64urlBuffer(48);
+      const refreshHash = sha256Hex(refreshRaw);
+      const now = new Date();
+      const created_at = now.toISOString();
+      const expires_at = new Date(now.getTime() + (REFRESH_TTL_DAYS * 24 * 60 * 60 * 1000)).toISOString();
+      const ua = req.headers['user-agent'] || null;
+      const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip || '').toString();
+      db.run('INSERT INTO refresh_tokens (user_id, token_hash, created_at, expires_at, user_agent, ip) VALUES (?,?,?,?,?,?)',
+        [user.id, refreshHash, created_at, expires_at, ua, ip], (insErr) => {
+          if (insErr) return res.status(500).json({ error: 'erro de servidor' });
+          setAuthCookies(res, accessToken, refreshRaw);
+          const outUser = { id: String(user.id), name: user.name, email: user.email, role: user.role, avatar: user.avatar, createdAt: user.created_at };
+          // Mantém token no corpo para retrocompatibilidade, mas cookies passam a ser a fonte preferida
+          res.json({ token: accessToken, user: outUser });
+        }
+      );
+    });
+  });
+
+  // Endpoint de debug não sensível: inspeciona presença de cookies (sem revelar valores)
+  app.get('/api/auth/debug-cookies', (req, res) => {
+    const cookies = parseCookies(req);
+    res.json({
+      hasAccess: !!cookies[ACCESS_COOKIE],
+      hasRefresh: !!cookies[REFRESH_COOKIE],
+      cookieHeaderPresent: !!req.headers['cookie'],
+      cookieHeaderLength: (req.headers['cookie']||'').length
+    });
+  });
+
+  app.get('/api/auth/me', authMiddleware, (req, res) => {
+    const id = req.user.sub;
+    db.get('SELECT id,name,email,role,avatar,created_at FROM usuarios WHERE id = ?', [id], (err, row) => {
+      if (err) return res.status(500).json({ error: 'erro de servidor' });
+      if (!row) return res.status(404).json({ error: 'não encontrado' });
+      res.json({ id: String(row.id), name: row.name, email: row.email, role: row.role, avatar: row.avatar, createdAt: row.created_at });
+    });
+  });
+
+  app.post('/api/auth/register', authMiddleware, requireRole('admin'), (req, res) => {
+    const { name, email, password, role = 'editor', avatar } = req.body || {};
+    if (!name || !email || !password) return res.status(400).json({ error: 'campos obrigatórios: name, email, password' });
+    const created_at = new Date().toISOString();
+    const password_hash = hashPassword(String(password));
+    db.run('INSERT INTO usuarios (name,email,password_hash,role,avatar,created_at) VALUES (?,?,?,?,?,?)',
+      [name, String(email).toLowerCase(), password_hash, role, avatar || null, created_at], function (err) {
+        if (err) {
+          if (String(err.message||'').includes('UNIQUE')) return res.status(409).json({ error: 'email já cadastrado' });
+          return res.status(500).json({ error: 'erro de servidor' });
+        }
+        res.status(201).json({ id: String(this.lastID), name, email: String(email).toLowerCase(), role, avatar: avatar || null, createdAt: created_at });
+      }
+    );
+  });
+
+  // ======= User Management (Admin only) =======
+  app.get('/api/users', authMiddleware, requireRole('admin'), (req, res) => {
+    db.all('SELECT id,name,email,role,avatar,created_at FROM usuarios ORDER BY created_at DESC', [], (err, rows) => {
+      if (err) return res.status(500).json({ error: 'erro de servidor' });
+      const users = (rows || []).map(r => ({ id: String(r.id), name: r.name, email: r.email, role: r.role, avatar: r.avatar, createdAt: r.created_at }));
+      res.json({ items: users, total: users.length });
+    });
+  });
+
+  // ======= Categories (editorial/municipality/special) =======
+  // Tabela e endpoints simples para gerenciar categorias básicas usadas no painel
+  db.run(`CREATE TABLE IF NOT EXISTS categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    color TEXT,
+    type TEXT NOT NULL CHECK (type IN ('editorial','municipality','special')),
+    created_at TEXT
+  )`);
+
+  app.get('/api/categories', authMiddleware, requireRole('admin'), (req, res) => {
+    const type = String(req.query.type || '').trim();
+    const params = [];
+    let sql = 'SELECT id,name,color,type,created_at FROM categories';
+    if (type) { sql += ' WHERE type = ?'; params.push(type); }
+    sql += ' ORDER BY created_at DESC, id DESC';
+    db.all(sql, params, (err, rows) => {
+      if (err) return res.status(500).json({ error: 'erro de servidor' });
+      const items = (rows || []).map(r => ({ id: String(r.id), name: r.name, color: r.color, type: r.type, createdAt: r.created_at }));
+      res.json({ items, total: items.length });
+    });
+  });
+
+  app.post('/api/categories', authMiddleware, requireRole('admin'), (req, res) => {
+    const { name, color = '#6B7280', type } = req.body || {};
+    if (!name || !type || !['editorial','municipality','special'].includes(String(type))) {
+      return res.status(400).json({ error: 'parâmetros inválidos' });
+    }
+    const created_at = new Date().toISOString();
+    db.run('INSERT INTO categories (name,color,type,created_at) VALUES (?,?,?,?)', [String(name).trim(), String(color), String(type), created_at], function (err) {
+      if (err) return res.status(500).json({ error: 'erro de servidor' });
+      res.status(201).json({ id: String(this.lastID), name: String(name).trim(), color: String(color), type: String(type), createdAt: created_at });
+    });
+  });
+
+  app.delete('/api/categories/:id', authMiddleware, requireRole('admin'), (req, res) => {
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ error: 'id inválido' });
+    db.run('DELETE FROM categories WHERE id = ?', [id], (err) => {
+      if (err) return res.status(500).json({ error: 'erro de servidor' });
+      res.json({ ok: true });
+    });
+  });
+
+  // ======= Social Insights (Facebook/Instagram) =======
+  app.get('/api/social/insights', authMiddleware, async (req, res) => {
+    const IG_USER_ID = process.env.IG_BUSINESS_ID || process.env.IG_USER_ID || '';
+    const FB_PAGE_ID = process.env.FB_PAGE_ID || process.env.PAGE_ID || '';
+  const META_TOKEN = process.env.IG_ACCESS_TOKEN || process.env.FB_ACCESS_TOKEN || process.env.META_ACCESS_TOKEN || '';
+  const FB_PAGE_TOKEN_ENV = process.env.FB_PAGE_ACCESS_TOKEN || '';
+
+    if (!IG_USER_ID || !FB_PAGE_ID || !META_TOKEN) {
+      return res.status(501).json({
+        error: 'Meta Graph não configurado',
+        missing: {
+          ig_user_id: !IG_USER_ID,
+          fb_page_id: !FB_PAGE_ID,
+          access_token: !META_TOKEN
+        },
+        hint: 'Defina IG_BUSINESS_ID/IG_USER_ID, FB_PAGE_ID e IG_ACCESS_TOKEN (ou FB_ACCESS_TOKEN/META_ACCESS_TOKEN) no .env'
+      });
+    }
+
+    try {
+      console.log('[insights] start[v3]', { ig: IG_USER_ID, fb: FB_PAGE_ID });
+      console.log('[insights] ordem IG: reach -> impressions | FB: page_engaged_users -> page_impressions -> page_impressions_unique');
+    } catch(_) {}
+
+    const base = 'https://graph.facebook.com/v19.0';
+    const now = Math.floor(Date.now() / 1000);
+    const days = 7;
+    const since = now - (days - 1) * 86400;
+    const until = now;
+
+    async function getJson(url) {
+      const r = await fetch(url);
+      const txt = await r.text();
+      try { return { ok: r.ok, status: r.status, data: JSON.parse(txt) }; }
+      catch { return { ok: r.ok, status: r.status, data: null, raw: txt }; }
+    }
+
+    async function getPageAccessToken(pageId, userToken) {
+      try {
+        // Tenta diretamente no recurso da Página
+        const resp = await getJson(`${base}/${pageId}?fields=access_token&access_token=${encodeURIComponent(userToken)}`);
+        if (resp.ok && resp.data && resp.data.access_token) {
+          console.log('[insights][facebook] usando Page Access Token para insights');
+          return String(resp.data.access_token);
+        }
+        try { console.warn('[insights][facebook] falha ao obter Page Access Token', resp.status, resp.data || resp.raw); } catch(_) {}
+        // Fallback: lista de páginas do usuário autenticado
+        const accounts = await getJson(`${base}/me/accounts?fields=id,name,access_token&access_token=${encodeURIComponent(userToken)}`);
+        if (accounts.ok && Array.isArray(accounts.data?.data)) {
+          const found = accounts.data.data.find(p => String(p.id) === String(pageId));
+          if (found && found.access_token) {
+            console.log('[insights][facebook] usando Page Access Token via me/accounts');
+            return String(found.access_token);
+          }
+        } else {
+          try { console.warn('[insights][facebook] me/accounts FAIL', accounts.status, accounts.data || accounts.raw); } catch(_) {}
+        }
+      } catch (e) {
+        console.warn('[insights][facebook] exceção ao obter Page Access Token', e?.message || e);
+      }
+      return null;
+    }
+
+    try {
+      // Instagram: followers_count + reach/impressions (7 dias). Preferir reach (mais amplamente disponível).
+      const igResult = { followers: null, username: null, trend: [], engagement: null, metric: null, status: 'unavailable', error: null };
+      const igUserResp = await getJson(`${base}/${IG_USER_ID}?fields=followers_count,username,name&access_token=${encodeURIComponent(META_TOKEN)}`);
+      if (!igUserResp.ok) {
+        try { console.warn('[insights][instagram] followers_count FAIL', igUserResp.status, igUserResp.data || igUserResp.raw); } catch(_) {}
+        igResult.error = { step: 'followers', status: igUserResp.status, detail: igUserResp.data || igUserResp.raw || null };
+      } else {
+        igResult.followers = Number(igUserResp.data?.followers_count || 0);
+        igResult.username = String(igUserResp.data?.username || igUserResp.data?.name || '').trim();
+        // Tentar primeiro reach (mais estável), depois impressions
+        let igReachResp = await getJson(`${base}/${IG_USER_ID}/insights?metric=reach&period=day&since=${since}&until=${until}&access_token=${encodeURIComponent(META_TOKEN)}`);
+        if (!igReachResp.ok) {
+          try { console.warn('[insights][instagram] reach FAIL', igReachResp.status, igReachResp.data || igReachResp.raw); } catch(_) {}
+          // Fallback: usar 'views' (impressions pode não estar disponível na versão atual da API para nível de conta)
+          const igViewsResp = await getJson(`${base}/${IG_USER_ID}/insights?metric=views&period=day&since=${since}&until=${until}&access_token=${encodeURIComponent(META_TOKEN)}`);
+          if (!igViewsResp.ok) {
+            igResult.error = { step: 'insights', status: igReachResp.status, detail: igReachResp.data || igReachResp.raw || null, fallback: { status: igViewsResp.status, detail: igViewsResp.data || igViewsResp.raw || null } };
+          } else {
+            const series = Array.isArray(igViewsResp.data?.data) ? igViewsResp.data.data : [];
+            const values = (series.find(m => m.name === 'views')?.values || [] )
+              .map(v => ({ date: String(v.end_time || '').slice(0,10), engagement: Number(v.value || 0) }));
+            igResult.trend = values;
+            igResult.engagement = values.reduce((a,b)=> a + (b.engagement||0), 0);
+            igResult.metric = 'views';
+            igResult.status = 'ok'; // fallback bem-sucedido ainda é dado real
+          }
+        } else {
+          const series = Array.isArray(igReachResp.data?.data) ? igReachResp.data.data : [];
+          const values = (series.find(m => m.name === 'reach')?.values || [])
+            .map(v => ({ date: String(v.end_time || '').slice(0,10), engagement: Number(v.value || 0) }));
+          igResult.trend = values;
+          igResult.engagement = values.reduce((a,b)=> a + (b.engagement||0), 0);
+          igResult.metric = 'reach';
+          igResult.status = 'ok';
+        }
+      }
+
+      // Facebook Page: followers_count + série de engajamento últimos 7 dias
+  const fbResult = { followers: null, name: null, trend: [], engagement: null, metric: null, status: 'unavailable', error: null };
+  // Obter Page Access Token (se possível) para métricas de página; prioriza variável de ambiente se fornecida
+  const PAGE_TOKEN = FB_PAGE_TOKEN_ENV || (await getPageAccessToken(FB_PAGE_ID, META_TOKEN)) || META_TOKEN;
+      const fbPageResp = await getJson(`${base}/${FB_PAGE_ID}?fields=followers_count,name&access_token=${encodeURIComponent(PAGE_TOKEN)}`);
+      if (!fbPageResp.ok) {
+        try { console.warn('[insights][facebook] followers_count FAIL', fbPageResp.status, fbPageResp.data || fbPageResp.raw); } catch(_) {}
+        fbResult.error = { step: 'followers', status: fbPageResp.status, detail: fbPageResp.data || fbPageResp.raw || null };
+      } else {
+        fbResult.followers = Number(fbPageResp.data?.followers_count || 0);
+        fbResult.name = String(fbPageResp.data?.name || '').trim();
+        let fbInsightsResp = await getJson(`${base}/${FB_PAGE_ID}/insights?metric=page_engaged_users&period=day&since=${since}&until=${until}&access_token=${encodeURIComponent(PAGE_TOKEN)}`);
+        if (!fbInsightsResp.ok) {
+          try { console.warn('[insights][facebook] page_engaged_users FAIL', fbInsightsResp.status, fbInsightsResp.data || fbInsightsResp.raw); } catch(_) {}
+          // fallback 1: page_impressions (mais comum e estável)
+          let fbImpResp = await getJson(`${base}/${FB_PAGE_ID}/insights?metric=page_impressions&period=day&since=${since}&until=${until}&access_token=${encodeURIComponent(PAGE_TOKEN)}`);
+          if (!fbImpResp.ok) {
+            // fallback 2: page_impressions_unique (alcance único)
+            const fbImpUniqueResp = await getJson(`${base}/${FB_PAGE_ID}/insights?metric=page_impressions_unique&period=day&since=${since}&until=${until}&access_token=${encodeURIComponent(PAGE_TOKEN)}`);
+            if (!fbImpUniqueResp.ok) {
+              fbResult.error = { step: 'insights', status: fbInsightsResp.status, detail: fbInsightsResp.data || fbInsightsResp.raw || null, fallback: { status: fbImpResp.status, detail: fbImpResp.data || fbImpResp.raw || null, second: { status: fbImpUniqueResp.status, detail: fbImpUniqueResp.data || fbImpUniqueResp.raw || null } } };
+            } else {
+              const series = Array.isArray(fbImpUniqueResp.data?.data) ? fbImpUniqueResp.data.data : [];
+              const values = (series.find(m => m.name === 'page_impressions_unique')?.values || series[0]?.values || [])
+                .map(v => ({ date: String(v.end_time || '').slice(0,10), engagement: Number((v.value && v.value.value) || v.value || 0) }));
+              fbResult.trend = values;
+              fbResult.engagement = values.reduce((a,b)=> a + (b.engagement||0), 0);
+              fbResult.metric = 'page_impressions_unique';
+              fbResult.status = 'ok';
+            }
+          } else {
+            const series = Array.isArray(fbImpResp.data?.data) ? fbImpResp.data.data : [];
+            const values = (series.find(m => m.name === 'page_impressions')?.values || series[0]?.values || [])
+              .map(v => ({ date: String(v.end_time || '').slice(0,10), engagement: Number((v.value && v.value.value) || v.value || 0) }));
+            fbResult.trend = values;
+            fbResult.engagement = values.reduce((a,b)=> a + (b.engagement||0), 0);
+            fbResult.metric = 'page_impressions';
+            fbResult.status = 'ok';
+          }
+        } else {
+          const series = Array.isArray(fbInsightsResp.data?.data) ? fbInsightsResp.data.data : [];
+          const values = (series.find(m => m.name === 'page_engaged_users')?.values || [])
+            .map(v => ({ date: String(v.end_time || '').slice(0,10), engagement: Number((v.value && v.value.value) || v.value || 0) }));
+          fbResult.trend = values;
+          fbResult.engagement = values.reduce((a,b)=> a + (b.engagement||0), 0);
+          fbResult.metric = 'page_engaged_users';
+          fbResult.status = 'ok';
+        }
+      }
+
+      const payload = {
+        facebook: {
+          followers: fbResult.followers,
+          engagement: fbResult.engagement,
+          growth7d: 0, // recalculado abaixo se possível
+          trend: fbResult.trend,
+          account: { id: FB_PAGE_ID, name: fbResult.name },
+          metrics: { primary: fbResult.metric, status: fbResult.status, error: fbResult.error || null }
+        },
+        instagram: {
+          followers: igResult.followers,
+          engagement: igResult.engagement,
+          growth7d: 0, // recalculado abaixo se possível
+          trend: igResult.trend,
+          account: { id: IG_USER_ID, username: igResult.username },
+          metrics: { primary: igResult.metric, status: igResult.status, error: igResult.error || null }
+        }
+      };
+
+      // Persistir métricas diárias e calcular growth real (diferença percentual entre primeiro e último dos últimos 7 dias)
+      const today = new Date().toISOString().slice(0,10);
+      function upsertMetric(source, followers, engagement) {
+        return new Promise((resolve)=>{
+          db.run('INSERT OR IGNORE INTO social_metrics (source,date,followers,engagement,created_at) VALUES (?,?,?,?,?)',
+            [source, today, followers, engagement, new Date().toISOString()], () => {
+              // Se já existia, opcionalmente podemos atualizar seguidores/engajamento (mantemos primeiro do dia para histórico coerente)
+              resolve();
+            });
+        });
+      }
+      if (typeof fbResult.followers === 'number') {
+        await upsertMetric('facebook', fbResult.followers, Number(fbResult.engagement || 0));
+      }
+      if (typeof igResult.followers === 'number') {
+        await upsertMetric('instagram', igResult.followers, Number(igResult.engagement || 0));
+      }
+
+      function computeGrowth(source, currentFollowers) {
+        return new Promise((resolve)=>{
+          db.all('SELECT date, followers FROM social_metrics WHERE source = ? ORDER BY date DESC LIMIT 8', [source], (err, rows) => {
+            if (err || !rows || !rows.length) return resolve(0);
+            // rows estão em ordem DESC; pegamos últimos 7 dias distintos
+            const unique = [];
+            const seen = new Set();
+            for (const r of rows) { if (!seen.has(r.date)) { unique.push(r); seen.add(r.date); } }
+            const slice = unique.slice(-7); // mais antigos dentro do intervalo
+            if (slice.length < 2) return resolve(0);
+            const first = slice[0].followers;
+            const last = currentFollowers; // usamos valor atual (garantido)
+            if (!first || first <= 0) return resolve(0);
+            const growthPct = ((last - first) / first) * 100;
+            resolve(Math.round(growthPct * 10) / 10); // uma casa decimal
+          });
+        });
+      }
+
+      const [fbGrowth, igGrowth] = await Promise.all([
+        typeof fbResult.followers === 'number' ? computeGrowth('facebook', fbResult.followers) : Promise.resolve(0),
+        typeof igResult.followers === 'number' ? computeGrowth('instagram', igResult.followers) : Promise.resolve(0)
+      ]);
+      payload.facebook.growth7d = fbGrowth;
+      payload.instagram.growth7d = igGrowth;
+      try {
+        console.log('[insights] payload', JSON.stringify({
+          facebook: { followers: payload.facebook.followers, engagement: payload.facebook.engagement, trendLen: (payload.facebook.trend||[]).length, account: payload.facebook.account?.name, metric: payload.facebook.metrics?.primary, status: payload.facebook.metrics?.status },
+          instagram: { followers: payload.instagram.followers, engagement: payload.instagram.engagement, trendLen: (payload.instagram.trend||[]).length, account: payload.instagram.account?.username, metric: payload.instagram.metrics?.primary, status: payload.instagram.metrics?.status }
+        }));
+      } catch(_) {}
+      // Nunca quebrar por falha parcial de métricas: retornar payload com status por fonte
+      res.json(payload);
+    } catch (e) {
+      console.error('Erro ao consultar Meta Graph:', e && (e.stack || e));
+      res.status(500).json({ error: 'erro ao consultar Meta Graph' });
+    }
+  });
+
+  // ======= Social Analytics (dataset completo) =======
+  // Retorna várias métricas reais possíveis para IG e FB, com período configurável (7-90 dias)
+  app.get('/api/social/analytics', authMiddleware, async (req, res) => {
+    const IG_USER_ID = process.env.IG_BUSINESS_ID || process.env.IG_USER_ID || '';
+    const FB_PAGE_ID = process.env.FB_PAGE_ID || process.env.PAGE_ID || '';
+    const META_TOKEN = process.env.IG_ACCESS_TOKEN || process.env.FB_ACCESS_TOKEN || process.env.META_ACCESS_TOKEN || '';
+    const FB_PAGE_TOKEN_ENV = process.env.FB_PAGE_ACCESS_TOKEN || '';
+
+    if (!IG_USER_ID || !FB_PAGE_ID || !META_TOKEN) {
+      return res.status(501).json({
+        error: 'Meta Graph não configurado',
+        missing: {
+          ig_user_id: !IG_USER_ID,
+          fb_page_id: !FB_PAGE_ID,
+          access_token: !META_TOKEN
+        }
+      });
+    }
+
+    const base = 'https://graph.facebook.com/v19.0';
+    const daysReq = Math.max(7, Math.min(90, parseInt(String(req.query.days || '30')) || 30));
+    const now = Math.floor(Date.now() / 1000);
+    const since = now - (daysReq - 1) * 86400;
+    const until = now;
+
+    async function getJson(url) {
+      const r = await fetch(url);
+      const txt = await r.text();
+      try { return { ok: r.ok, status: r.status, data: JSON.parse(txt) }; }
+      catch { return { ok: r.ok, status: r.status, data: null, raw: txt }; }
+    }
+
+    async function getPageAccessToken(pageId, userToken) {
+      try {
+        const resp = await getJson(`${base}/${pageId}?fields=access_token&access_token=${encodeURIComponent(userToken)}`);
+        if (resp.ok && resp.data && resp.data.access_token) return String(resp.data.access_token);
+        const accounts = await getJson(`${base}/me/accounts?fields=id,name,access_token&access_token=${encodeURIComponent(userToken)}`);
+        if (accounts.ok && Array.isArray(accounts.data?.data)) {
+          const found = accounts.data.data.find(p => String(p.id) === String(pageId));
+          if (found?.access_token) return String(found.access_token);
+        }
+      } catch(_) {}
+      return null;
+    }
+
+    try {
+      // Instagram account basics
+      const igAccountResp = await getJson(`${base}/${IG_USER_ID}?fields=followers_count,username,name&access_token=${encodeURIComponent(META_TOKEN)}`);
+      const igAccount = igAccountResp.ok ? {
+        id: IG_USER_ID,
+        username: String(igAccountResp.data?.username || igAccountResp.data?.name || ''),
+        followers: Number(igAccountResp.data?.followers_count || 0)
+      } : { id: IG_USER_ID, username: null, followers: null, error: igAccountResp.data || igAccountResp.raw };
+
+      // Facebook account basics (com Page Token se disponível)
+      const PAGE_TOKEN = FB_PAGE_TOKEN_ENV || (await getPageAccessToken(FB_PAGE_ID, META_TOKEN)) || META_TOKEN;
+      const fbAccountResp = await getJson(`${base}/${FB_PAGE_ID}?fields=followers_count,name&access_token=${encodeURIComponent(PAGE_TOKEN)}`);
+      const fbAccount = fbAccountResp.ok ? {
+        id: FB_PAGE_ID,
+        name: String(fbAccountResp.data?.name || ''),
+        followers: Number(fbAccountResp.data?.followers_count || 0)
+      } : { id: FB_PAGE_ID, name: null, followers: null, error: fbAccountResp.data || fbAccountResp.raw };
+
+      // Coleções de métricas a tentar (apenas métricas amplamente disponíveis)
+      const igMetrics = [
+        { name: 'reach', period: 'day' },
+        { name: 'accounts_engaged', period: 'day' },
+        { name: 'views', period: 'day' },
+        { name: 'profile_views', period: 'day' },
+        { name: 'total_interactions', period: 'day' }
+      ];
+      const IG_TOTAL_VALUE_METRICS = new Set(['accounts_engaged','profile_views','total_interactions']);
+
+      const fbMetrics = [
+        { name: 'page_impressions', period: 'day' },
+        { name: 'page_impressions_unique', period: 'day' },
+        { name: 'page_fan_adds_unique', period: 'day' },
+        { name: 'page_fan_removes_unique', period: 'day' }
+      ];
+
+      async function fetchIgMetric(m) {
+        const needsTotal = IG_TOTAL_VALUE_METRICS.has(m.name);
+        const url = `${base}/${IG_USER_ID}/insights?metric=${m.name}&period=${m.period}&since=${since}&until=${until}${needsTotal ? '&metric_type=total_value' : ''}&access_token=${encodeURIComponent(META_TOKEN)}`;
+        const r = await getJson(url);
+        if (!r.ok) return { name: m.name, period: m.period, status: 'error', error: r.data || r.raw || null };
+        const series = Array.isArray(r.data?.data) ? r.data.data : [];
+        const values = (series.find(x => x.name === m.name)?.values || series[0]?.values || [])
+          .map(v => ({ date: String(v.end_time || '').slice(0,10), value: Number((v.value && v.value.value) || v.value || 0) }));
+        return { name: m.name, period: m.period, status: 'ok', series: values };
+      }
+
+      async function fetchFbMetric(m) {
+        const url = `${base}/${FB_PAGE_ID}/insights?metric=${m.name}&period=${m.period}&since=${since}&until=${until}&access_token=${encodeURIComponent(PAGE_TOKEN)}`;
+        const r = await getJson(url);
+        if (!r.ok) return { name: m.name, period: m.period, status: 'error', error: r.data || r.raw || null };
+        const series = Array.isArray(r.data?.data) ? r.data.data : [];
+        const values = (series.find(x => x.name === m.name)?.values || series[0]?.values || [])
+          .map(v => ({ date: String(v.end_time || '').slice(0,10), value: Number((v.value && v.value.value) || v.value || 0) }));
+        return { name: m.name, period: m.period, status: 'ok', series: values };
+      }
+
+      // Executar coletas em paralelo de forma organizada
+      const [igResults, fbResults] = await Promise.all([
+        Promise.all(igMetrics.map(fetchIgMetric)),
+        Promise.all(fbMetrics.map(fetchFbMetric))
+      ]);
+
+      const payload = {
+        generatedAt: new Date().toISOString(),
+        period: { since: new Date(since*1000).toISOString().slice(0,10), until: new Date(until*1000).toISOString().slice(0,10), days: daysReq },
+        instagram: {
+          account: igAccount,
+          metrics: igResults
+        },
+        facebook: {
+          account: fbAccount,
+          metrics: fbResults
+        }
+      };
+
+      res.json(payload);
+    } catch (e) {
+      console.error('[analytics] erro:', e?.stack || e);
+      res.status(500).json({ error: 'erro ao coletar analytics' });
+    }
+  });
+
+  // Debug seguro (admin) para verificar variáveis carregadas sem expor token completo
+  app.get('/api/social/insights/debug', authMiddleware, requireRole('admin'), (req, res) => {
+    const IG_USER_ID = process.env.IG_BUSINESS_ID || process.env.IG_USER_ID || '';
+    const FB_PAGE_ID = process.env.FB_PAGE_ID || process.env.PAGE_ID || '';
+    const RAW_TOKEN = process.env.IG_ACCESS_TOKEN || process.env.FB_ACCESS_TOKEN || process.env.META_ACCESS_TOKEN || '';
+    res.json({
+      configured: !!(IG_USER_ID && FB_PAGE_ID && RAW_TOKEN),
+      ig_business_id_present: !!IG_USER_ID,
+      fb_page_id_present: !!FB_PAGE_ID,
+      token_present: !!RAW_TOKEN,
+      token_prefix: RAW_TOKEN ? RAW_TOKEN.slice(0, 8) : null,
+      token_length: RAW_TOKEN ? RAW_TOKEN.length : 0
+    });
+  });
+
+  // ======= Site Analytics (First-Party) =======
+  // Tabela de eventos de pageview (privacidade: sem PII; IP hash + session id)
+  db.run(`CREATE TABLE IF NOT EXISTS web_analytics_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date TEXT NOT NULL,
+    path TEXT NOT NULL,
+    session_id TEXT,
+    ip_hash TEXT,
+    ua TEXT,
+    referer TEXT,
+    created_at TEXT
+  )`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_web_analytics_date ON web_analytics_events(date)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_web_analytics_path ON web_analytics_events(path)`);
+
+  // Lazy-init robusto: garante criação da tabela/índices antes de consultas/inserts (evita corrida no boot)
+  const webAnalyticsInit = { initialized: false, promise: null };
+  function ensureWebAnalyticsReady() {
+    if (webAnalyticsInit.initialized) return Promise.resolve();
+    if (webAnalyticsInit.promise) return webAnalyticsInit.promise;
+    webAnalyticsInit.promise = new Promise((resolve) => {
+      // Reexecuta DDL com IF NOT EXISTS; seguro mesmo que já tenha rodado acima
+      db.serialize(() => {
+        db.run(`CREATE TABLE IF NOT EXISTS web_analytics_events (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          date TEXT NOT NULL,
+          path TEXT NOT NULL,
+          session_id TEXT,
+          ip_hash TEXT,
+          ua TEXT,
+          referer TEXT,
+          created_at TEXT
+        )`, (err1) => {
+          if (err1) console.warn('⚠️  ensureWebAnalyticsReady/table:', err1.message || err1);
+          db.run(`CREATE INDEX IF NOT EXISTS idx_web_analytics_date ON web_analytics_events(date)`, (err2) => {
+            if (err2) console.warn('⚠️  ensureWebAnalyticsReady/index date:', err2.message || err2);
+            db.run(`CREATE INDEX IF NOT EXISTS idx_web_analytics_path ON web_analytics_events(path)`, (err3) => {
+              if (err3) console.warn('⚠️  ensureWebAnalyticsReady/index path:', err3.message || err3);
+              webAnalyticsInit.initialized = true;
+              resolve();
+            });
+          });
+        });
+      });
+    });
+    return webAnalyticsInit.promise;
+  }
+
+  function runAsync(sql, params) {
+    return new Promise((resolve, reject) => {
+      db.run(sql, params, function(err) { if (err) reject(err); else resolve(this); });
+    });
+  }
+
+  function parseCookieHeader(header) {
+    const out = {}; if (!header) return out;
+    String(header).split(';').forEach(part => {
+      const [k, v] = part.split('='); if (!k) return;
+      out[decodeURIComponent(k.trim())] = decodeURIComponent((v||'').trim());
+    });
+    return out;
+  }
+
+  function getClientIp(req) {
+    const xf = req.headers['x-forwarded-for'];
+    if (typeof xf === 'string' && xf.length > 0) return xf.split(',')[0].trim();
+    return (req.socket && req.socket.remoteAddress) || '';
+  }
+
+  function getOrSetSessionId(req, res) {
+    const cookies = parseCookieHeader(req.headers.cookie || '');
+    let sid = cookies['r10sid'];
+    if (!sid || sid.length < 8) {
+      sid = crypto.randomBytes(16).toString('hex');
+      try {
+        res.cookie('r10sid', sid, { maxAge: 3600*24*365*3*1000, sameSite: 'lax', httpOnly: false, path: '/' });
+      } catch(_) {
+        // fallback: set header manual se necessário
+        res.setHeader('Set-Cookie', `r10sid=${sid}; Path=/; Max-Age=${3600*24*365*3}; SameSite=Lax`);
+      }
+    }
+    return sid;
+  }
+
+  function sha256Hex(s) {
+    return crypto.createHash('sha256').update(s).digest('hex');
+  }
+
+  // Coleta de pageview (pública; respeita cookies SameSite=Lax)
+  app.post('/api/analytics/track', async (req, res) => {
+    try {
+      await ensureWebAnalyticsReady();
+      const pathStr = String((req.body && req.body.path) || '').slice(0, 512);
+      if (!pathStr || !pathStr.startsWith('/')) return res.status(400).json({ error: 'path inválido' });
+      const ua = String((req.body && req.body.ua) || req.headers['user-agent'] || '').slice(0, 512);
+      const referer = String((req.body && req.body.referer) || req.headers['referer'] || '').slice(0, 512);
+      const sid = getOrSetSessionId(req, res);
+      const ip = getClientIp(req);
+      const salt = process.env.ANALYTICS_SALT || 'r10-site';
+      const ipHash = sha256Hex(ip + '|' + salt).slice(0, 64);
+      const now = new Date();
+      const date = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString().slice(0,10);
+      const createdAt = now.toISOString();
+      try {
+        await runAsync(
+          'INSERT INTO web_analytics_events (date, path, session_id, ip_hash, ua, referer, created_at) VALUES (?,?,?,?,?,?,?)',
+          [date, pathStr, sid, ipHash, ua, referer, createdAt]
+        );
+        return res.json({ ok: true });
+      } catch (err) {
+        // Proteção extra: se a tabela ainda não existir por alguma corrida exótica, cria e tenta de novo
+        const msg = String(err && (err.message || err));
+        if (msg.includes('no such table') || msg.includes('no such table: web_analytics_events')) {
+          try {
+            await ensureWebAnalyticsReady();
+            await runAsync(
+              'INSERT INTO web_analytics_events (date, path, session_id, ip_hash, ua, referer, created_at) VALUES (?,?,?,?,?,?,?)',
+              [date, pathStr, sid, ipHash, ua, referer, createdAt]
+            );
+            return res.json({ ok: true });
+          } catch (e2) {
+            console.error('⚠️ Falha ao registrar pageview após ensure:', e2);
+            return res.status(500).json({ ok: false });
+          }
+        }
+        console.error('⚠️ Falha ao registrar pageview:', err);
+        return res.status(500).json({ ok: false });
+      }
+    } catch (e) {
+      console.error('❌ /api/analytics/track erro:', e && (e.stack || e));
+      res.status(500).json({ error: 'erro ao registrar' });
+    }
+  });
+
+  // Agregados diários do site (protegido)
+  app.get('/api/site/analytics', authMiddleware, async (req, res) => {
+    try {
+      await ensureWebAnalyticsReady();
+      const daysReq = Math.max(7, Math.min(90, parseInt(String(req.query.days || '30')) || 30));
+      const today = new Date();
+      const dates = [];
+      for (let i = daysReq - 1; i >= 0; i--) {
+        const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i);
+        dates.push(d.toISOString().slice(0,10));
+      }
+
+      const since = dates[0];
+      const until = dates[dates.length - 1];
+
+      function all(sql, params) {
+        return new Promise((resolve, reject) => {
+          db.all(sql, params, (err, rows) => err ? reject(err) : resolve(rows || []));
+        });
+      }
+
+      const rows = await all(`
+        SELECT date,
+               COUNT(*) AS pageviews,
+               COUNT(DISTINCT session_id) AS sessions,
+               COUNT(DISTINCT ip_hash) AS users
+        FROM web_analytics_events
+        WHERE date BETWEEN ? AND ?
+        GROUP BY date
+        ORDER BY date ASC
+      `, [since, until]);
+
+      const map = new Map(rows.map(r => [r.date, r]));
+      const pageviews = [];
+      const sessions = [];
+      const users = [];
+      for (const d of dates) {
+        const r = map.get(d) || { pageviews: 0, sessions: 0, users: 0 };
+        pageviews.push({ date: d, value: Number(r.pageviews) || 0 });
+        sessions.push({ date: d, value: Number(r.sessions) || 0 });
+        users.push({ date: d, value: Number(r.users) || 0 });
+      }
+
+      const topPages = await all(`
+        SELECT path, COUNT(*) as pageviews
+        FROM web_analytics_events
+        WHERE date BETWEEN ? AND ?
+        GROUP BY path
+        ORDER BY pageviews DESC
+        LIMIT 10
+      `, [since, until]);
+
+      res.json({
+        generatedAt: new Date().toISOString(),
+        period: { since, until, days: daysReq },
+        source: 'first-party',
+        metrics: {
+          pageviews,
+          sessions,
+          users
+        },
+        topPages
+      });
+    } catch (e) {
+      console.error('❌ /api/site/analytics erro:', e && (e.stack || e));
+      res.status(500).json({ error: 'erro ao coletar site analytics' });
+    }
+  });
+
+  // ======= Banners (Ads) =======
+  db.run(`CREATE TABLE IF NOT EXISTS banners (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    titulo TEXT NOT NULL,
+    cliente TEXT,
+    imagem TEXT,
+    link TEXT,
+    posicao TEXT NOT NULL,
+    tipo TEXT NOT NULL,
+    tamanho TEXT,
+    status TEXT NOT NULL,
+    data_inicio TEXT,
+    data_fim TEXT,
+    impressoes_max INTEGER,
+    cliques_max INTEGER,
+    impressoes_atuais INTEGER DEFAULT 0,
+    cliques_atuais INTEGER DEFAULT 0,
+    cpm REAL,
+    cpc REAL,
+    valor_total REAL,
+    prioridade INTEGER DEFAULT 3,
+    conteudo_html TEXT,
+    observacoes TEXT,
+    created_at TEXT,
+    updated_at TEXT
+  )`);
+
+  function mapBannerRow(r) {
+    return {
+      id: String(r.id),
+      titulo: r.titulo,
+      cliente: r.cliente,
+      imagem: r.imagem,
+      link: r.link,
+      posicao: r.posicao,
+      tipo: r.tipo,
+      tamanho: r.tamanho,
+      status: r.status,
+      dataInicio: r.data_inicio,
+      dataFim: r.data_fim,
+      impressoesMax: r.impressoes_max,
+      cliquesMax: r.cliques_max,
+      impressoesAtuais: r.impressoes_atuais,
+      cliquesAtuais: r.cliques_atuais,
+      cpm: r.cpm,
+      cpc: r.cpc,
+      valorTotal: r.valor_total,
+      prioridade: r.prioridade,
+      conteudoHtml: r.conteudo_html,
+      observacoes: r.observacoes,
+      dataCriacao: r.created_at,
+      dataAtualizacao: r.updated_at
+    };
+  }
+
+  function isBannerActive(b) {
+    if (!b) return false;
+    if (b.status === 'pausado') return false;
+    const now = new Date();
+    if (b.dataInicio) {
+      const ini = new Date(b.dataInicio);
+      if (now < ini) return false;
+    }
+    if (b.dataFim) {
+      const fim = new Date(b.dataFim);
+      if (now > fim) return false;
+    }
+    if (b.impressoesMax && b.impressoesAtuais >= b.impressoesMax) return false;
+    if (b.cliquesMax && b.cliquesAtuais >= b.cliquesMax) return false;
+    return true;
+  }
+
+  app.get('/api/banners', authMiddleware, requireRole('admin','editor'), (req, res) => {
+    db.all('SELECT * FROM banners ORDER BY prioridade ASC, updated_at DESC, id DESC', [], (err, rows) => {
+      if (err) return res.status(500).json({ error: 'erro de servidor' });
+      const items = (rows || []).map(mapBannerRow);
+      res.json({ items, total: items.length });
+    });
+  });
+
+  // Público: retorna apenas banners elegíveis/ativos para renderização no site
+  app.get('/api/banners/public', (req, res) => {
+    db.all('SELECT * FROM banners ORDER BY prioridade ASC, updated_at DESC, id DESC', [], (err, rows) => {
+      if (err) return res.status(500).json({ error: 'erro de servidor' });
+      const items = (rows || []).map(mapBannerRow).filter(isBannerActive);
+      res.json({ items, total: items.length });
+    });
+  });
+
+  app.post('/api/banners', authMiddleware, requireRole('admin','editor'), (req, res) => {
+    const b = req.body || {};
+    const required = ['titulo','posicao','tipo','status'];
+    for (const k of required) if (!b[k]) return res.status(400).json({ error: `campo obrigatório: ${k}` });
+    const now = new Date().toISOString();
+    const sql = `INSERT INTO banners (titulo,cliente,imagem,link,posicao,tipo,tamanho,status,data_inicio,data_fim,impressoes_max,cliques_max,impressoes_atuais,cliques_atuais,cpm,cpc,valor_total,prioridade,conteudo_html,observacoes,created_at,updated_at)
+                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+    const params = [b.titulo, b.cliente||null, b.imagem||null, b.link||null, b.posicao, b.tipo, b.tamanho||null, b.status, b.dataInicio||null, b.dataFim||null, b.impressoesMax||null, b.cliquesMax||null, b.impressoesAtuais||0, b.cliquesAtuais||0, b.cpm||null, b.cpc||null, b.valorTotal||null, b.prioridade||3, b.conteudoHtml||null, b.observacoes||null, now, now];
+    db.run(sql, params, function (err) {
+      if (err) return res.status(500).json({ error: 'erro de servidor' });
+      db.get('SELECT * FROM banners WHERE id = ?', [this.lastID], (gErr, row) => {
+        if (gErr || !row) return res.status(201).json({ id: String(this.lastID) });
+        res.status(201).json(mapBannerRow(row));
+      });
+    });
+  });
+
+  app.put('/api/banners/:id', authMiddleware, requireRole('admin','editor'), (req, res) => {
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ error: 'id inválido' });
+    const b = req.body || {};
+    const now = new Date().toISOString();
+    db.get('SELECT * FROM banners WHERE id = ?', [id], (err, row) => {
+      if (err) return res.status(500).json({ error: 'erro de servidor' });
+      if (!row) return res.status(404).json({ error: 'não encontrado' });
+      const merged = {
+        ...row,
+        titulo: b.titulo ?? row.titulo,
+        cliente: b.cliente ?? row.cliente,
+        imagem: b.imagem ?? row.imagem,
+        link: b.link ?? row.link,
+        posicao: b.posicao ?? row.posicao,
+        tipo: b.tipo ?? row.tipo,
+        tamanho: b.tamanho ?? row.tamanho,
+        status: b.status ?? row.status,
+        data_inicio: b.dataInicio ?? row.data_inicio,
+        data_fim: b.dataFim ?? row.data_fim,
+        impressoes_max: b.impressoesMax ?? row.impressoes_max,
+        cliques_max: b.cliquesMax ?? row.cliques_max,
+        impressoes_atuais: b.impressoesAtuais ?? row.impressoes_atuais,
+        cliques_atuais: b.cliquesAtuais ?? row.cliques_atuais,
+        cpm: b.cpm ?? row.cpm,
+        cpc: b.cpc ?? row.cpc,
+        valor_total: b.valorTotal ?? row.valor_total,
+        prioridade: b.prioridade ?? row.prioridade,
+        conteudo_html: b.conteudoHtml ?? row.conteudo_html,
+        observacoes: b.observacoes ?? row.observacoes
+      };
+      const sql = `UPDATE banners SET titulo=?,cliente=?,imagem=?,link=?,posicao=?,tipo=?,tamanho=?,status=?,data_inicio=?,data_fim=?,impressoes_max=?,cliques_max=?,impressoes_atuais=?,cliques_atuais=?,cpm=?,cpc=?,valor_total=?,prioridade=?,conteudo_html=?,observacoes=?,updated_at=? WHERE id = ?`;
+      const params = [merged.titulo, merged.cliente, merged.imagem, merged.link, merged.posicao, merged.tipo, merged.tamanho, merged.status, merged.data_inicio, merged.data_fim, merged.impressoes_max, merged.cliques_max, merged.impressoes_atuais, merged.cliques_atuais, merged.cpm, merged.cpc, merged.valor_total, merged.prioridade, merged.conteudo_html, merged.observacoes, now, id];
+      db.run(sql, params, (uErr) => {
+        if (uErr) return res.status(500).json({ error: 'erro de servidor' });
+        db.get('SELECT * FROM banners WHERE id = ?', [id], (gErr, nrow) => {
+          if (gErr || !nrow) return res.json({ id: String(id) });
+          res.json(mapBannerRow(nrow));
+        });
+      });
+    });
+  });
+
+  app.delete('/api/banners/:id', authMiddleware, requireRole('admin'), (req, res) => {
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ error: 'id inválido' });
+    db.run('DELETE FROM banners WHERE id = ?', [id], (err) => {
+      if (err) return res.status(500).json({ error: 'erro de servidor' });
+      res.json({ ok: true });
+    });
+  });
+
+  app.put('/api/users/:id', authMiddleware, requireRole('admin'), (req, res) => {
+    const targetId = Number(req.params.id);
+    const { name, role } = req.body || {};
+    if (!targetId) return res.status(400).json({ error: 'id inválido' });
+    if (role && !['admin','editor'].includes(String(role))) return res.status(400).json({ error: 'role inválida' });
+    db.get('SELECT id,name,email,role FROM usuarios WHERE id = ?', [targetId], (err, user) => {
+      if (err) return res.status(500).json({ error: 'erro de servidor' });
+      if (!user) return res.status(404).json({ error: 'usuário não encontrado' });
+      const nextName = typeof name === 'string' && name.trim() ? name.trim() : user.name;
+      const nextRole = role ? String(role) : user.role;
+      const applyUpdate = () => {
+        db.run('UPDATE usuarios SET name = ?, role = ? WHERE id = ?', [nextName, nextRole, targetId], (uErr) => {
+          if (uErr) return res.status(500).json({ error: 'erro de servidor' });
+          res.json({ id: String(user.id), name: nextName, email: user.email, role: nextRole });
+        });
+      };
+      if (user.role === 'admin' && nextRole !== 'admin') {
+        // Evitar remover o último admin
+        db.get("SELECT COUNT(*) as cnt FROM usuarios WHERE role = 'admin'", [], (cErr, row) => {
+          if (cErr) return res.status(500).json({ error: 'erro de servidor' });
+          if ((row?.cnt || 0) <= 1) return res.status(400).json({ error: 'não é possível rebaixar o último admin' });
+          applyUpdate();
+        });
+      } else {
+        applyUpdate();
+      }
+    });
+  });
+
+  app.delete('/api/users/:id', authMiddleware, requireRole('admin'), (req, res) => {
+    const targetId = Number(req.params.id);
+    const meId = Number(req.user.sub);
+    if (!targetId) return res.status(400).json({ error: 'id inválido' });
+    if (targetId === meId) return res.status(400).json({ error: 'não é possível excluir o próprio usuário' });
+    db.get('SELECT id, role FROM usuarios WHERE id = ?', [targetId], (err, user) => {
+      if (err) return res.status(500).json({ error: 'erro de servidor' });
+      if (!user) return res.status(404).json({ error: 'usuário não encontrado' });
+      const removeUser = () => {
+        db.run('DELETE FROM usuarios WHERE id = ?', [targetId], (dErr) => {
+          if (dErr) return res.status(500).json({ error: 'erro de servidor' });
+          res.json({ ok: true });
+        });
+      };
+      if (user.role === 'admin') {
+        db.get("SELECT COUNT(*) as cnt FROM usuarios WHERE role = 'admin'", [], (cErr, row) => {
+          if (cErr) return res.status(500).json({ error: 'erro de servidor' });
+          if ((row?.cnt || 0) <= 1) return res.status(400).json({ error: 'não é possível excluir o último admin' });
+          removeUser();
+        });
+      } else {
+        removeUser();
+      }
+    });
+  });
+
+  app.post('/api/auth/logout', (req, res) => {
+    // Revogar refresh token atual (se houver) e limpar cookies
+    const cookies = parseCookies(req);
+    const refresh = cookies[REFRESH_COOKIE];
+    if (refresh) {
+      const h = sha256Hex(refresh);
+      db.run('UPDATE refresh_tokens SET revoked_at = ? WHERE token_hash = ?', [new Date().toISOString(), h], () => {
+        clearAuthCookies(res);
+        res.json({ ok: true });
+      });
+    } else {
+      clearAuthCookies(res);
+      res.json({ ok: true });
+    }
+  });
+
+  app.post('/api/auth/refresh', (req, res) => {
+    const cookies = parseCookies(req);
+    const refresh = cookies[REFRESH_COOKIE];
+    if (!refresh) return res.status(401).json({ error: 'no refresh' });
+    const h = sha256Hex(refresh);
+    db.get('SELECT * FROM refresh_tokens WHERE token_hash = ?', [h], (err, row) => {
+      if (err) return res.status(500).json({ error: 'erro de servidor' });
+      if (!row) return res.status(401).json({ error: 'invalid refresh' });
+      if (row.revoked_at) return res.status(401).json({ error: 'revoked' });
+      if (new Date(row.expires_at).getTime() < Date.now()) return res.status(401).json({ error: 'expired' });
+      // Buscar usuário
+      db.get('SELECT * FROM usuarios WHERE id = ?', [row.user_id], (uErr, user) => {
+        if (uErr || !user) return res.status(401).json({ error: 'invalid user' });
+        const payload = { sub: user.id, email: user.email, role: user.role, name: user.name };
+        const newAccess = signJWT(payload, ACCESS_TTL_SECONDS);
+        // Rotacionar refresh (opcional). Para segurança, geramos novo e revogamos o antigo
+        const newRefreshRaw = base64urlBuffer(48);
+        const newRefreshHash = sha256Hex(newRefreshRaw);
+        const nowIso = new Date().toISOString();
+        const expIso = new Date(Date.now() + (REFRESH_TTL_DAYS * 24 * 60 * 60 * 1000)).toISOString();
+        db.run('UPDATE refresh_tokens SET revoked_at = ? WHERE id = ?', [nowIso, row.id], (rErr) => {
+          if (rErr) console.warn('Falha ao revogar refresh antigo:', rErr?.message);
+          db.run('INSERT INTO refresh_tokens (user_id, token_hash, created_at, expires_at, user_agent, ip) VALUES (?,?,?,?,?,?)',
+            [user.id, newRefreshHash, nowIso, expIso, req.headers['user-agent'] || null, (req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip || '').toString()],
+            (insErr) => {
+              if (insErr) return res.status(500).json({ error: 'erro de servidor' });
+              setAuthCookies(res, newAccess, newRefreshRaw);
+              const outUser = { id: String(user.id), name: user.name, email: user.email, role: user.role, avatar: user.avatar, createdAt: user.created_at };
+              res.json({ token: newAccess, user: outUser });
+            }
+          );
+        });
+      });
+    });
+  });
+
+  // ======= Password Recovery =======
+  function ensurePasswordResetsTable(cb) {
+    db.run(`CREATE TABLE IF NOT EXISTS password_resets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      token_hash TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      used_at TEXT,
+      user_agent TEXT,
+      ip TEXT
+    )`, [], (err) => cb && cb(err));
+  }
+  ensurePasswordResetsTable((err)=>{
+    if (err) console.error('⚠️ Erro ao garantir tabela password_resets:', err);
+    else console.log('🧩 Tabela de password resets pronta');
+  });
+
+  // ======= Social Metrics (persistência diária) =======
+  function ensureSocialMetricsTable(cb) {
+    db.run(`CREATE TABLE IF NOT EXISTS social_metrics (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      source TEXT NOT NULL,
+      date TEXT NOT NULL,
+      followers INTEGER NOT NULL,
+      engagement INTEGER NOT NULL,
+      created_at TEXT,
+      UNIQUE(source, date)
+    )`, [], (err) => cb && cb(err));
+  }
+  ensureSocialMetricsTable((err)=>{
+    if (err) console.error('⚠️ Erro ao garantir tabela social_metrics:', err);
+    else console.log('📊 Tabela de social_metrics pronta');
+  });
+
+  app.post('/api/auth/request-reset', (req, res) => {
+    const { email } = req.body || {};
+    if (!email) return res.status(400).json({ error: 'email obrigatório' });
+    db.get('SELECT * FROM usuarios WHERE LOWER(email) = LOWER(?)', [String(email).trim()], (err, user) => {
+      // Resposta genérica mesmo que email não exista
+      if (err || !user) {
+        return res.json({ ok: true });
+      }
+      const raw = base64urlBuffer(48);
+      const hash = sha256Hex(raw);
+      const nowIso = new Date().toISOString();
+      const expIso = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1h
+      db.run('INSERT INTO password_resets (user_id, token_hash, created_at, expires_at, user_agent, ip) VALUES (?,?,?,?,?,?)',
+        [user.id, hash, nowIso, expIso, req.headers['user-agent'] || null, (req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip || '').toString()],
+        (insErr) => {
+          if (insErr) return res.status(500).json({ error: 'erro de servidor' });
+          // Log do link (stub de e-mail)
+          const link = `http://localhost:5175/reset?token=${raw}`;
+          console.log('📧 [RESET] Link de recuperação gerado para', user.email, '=>', link);
+          res.json({ ok: true });
+        }
+      );
+    });
+  });
+
+  app.post('/api/auth/reset', (req, res) => {
+    const { token, password } = req.body || {};
+    if (!token || !password) return res.status(400).json({ error: 'token e password são obrigatórios' });
+    const h = sha256Hex(token);
+    db.get('SELECT * FROM password_resets WHERE token_hash = ?', [h], (err, row) => {
+      if (err || !row) return res.status(400).json({ error: 'token inválido' });
+      if (row.used_at) return res.status(400).json({ error: 'token já usado' });
+      if (new Date(row.expires_at).getTime() < Date.now()) return res.status(400).json({ error: 'token expirado' });
+      const newHash = hashPassword(String(password));
+      db.run('UPDATE usuarios SET password_hash = ? WHERE id = ?', [newHash, row.user_id], (uErr) => {
+        if (uErr) return res.status(500).json({ error: 'erro de servidor' });
+        // Marcar token como usado e revogar refresh tokens do usuário
+        const nowIso = new Date().toISOString();
+        db.run('UPDATE password_resets SET used_at = ? WHERE id = ?', [nowIso, row.id], () => {});
+        db.run('UPDATE refresh_tokens SET revoked_at = ? WHERE user_id = ?', [nowIso, row.user_id], () => {});
+        clearAuthCookies(res);
+        res.json({ ok: true });
+      });
+    });
+  });
 
   // Util interno: obter colunas existentes da tabela (para updates dinâmicos)
   function getTableColumns(table, cb) {
@@ -661,7 +1884,7 @@ function createApp({ dbPath }) {
   });
 
   // Atualizar conteúdo de um post (edição pelo dashboard)
-  app.put('/api/posts/:id', (req, res) => {
+  app.put('/api/posts/:id', authMiddleware, requireRole('admin','editor'), (req, res) => {
     const { id } = req.params;
     const body = req.body || {};
     
@@ -836,7 +2059,7 @@ function createApp({ dbPath }) {
   });
 
   // Atualizar posição de um post (usado pelo dashboard)
-  app.put('/api/posts/:id/position', (req, res) => {
+  app.put('/api/posts/:id/position', authMiddleware, requireRole('admin','editor'), (req, res) => {
     const { id } = req.params;
     const { posicao } = req.body || {};
     if (!posicao) return res.status(400).json({ error: 'posicao é obrigatória' });
@@ -853,7 +2076,7 @@ function createApp({ dbPath }) {
   });
 
   // Atualizar apenas o chapéu de um post
-  app.put('/api/posts/:id/chapeu', (req, res) => {
+  app.put('/api/posts/:id/chapeu', authMiddleware, requireRole('admin','editor'), (req, res) => {
     const { id } = req.params;
     let { chapeu } = req.body || {};
 
@@ -900,7 +2123,7 @@ function createApp({ dbPath }) {
   });
 
   // Deletar post
-  app.delete('/api/posts/:id', (req, res) => {
+  app.delete('/api/posts/:id', authMiddleware, requireRole('admin'), (req, res) => {
     const { id } = req.params;
     
     if (!id) {
@@ -948,7 +2171,7 @@ function createApp({ dbPath }) {
   });
 
   // Criar novo post
-  app.post('/api/posts', (req, res) => {
+  app.post('/api/posts', authMiddleware, requireRole('admin','editor'), (req, res) => {
     const body = req.body || {};
     
     // Campos obrigatórios

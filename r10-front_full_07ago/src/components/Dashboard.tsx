@@ -14,37 +14,59 @@ import MediaGallery from './MediaGallery';
 import InstagramCardGenerator from './InstagramCardGenerator';
 import LayoutManager from './LayoutManager';
 import { useAuth } from '../contexts/AuthContext';
-import { adsService, Banner } from '../services/adsService';
+import type { Banner } from '../services/bannersApi';
+import * as bannersApi from '../services/bannersApi';
+import { get as apiGet } from '../services/api';
 import BannerForm from './BannerForm';
 import CategoryManager from './CategoryManager';
 import instagramAutomation from '../services/instagramAutomation';
+import { fetchPostsPage, getMostRead, type Post } from '../services/postsService';
+import UsersManager from './UsersManager';
+import AnalyticsPanel from './AnalyticsPanel';
+import SiteAnalyticsPanel from './SiteAnalyticsPanel';
 
 const Dashboard = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState('overview');
-  const [realtimeUsers, setRealtimeUsers] = useState(1247);
+  const [realtimeUsers, setRealtimeUsers] = useState(0);
   const [notifications, setNotifications] = useState(3);
   const [analyticsTimeframe, setAnalyticsTimeframe] = useState('7d');
   const [banners, setBanners] = useState<Banner[]>([]);
+  const [socialInsights, setSocialInsights] = useState<{
+    facebook: { followers: number; engagement: number; growth7d: number; trend: { date: string; engagement: number }[]; account?: { id?: string; name?: string } };
+    instagram: { followers: number; engagement: number; growth7d: number; trend: { date: string; engagement: number }[]; account?: { id?: string; username?: string } };
+  } | null>(null);
+  const [socialInsightsError, setSocialInsightsError] = useState<string | null>(null);
   const [showBannerForm, setShowBannerForm] = useState(false);
   const [editingBanner, setEditingBanner] = useState<Banner | undefined>();
+  const [latestPosts, setLatestPosts] = useState<Post[]>([]);
+  const [mostRead, setMostRead] = useState<Post[]>([]);
+  const [loadingOverview, setLoadingOverview] = useState(true);
+  const [errorOverview, setErrorOverview] = useState<string | null>(null);
   const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
+  const canSeeInsights = !!user; // qualquer usuário autenticado
 
   // Detectar aba ativa pela URL
   useEffect(() => {
     const path = location.pathname;
     if (path === '/admin/materias') {
       setActiveTab('materias');
-    } else if (path === '/admin/usuarios') {
-      setActiveTab('usuarios');
     } else if (path === '/admin/configuracoes') {
       setActiveTab('configuracoes');
+    } else if (path === '/admin/usuarios') {
+      if (isAdmin) {
+        setActiveTab('usuarios');
+      } else {
+        setActiveTab('overview');
+        navigate('/admin');
+      }
     } else if (path === '/admin') {
       // Detectar parâmetro tab na URL para compatibilidade
       const tabParam = searchParams.get('tab');
-      if (tabParam && ['overview', 'midia', 'layout', 'instagram', 'agendamento'].includes(tabParam)) {
+      if (tabParam && ['overview', 'midia', 'layout', 'instagram', 'agendamento', 'banners', 'categorias', 'analytics'].includes(tabParam)) {
         setActiveTab(tabParam);
       } else {
         setActiveTab('overview');
@@ -53,27 +75,99 @@ const Dashboard = () => {
 
     // Inicializar Instagram Automation
     instagramAutomation.requestNotificationPermission();
-  }, [location.pathname, searchParams]);
+  }, [location.pathname, searchParams, isAdmin, navigate]);
 
-  // Simulação de dados em tempo real
+  // Carregar dados reais para overview
   useEffect(() => {
-    const interval = setInterval(() => {
-      setRealtimeUsers(prev => prev + Math.floor(Math.random() * 10 - 5));
-    }, 3000);
-    return () => clearInterval(interval);
+    let mounted = true;
+    async function load() {
+      try {
+        setLoadingOverview(true);
+        setErrorOverview(null);
+        const [paged, top] = await Promise.all([
+          fetchPostsPage({ page: 1, limit: 20 }),
+          getMostRead(5)
+        ]);
+        if (!mounted) return;
+        setLatestPosts(paged.items);
+        setMostRead(top);
+        // Aproximação: usuários online ~ posts de hoje * 10 (placeholder até termos endpoint)
+        const today = new Date().toDateString();
+        const todayCount = paged.items.filter(p => new Date(p.dataPublicacao || p.publishedAt || '').toDateString() === today).length;
+        setRealtimeUsers(Math.max(3, todayCount * 10));
+      } catch (e: any) {
+        if (!mounted) return;
+        setErrorOverview(e?.message || 'Falha ao carregar dados');
+      } finally {
+        if (mounted) setLoadingOverview(false);
+      }
+    }
+    load();
+    const interval = setInterval(load, 60_000);
+    return () => { mounted = false; clearInterval(interval); };
   }, []);
 
-  // Carregar banners
+  // Carregar banners (API real)
   useEffect(() => {
-    setBanners(adsService.getBanners());
+    let mounted = true;
+    const load = async () => {
+      try {
+        const items = await bannersApi.listBanners();
+        if (mounted) setBanners(items);
+      } catch (_) {
+        if (mounted) setBanners([]);
+      }
+    };
+    load();
+    const id = setInterval(load, 60_000);
+    return () => { mounted = false; clearInterval(id); };
   }, []);
 
-  const stats = {
-    todayViews: 45821,
-    todayUsers: 12456,
-    postsPublished: 28,
-    engagementRate: 8.4
-  };
+  // Carregar insights sociais (Facebook/Instagram) para Overview (apenas admin/editor logado)
+  useEffect(() => {
+    let mounted = true;
+    if (!canSeeInsights) {
+      setSocialInsights(null);
+      setSocialInsightsError('Faça login para ver os insights.');
+      return () => { mounted = false; };
+    }
+    async function loadInsights() {
+      try {
+        setSocialInsightsError(null);
+        const data = await apiGet('/social/insights');
+        if (!mounted) return;
+        setSocialInsights(data as any);
+      } catch (e: any) {
+        if (!mounted) return;
+        const status = e?.status;
+        if (status === 401) {
+          setSocialInsightsError('Sessão expirada ou não autenticado. Faça login novamente.');
+        } else if (status === 501) {
+          setSocialInsightsError('Insights: configurar IG_BUSINESS_ID/FB_PAGE_ID/IG_ACCESS_TOKEN no backend (.env).');
+        } else {
+          setSocialInsightsError('Erro ao carregar insights. Tente novamente em instantes.');
+        }
+      }
+    }
+    loadInsights();
+    const id = setInterval(loadInsights, 60_000);
+    return () => { mounted = false; clearInterval(id); };
+  }, [canSeeInsights]);
+
+  // Estatísticas derivadas simples (até termos analytics dedicado)
+  const stats = React.useMemo(() => {
+    const today = new Date().toDateString();
+    const todayPosts = latestPosts.filter(p => new Date(p.dataPublicacao || p.publishedAt || '').toDateString() === today);
+    const todayViews = todayPosts.reduce((sum, p) => sum + (p.views || p.visualizacoes || 0), 0);
+    const postsPublished = todayPosts.length;
+    const engagementRate = mostRead.length ? Math.min(12, 5 + mostRead.length) : 7.5;
+    return {
+      todayViews,
+      todayUsers: realtimeUsers,
+      postsPublished,
+      engagementRate
+    };
+  }, [latestPosts, mostRead, realtimeUsers]);
 
   const recentActivity = [
     {
@@ -109,10 +203,10 @@ const Dashboard = () => {
   ];
 
   const quickStats = [
-    { label: 'Hoje', value: '45.8k', sublabel: 'visualizações', color: 'from-blue-500 to-cyan-400', icon: Eye },
+    { label: 'Hoje', value: stats.todayViews.toLocaleString(), sublabel: 'visualizações', color: 'from-blue-500 to-cyan-400', icon: Eye },
     { label: 'Agora', value: realtimeUsers.toLocaleString(), sublabel: 'usuários online', color: 'from-green-500 to-emerald-400', icon: Users },
-    { label: 'Esta semana', value: '28', sublabel: 'matérias publicadas', color: 'from-purple-500 to-pink-400', icon: FileText },
-    { label: 'Engajamento', value: '8.4%', sublabel: 'taxa média', color: 'from-orange-500 to-red-400', icon: Heart }
+    { label: 'Hoje', value: stats.postsPublished.toString(), sublabel: 'matérias publicadas', color: 'from-purple-500 to-pink-400', icon: FileText },
+    { label: 'Engajamento', value: `${stats.engagementRate.toFixed(1)}%`, sublabel: 'taxa média', color: 'from-orange-500 to-red-400', icon: Heart }
   ];
 
   const categories = [
@@ -191,13 +285,12 @@ const Dashboard = () => {
     { name: 'Referência', value: 10, color: '#F59E0B' }
   ];
 
-  const topArticles = [
-    { title: 'Governador anuncia novo investimento em saúde', views: 15420, readTime: '4:32', engagement: 8.9 },
-    { title: 'Festival de Pedro II bate recorde histórico', views: 12380, readTime: '3:45', engagement: 7.6 },
-    { title: 'Chuvas intensas atingem região de Parnaíba', views: 9850, readTime: '2:58', engagement: 6.8 },
-    { title: 'Nova escola técnica será inaugurada em Picos', views: 8200, readTime: '3:12', engagement: 7.2 },
-    { title: 'Prefeito de Teresina apresenta novo projeto', views: 7650, readTime: '4:01', engagement: 6.5 }
-  ];
+  const topArticles = mostRead.map(p => ({
+    title: p.titulo,
+    views: (p.views || p.visualizacoes || 0),
+    readTime: '-',
+    engagement: 7.0
+  }));
 
   const categoryPerformance = [
     { name: 'Política', articles: 45, views: 125000, engagement: 8.2 },
@@ -207,10 +300,14 @@ const Dashboard = () => {
     { name: 'Saúde', articles: 18, views: 42000, engagement: 7.9 }
   ];
 
-  const handleSaveBanner = (banner: Banner) => {
-    setBanners(adsService.getBanners());
-    setShowBannerForm(false);
-    setEditingBanner(undefined);
+  const handleSaveBanner = async (_banner: Banner) => {
+    try {
+      const items = await bannersApi.listBanners();
+      setBanners(items);
+    } finally {
+      setShowBannerForm(false);
+      setEditingBanner(undefined);
+    }
   };
 
   const handleEditBanner = (banner: Banner) => {
@@ -218,16 +315,16 @@ const Dashboard = () => {
     setShowBannerForm(true);
   };
 
-  const handleDeleteBanner = (bannerId: string) => {
-    if (confirm('Tem certeza que deseja excluir este banner?')) {
-      adsService.deleteBanner(bannerId);
-      setBanners(adsService.getBanners());
-    }
+  const handleDeleteBanner = async (bannerId: string) => {
+    if (!confirm('Tem certeza que deseja excluir este banner?')) return;
+    await bannersApi.deleteBanner(bannerId);
+    const items = await bannersApi.listBanners();
+    setBanners(items);
   };
 
   const PublicidadeContent = () => {
-    const stats = adsService.getBannerStats();
-    const positions = adsService.getAvailablePositions();
+  const stats = bannersApi.computeBannerStats(banners);
+  const positions = bannersApi.getAvailablePositions();
 
     return (
       <div className="space-y-8">
@@ -427,9 +524,9 @@ const Dashboard = () => {
 
         {/* Navigation - Completo mas compacto */}
         <nav className="space-y-1">
-          {[
+          {[ 
             { id: 'overview', label: 'Dashboard', icon: BarChart3, badge: null, url: '/admin' },
-            { id: 'materias', label: 'Matérias', icon: FileText, badge: '5', url: '/admin/materias' },
+            { id: 'materias', label: 'Matérias', icon: FileText, badge: null, url: '/admin/materias' },
             { id: 'midia', label: 'Mídia', icon: Image, badge: null, url: '/admin?tab=midia' },
             { id: 'layout', label: 'Layout', icon: Layout, badge: null, url: '/admin?tab=layout' },
             { id: 'instagram', label: 'Instagram', icon: Camera, badge: null, url: '/admin?tab=instagram' },
@@ -437,7 +534,7 @@ const Dashboard = () => {
             { id: 'banners', label: 'Banner Ads', icon: Target, badge: null, url: '/admin?tab=banners' },
             { id: 'categorias', label: 'Categorias', icon: Settings, badge: null, url: '/admin?tab=categorias' },
             { id: 'analytics', label: 'Analytics', icon: TrendingUp, badge: null, url: '/admin?tab=analytics' },
-            { id: 'usuarios', label: 'Usuários', icon: Users, badge: null, url: '/admin/usuarios' }
+            ...(isAdmin ? [{ id: 'usuarios', label: 'Usuários', icon: Users, badge: null, url: '/admin/usuarios' }] : [])
           ].map(item => (
             <Link
               key={item.id}
@@ -483,6 +580,11 @@ const Dashboard = () => {
   const OverviewContent = () => {
     return (
       <div className="space-y-6">
+        {errorOverview && (
+          <div className="p-3 bg-yellow-50 border border-yellow-200 text-yellow-800 rounded">
+            {errorOverview}
+          </div>
+        )}
         {/* Quick Stats Cards - Compactos */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {quickStats.map((stat, index) => (
@@ -538,6 +640,85 @@ const Dashboard = () => {
           </div>
         </div>
 
+        {/* Social Insights */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-lg font-bold text-gray-900">Insights de Redes Sociais</h3>
+          </div>
+          {socialInsights && (
+            <div className="mb-4 text-sm text-gray-600">
+              <div>
+                <span className="font-medium">Instagram:</span> {socialInsights.instagram.account?.username || '—'}
+              </div>
+              <div>
+                <span className="font-medium">Facebook:</span> {socialInsights.facebook.account?.name || '—'}
+              </div>
+            </div>
+          )}
+          {socialInsightsError && (
+            <div className="mb-4 p-3 rounded-md border border-amber-300 bg-amber-50 text-amber-800 text-sm">
+              {socialInsightsError}
+            </div>
+          )}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 rounded-lg border">
+                <p className="text-sm text-gray-500">Facebook Seguidores</p>
+                <p className="text-2xl font-bold text-gray-900">{socialInsights?.facebook.followers?.toLocaleString() || '—'}</p>
+                <p className="text-xs text-blue-600 mt-1">{socialInsights ? `+${socialInsights.facebook.growth7d}% 7d` : 'aguardando...'}</p>
+              </div>
+              <div className="p-4 rounded-lg border">
+                <p className="text-sm text-gray-500">Instagram Seguidores</p>
+                <p className="text-2xl font-bold text-gray-900">{socialInsights?.instagram.followers?.toLocaleString() || '—'}</p>
+                <p className="text-xs text-pink-600 mt-1">{socialInsights ? `+${socialInsights.instagram.growth7d}% 7d` : 'aguardando...'}</p>
+              </div>
+              <div className="p-4 rounded-lg border col-span-2">
+                <p className="text-sm text-gray-500 mb-2">Facebook Engajamento (7d)</p>
+                <div className="h-28">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={socialInsights?.facebook.trend || []}>
+                      <defs>
+                        <linearGradient id="fbColor" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#2563EB" stopOpacity={0.4}/>
+                          <stop offset="95%" stopColor="#2563EB" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <XAxis dataKey="date" hide/>
+                      <YAxis hide/>
+                      <Tooltip />
+                      <Area type="monotone" dataKey="engagement" stroke="#2563EB" fill="url(#fbColor)" strokeWidth={2} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+              <div className="p-4 rounded-lg border col-span-2">
+                <p className="text-sm text-gray-500 mb-2">Instagram Engajamento (7d)</p>
+                <div className="h-28">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={socialInsights?.instagram.trend || []}>
+                      <defs>
+                        <linearGradient id="igColor" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#DB2777" stopOpacity={0.4}/>
+                          <stop offset="95%" stopColor="#DB2777" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <XAxis dataKey="date" hide/>
+                      <YAxis hide/>
+                      <Tooltip />
+                      <Area type="monotone" dataKey="engagement" stroke="#DB2777" fill="url(#igColor)" strokeWidth={2} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+            <div className="lg:col-span-2">
+              <div className="bg-gray-50 rounded-lg border p-4 h-full flex items-center justify-center text-gray-500">
+                <span>Mais gráficos e comparativos podem vir aqui.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Layout Moderno - Grid Dinâmico */}
         <div className="grid grid-cols-12 gap-6">
           {/* Últimas Notícias - Card Grande */}
@@ -560,57 +741,54 @@ const Dashboard = () => {
               </button>
             </div>
             
-            {/* Grid de Notícias Moderno */}
+            {/* Grid de Notícias Moderno - dados reais */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {[
-                { title: "Governador anuncia novas obras em Teresina", time: "há 2 horas", views: "1.2k", status: "published", featured: true },
-                { title: "Festival de Inverno movimenta turismo no interior", time: "há 4 horas", views: "856", status: "published", featured: false },
-                { title: "Novo hospital será inaugurado em Parnaíba", time: "há 6 horas", views: "2.1k", status: "published", featured: false },
-                { title: "Chuvas trazem alívio para produtores rurais", time: "há 8 horas", views: "743", status: "published", featured: false }
-              ].map((news, index) => (
-                <div key={index} className={`group relative overflow-hidden rounded-xl border-2 hover:shadow-lg transition-all duration-300 cursor-pointer ${
-                  news.featured 
-                    ? 'bg-gradient-to-br from-red-600 to-red-700 border-red-500 text-white col-span-full' 
-                    : 'bg-white border-gray-200 hover:border-red-300'
-                }`}>
-                  {news.featured && (
-                    <div className="absolute top-0 right-0 bg-yellow-400 text-black px-3 py-1 rounded-bl-xl font-bold text-xs">
-                      DESTAQUE
-                    </div>
-                  )}
-                  <div className="p-4">
-                    <h4 className={`font-bold leading-tight mb-3 ${
-                      news.featured ? 'text-white text-lg' : 'text-gray-900 text-sm'
-                    }`}>
-                      {news.title}
-                    </h4>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <span className={`text-sm font-medium ${
-                          news.featured ? 'text-red-200' : 'text-gray-500'
-                        }`}>
-                          {news.time}
-                        </span>
-                        <div className="flex items-center space-x-1">
-                          <Eye className={`w-4 h-4 ${news.featured ? 'text-red-200' : 'text-gray-400'}`} />
-                          <span className={`text-sm ${news.featured ? 'text-red-200' : 'text-gray-500'}`}>
-                            {news.views}
-                          </span>
-                        </div>
+              {(loadingOverview ? Array.from({ length: 4 }).map((_, i) => ({ id: `skeleton-${i}` })) : latestPosts.slice(0, 4)).map((post: any, index: number) => {
+                const featured = index === 0;
+                const title = loadingOverview ? 'Carregando…' : (post.titulo || post.title);
+                const views = loadingOverview ? '-' : (post.views || post.visualizacoes || 0).toLocaleString();
+                const time = loadingOverview ? '-' : new Date(post.dataPublicacao || post.publishedAt || Date.now()).toLocaleDateString();
+                return (
+                  <div key={post.id || index} className={`group relative overflow-hidden rounded-xl border-2 hover:shadow-lg transition-all duration-300 cursor-pointer ${
+                    featured 
+                      ? 'bg-gradient-to-br from-red-600 to-red-700 border-red-500 text-white col-span-full' 
+                      : 'bg-white border-gray-200 hover:border-red-300'
+                  }`}>
+                    {featured && (
+                      <div className="absolute top-0 right-0 bg-yellow-400 text-black px-3 py-1 rounded-bl-xl font-bold text-xs">
+                        DESTAQUE
                       </div>
-                      <span className={`text-sm px-2 py-1 rounded-full font-medium ${
-                        news.status === 'published' 
-                          ? news.featured 
-                            ? 'bg-green-500 text-white' 
-                            : 'bg-green-100 text-green-700'
-                          : 'bg-yellow-100 text-yellow-700'
+                    )}
+                    <div className="p-4">
+                      <h4 className={`font-bold leading-tight mb-3 ${
+                        featured ? 'text-white text-lg' : 'text-gray-900 text-sm'
                       }`}>
-                        ✓ Publicado
-                      </span>
+                        {title}
+                      </h4>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <span className={`text-sm font-medium ${
+                            featured ? 'text-red-200' : 'text-gray-500'
+                          }`}>
+                            {time}
+                          </span>
+                          <div className="flex items-center space-x-1">
+                            <Eye className={`w-4 h-4 ${featured ? 'text-red-200' : 'text-gray-400'}`} />
+                            <span className={`text-sm ${featured ? 'text-red-200' : 'text-gray-500'}`}>
+                              {views}
+                            </span>
+                          </div>
+                        </div>
+                        <span className={`text-sm px-2 py-1 rounded-full font-medium ${
+                          'bg-green-100 text-green-700'
+                        }`}>
+                          ✓ Publicado
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -784,6 +962,7 @@ const Dashboard = () => {
           <div className="flex-1 min-w-0 w-full">
             {activeTab === 'overview' && <OverviewContent />}
             {activeTab === 'materias' && <PostsManager />}
+            {activeTab === 'usuarios' && isAdmin && <UsersManager />}
           {activeTab === 'midia' && <MediaGallery />}
           {activeTab === 'layout' && (
             <div className="space-y-4">
@@ -795,6 +974,9 @@ const Dashboard = () => {
               </div>
               <LayoutManager />
             </div>
+          )}
+          {activeTab === 'banners' && (
+            <PublicidadeContent />
           )}
           {activeTab === 'instagram' && <InstagramCardGenerator />}
           {activeTab === 'agendamento' && (
@@ -973,148 +1155,9 @@ const Dashboard = () => {
             </div>
           )}
           {activeTab === 'analytics' && (
-            <div className="space-y-6">
-              {/* Analytics Overview - Compact Version */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-                <h3 className="font-semibold text-gray-900 mb-4 text-lg">Visão Geral de Analytics</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="bg-gradient-to-br from-blue-500 to-cyan-400 rounded-xl p-4 shadow-sm">
-                    <h4 className="font-medium text-white mb-1 text-sm">Visualizações</h4>
-                    <p className="text-2xl font-bold text-white">45.8k</p>
-                    <p className="text-xs text-white/80 mt-1">+12% vs último mês</p>
-                  </div>
-                  <div className="bg-gradient-to-br from-green-500 to-emerald-400 rounded-xl p-4 shadow-sm">
-                    <h4 className="font-medium text-white mb-1 text-sm">Usuários Online</h4>
-                    <p className="text-2xl font-bold text-white">1.2k</p>
-                    <p className="text-xs text-white/80 mt-1">+5% nas últimas 24h</p>
-                  </div>
-                  <div className="bg-gradient-to-br from-purple-500 to-pink-400 rounded-xl p-4 shadow-sm">
-                    <h4 className="font-medium text-white mb-1 text-sm">Engajamento</h4>
-                    <p className="text-2xl font-bold text-white">8.4%</p>
-                    <p className="text-xs text-white/80 mt-1">+0.5% esta semana</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Timeframe Selector - More Compact */}
-              <div className="flex justify-end">
-                <div className="flex bg-gray-100 rounded-lg p-1 space-x-1">
-                  <button 
-                    onClick={() => setAnalyticsTimeframe('7d')}
-                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                      analyticsTimeframe === '7d' ? 'bg-red-600 text-white shadow-sm' : 'text-gray-700 hover:bg-white hover:shadow-sm'
-                    }`}
-                  >
-                    7 dias
-                  </button>
-                  <button 
-                    onClick={() => setAnalyticsTimeframe('30d')}
-                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                      analyticsTimeframe === '30d' ? 'bg-red-600 text-white shadow-sm' : 'text-gray-700 hover:bg-white hover:shadow-sm'
-                    }`}
-                  >
-                    30 dias
-                  </button>
-                  <button 
-                    onClick={() => setAnalyticsTimeframe('90d')}
-                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                      analyticsTimeframe === '90d' ? 'bg-red-600 text-white shadow-sm' : 'text-gray-700 hover:bg-white hover:shadow-sm'
-                    }`}
-                  >
-                    90 dias
-                  </button>
-                </div>
-              </div>
-
-              {/* Charts Grid - 2 columns for better use of space */}
-              <div className="grid lg:grid-cols-2 gap-6">
-                {/* Views & Users Chart */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-                  <h3 className="font-semibold text-gray-900 mb-4">Visualizações e Usuários</h3>
-                  <ResponsiveContainer width="100%" height={250}>
-                    <LineChart data={viewsData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                      <XAxis dataKey="name" fontSize={12} />
-                      <YAxis fontSize={12} />
-                      <Tooltip />
-                      <Legend />
-                      <Line type="monotone" dataKey="views" stroke="#3B82F6" strokeWidth={2} name="Visualizações" />
-                      <Line type="monotone" dataKey="users" stroke="#10B981" strokeWidth={2} name="Usuários" />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-
-                {/* Traffic Sources */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-                  <h3 className="font-semibold text-gray-900 mb-4">Fontes de Tráfego</h3>
-                  <ResponsiveContainer width="100%" height={250}>
-                    <PieChart>
-                      <Pie
-                        data={trafficSources}
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={90}
-                        fill="#8884d8"
-                        dataKey="value"
-                        label
-                      >
-                        {trafficSources.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={trafficSources[index].color} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              {/* Tables Grid */}
-              <div className="grid lg:grid-cols-2 gap-6">
-                {/* Top Articles - Compact Table */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-                  <h3 className="font-semibold text-gray-900 mb-4">Artigos Mais Lidos</h3>
-                  <div className="space-y-3">
-                    {topArticles.slice(0, 5).map((article, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                        <div className="flex-1 min-w-0">
-                          <h4 className="text-sm font-medium text-gray-900 truncate">{article.title}</h4>
-                          <div className="flex items-center space-x-3 mt-1">
-                            <span className="text-xs text-blue-600 font-medium">{article.views.toLocaleString()} views</span>
-                            <span className="text-xs text-gray-500">{article.readTime}</span>
-                            <span className="text-xs text-green-600 font-medium">{article.engagement}% eng.</span>
-                          </div>
-                        </div>
-                        <div className="text-right ml-3">
-                          <span className="text-lg font-bold text-gray-900">#{index + 1}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Category Performance - Compact Cards */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-                  <h3 className="font-semibold text-gray-900 mb-4">Desempenho por Categoria</h3>
-                  <div className="space-y-3">
-                    {categoryPerformance.map((category, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-3 h-3 rounded-full bg-gradient-to-r from-blue-500 to-purple-500"></div>
-                          <div>
-                            <h4 className="text-sm font-medium text-gray-900">{category.name}</h4>
-                            <p className="text-xs text-gray-500">{category.articles} artigos</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm font-semibold text-gray-900">{category.views.toLocaleString()}</p>
-                          <p className="text-xs text-green-600">{category.engagement}% eng.</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
+            <div className="space-y-8">
+              <SiteAnalyticsPanel days={30} />
+              <AnalyticsPanel initialDays={30} />
             </div>
           )}
           {activeTab === 'publicidade' && (

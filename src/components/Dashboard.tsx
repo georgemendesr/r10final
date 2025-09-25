@@ -17,6 +17,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { adsService, Banner } from '../services/adsService';
 import BannerForm from './BannerForm';
 import CategoryManager from './CategoryManager';
+import UsersManager from './UsersManager';
 import instagramAutomation from '../services/instagramAutomation';
 
 const Dashboard = () => {
@@ -31,6 +32,30 @@ const Dashboard = () => {
   const [showBannerForm, setShowBannerForm] = useState(false);
   const [editingBanner, setEditingBanner] = useState<Banner | undefined>();
   const { user } = useAuth();
+  const role = user?.role || 'viewer';
+
+  const allTabs = [
+    { id: 'overview', label: 'Dashboard', icon: BarChart3, badge: null as string | null, url: '/admin' },
+    { id: 'materias', label: 'Matérias', icon: FileText, badge: '5', url: '/admin/materias' },
+    { id: 'midia', label: 'Mídia', icon: Image, badge: null as string | null, url: '/admin?tab=midia' },
+    { id: 'layout', label: 'Layout', icon: Layout, badge: null as string | null, url: '/admin?tab=layout' },
+    { id: 'instagram', label: 'Instagram', icon: Camera, badge: null as string | null, url: '/admin?tab=instagram' },
+    { id: 'agendamento', label: 'Agenda', icon: Calendar, badge: null as string | null, url: '/admin?tab=agendamento' },
+    { id: 'banners', label: 'Banner Ads', icon: Target, badge: null as string | null, url: '/admin?tab=banners' },
+    { id: 'categorias', label: 'Categorias', icon: Settings, badge: null as string | null, url: '/admin?tab=categorias' },
+    { id: 'analytics', label: 'Analytics', icon: TrendingUp, badge: null as string | null, url: '/admin?tab=analytics' },
+    { id: 'usuarios', label: 'Usuários', icon: Users, badge: null as string | null, url: '/admin/usuarios' }
+  ];
+
+  const allowedTabIdsByRole: Record<string, string[]> = {
+    admin: allTabs.map(t => t.id),
+    editor: ['materias', 'instagram'],
+    reporter: ['materias', 'instagram'],
+    viewer: []
+  };
+
+  const allowedTabIds = allowedTabIdsByRole[role] || [];
+  const isTabAllowed = (tabId: string) => allowedTabIds.includes(tabId);
 
   // Detectar aba ativa pela URL
   useEffect(() => {
@@ -42,9 +67,8 @@ const Dashboard = () => {
     } else if (path === '/admin/configuracoes') {
       setActiveTab('configuracoes');
     } else if (path === '/admin') {
-      // Detectar parâmetro tab na URL para compatibilidade
       const tabParam = searchParams.get('tab');
-      if (tabParam && ['overview', 'midia', 'layout', 'instagram', 'agendamento'].includes(tabParam)) {
+      if (tabParam && ['overview', 'midia', 'layout', 'instagram', 'agendamento', 'banners', 'categorias', 'analytics'].includes(tabParam)) {
         setActiveTab(tabParam);
       } else {
         setActiveTab('overview');
@@ -54,6 +78,36 @@ const Dashboard = () => {
     // Inicializar Instagram Automation
     instagramAutomation.requestNotificationPermission();
   }, [location.pathname, searchParams]);
+
+  // Redirecionar se o usuário não puder ver a aba atual
+  useEffect(() => {
+    if (!activeTab) return;
+    // Admin tem acesso total
+    if (role === 'admin') return;
+
+    // Se estiver em rotas bloqueadas (usuarios/configuracoes), manda para matérias
+    if (location.pathname === '/admin/usuarios' || location.pathname === '/admin/configuracoes') {
+      if (!isTabAllowed('usuarios')) {
+        setActiveTab('materias');
+        navigate('/admin/materias', { replace: true });
+        return;
+      }
+    }
+
+    // Se estiver em /admin com tab não permitido ou sem tab
+    if (location.pathname === '/admin') {
+      const tabParam = searchParams.get('tab');
+      const desired = tabParam || activeTab;
+      if (!isTabAllowed(desired)) {
+        // Preferência: matérias; se não, instagram; caso contrário nada
+        const fallback = isTabAllowed('materias') ? 'materias' : (isTabAllowed('instagram') ? 'instagram' : '');
+        if (fallback) {
+          setActiveTab(fallback);
+          navigate(fallback === 'materias' ? '/admin/materias' : '/admin?tab=instagram', { replace: true });
+        }
+      }
+    }
+  }, [activeTab, role, location.pathname, navigate, searchParams]);
 
   // Simulação de dados em tempo real
   useEffect(() => {
@@ -425,20 +479,9 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Navigation - Completo mas compacto */}
+        {/* Navigation - Completo mas compacto (filtrado por papel) */}
         <nav className="space-y-1">
-          {[
-            { id: 'overview', label: 'Dashboard', icon: BarChart3, badge: null, url: '/admin' },
-            { id: 'materias', label: 'Matérias', icon: FileText, badge: '5', url: '/admin/materias' },
-            { id: 'midia', label: 'Mídia', icon: Image, badge: null, url: '/admin?tab=midia' },
-            { id: 'layout', label: 'Layout', icon: Layout, badge: null, url: '/admin?tab=layout' },
-            { id: 'instagram', label: 'Instagram', icon: Camera, badge: null, url: '/admin?tab=instagram' },
-            { id: 'agendamento', label: 'Agenda', icon: Calendar, badge: null, url: '/admin?tab=agendamento' },
-            { id: 'banners', label: 'Banner Ads', icon: Target, badge: null, url: '/admin?tab=banners' },
-            { id: 'categorias', label: 'Categorias', icon: Settings, badge: null, url: '/admin?tab=categorias' },
-            { id: 'analytics', label: 'Analytics', icon: TrendingUp, badge: null, url: '/admin?tab=analytics' },
-            { id: 'usuarios', label: 'Usuários', icon: Users, badge: null, url: '/admin/usuarios' }
-          ].map(item => (
+          {allTabs.filter(item => isTabAllowed(item.id)).map(item => (
             <Link
               key={item.id}
               to={item.url}
@@ -462,12 +505,14 @@ const Dashboard = () => {
         </nav>
 
         {/* Quick Action - Compacto */}
-        <div className="mt-3">
-          <Link to="/admin/nova-materia" className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white py-2.5 px-3 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center space-x-2 text-base">
-            <Plus className="w-5 h-5" />
-            <span>Nova Matéria</span>
-          </Link>
-        </div>
+        {(role === 'admin' || role === 'editor') && (
+          <div className="mt-3">
+            <Link to="/admin/nova-materia" className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white py-2.5 px-3 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center space-x-2 text-base">
+              <Plus className="w-5 h-5" />
+              <span>Nova Matéria</span>
+            </Link>
+          </div>
+        )}
 
         {/* System Status - Mais compacto */}
         <div className="mt-4 p-3 bg-green-900/30 border border-green-700 rounded-lg">
@@ -504,6 +549,7 @@ const Dashboard = () => {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <h3 className="text-lg font-bold text-gray-900 mb-4">Ações Rápidas</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {(role === 'admin' || role === 'editor') && (
             <button 
               onClick={() => setActiveTab('materias')}
               className="flex flex-col items-center p-4 bg-red-50 hover:bg-red-100 rounded-lg border border-red-200 transition-colors group"
@@ -511,7 +557,9 @@ const Dashboard = () => {
               <Plus className="w-8 h-8 text-red-600 mb-2 group-hover:scale-110 transition-transform" />
               <span className="text-base font-medium text-red-700">Nova Matéria</span>
             </button>
-            
+            )}
+
+            {isTabAllowed('midia') && (
             <button 
               onClick={() => setActiveTab('midia')}
               className="flex flex-col items-center p-4 bg-purple-50 hover:bg-purple-100 rounded-lg border border-purple-200 transition-colors group"
@@ -519,7 +567,9 @@ const Dashboard = () => {
               <ImageIcon className="w-8 h-8 text-purple-600 mb-2 group-hover:scale-110 transition-transform" />
               <span className="text-base font-medium text-purple-700">Gerenciar Mídia</span>
             </button>
+            )}
             
+            {isTabAllowed('instagram') && (
             <button 
               onClick={() => setActiveTab('instagram')}
               className="flex flex-col items-center p-4 bg-pink-50 hover:bg-pink-100 rounded-lg border border-pink-200 transition-colors group"
@@ -527,7 +577,9 @@ const Dashboard = () => {
               <Instagram className="w-8 h-8 text-pink-600 mb-2 group-hover:scale-110 transition-transform" />
               <span className="text-base font-medium text-pink-700">Publicar Instagram</span>
             </button>
-            
+            )}
+
+            {isTabAllowed('agendamento') && (
             <button 
               onClick={() => setActiveTab('agendamento')}
               className="flex flex-col items-center p-4 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors group"
@@ -535,6 +587,7 @@ const Dashboard = () => {
               <Calendar className="w-8 h-8 text-blue-600 mb-2 group-hover:scale-110 transition-transform" />
               <span className="text-base font-medium text-blue-700">Agendamentos</span>
             </button>
+            )}
           </div>
         </div>
 
@@ -747,14 +800,10 @@ const Dashboard = () => {
       <div className="lg:hidden bg-white border-b border-gray-200 sticky top-0 z-40">
         <div className="max-w-[1250px] mx-auto px-4">
           <div className="flex overflow-x-auto py-3 space-x-2 scrollbar-hide">
-            {[
-              { id: 'overview', label: 'Dashboard', icon: BarChart3, url: '/admin' },
-              { id: 'materias', label: 'Matérias', icon: FileText, url: '/admin/materias' },
-              { id: 'midia', label: 'Mídia', icon: Image, url: '/admin?tab=midia' },
-              { id: 'layout', label: 'Layout', icon: Layout, url: '/admin?tab=layout' },
-              { id: 'instagram', label: 'Instagram', icon: Camera, url: '/admin?tab=instagram' },
-              { id: 'agendamento', label: 'Agenda', icon: Calendar, url: '/admin?tab=agendamento' },
-            ].map(item => (
+            {allTabs
+              .filter(item => isTabAllowed(item.id))
+              .filter(item => ['overview','materias','midia','layout','instagram','agendamento'].includes(item.id))
+              .map(item => (
               <Link
                 key={item.id}
                 to={item.url}
@@ -782,10 +831,10 @@ const Dashboard = () => {
           
           {/* Conteúdo principal - full width no mobile */}
           <div className="flex-1 min-w-0 w-full">
-            {activeTab === 'overview' && <OverviewContent />}
-            {activeTab === 'materias' && <PostsManager />}
-          {activeTab === 'midia' && <MediaGallery />}
-          {activeTab === 'layout' && (
+            {activeTab === 'overview' && isTabAllowed('overview') && <OverviewContent />}
+            {activeTab === 'materias' && isTabAllowed('materias') && <PostsManager />}
+          {activeTab === 'midia' && isTabAllowed('midia') && <MediaGallery />}
+          {activeTab === 'layout' && isTabAllowed('layout') && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -796,8 +845,8 @@ const Dashboard = () => {
               <LayoutManager />
             </div>
           )}
-          {activeTab === 'instagram' && <InstagramCardGenerator />}
-          {activeTab === 'agendamento' && (
+          {activeTab === 'instagram' && isTabAllowed('instagram') && <InstagramCardGenerator />}
+          {activeTab === 'agendamento' && isTabAllowed('agendamento') && (
             <div className="space-y-6">
               {/* Scheduling Header */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
@@ -972,7 +1021,7 @@ const Dashboard = () => {
               </div>
             </div>
           )}
-          {activeTab === 'analytics' && (
+          {activeTab === 'analytics' && isTabAllowed('analytics') && (
             <div className="space-y-6">
               {/* Analytics Overview - Compact Version */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
@@ -1117,10 +1166,13 @@ const Dashboard = () => {
               </div>
             </div>
           )}
-          {activeTab === 'publicidade' && (
+          {activeTab === 'banners' && isTabAllowed('banners') && (
             <PublicidadeContent />
           )}
-          {activeTab === 'configuracoes' && (
+          {activeTab === 'usuarios' && role === 'admin' && (
+            <UsersManager />
+          )}
+          {activeTab === 'configuracoes' && isTabAllowed('configuracoes') && (
             <div className="space-y-8">
               {/* Site Settings */}
               <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
@@ -1338,7 +1390,7 @@ const Dashboard = () => {
           )}
 
           {/* Categorias Content */}
-          {activeTab === 'categorias' && (
+          {activeTab === 'categorias' && isTabAllowed('categorias') && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>

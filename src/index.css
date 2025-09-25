@@ -2,3 +2,12 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Premium: força títulos em branco sobre imagens */
+.premium .headline,
+.premium h1.headline,
+.premium h2.headline,
+.premium h3.headline,
+.premium h4.headline {
+	color: #fff !important;
+}

@@ -17,18 +17,17 @@ const PostsManager: React.FC = () => {
   const [selectedAuthor, setSelectedAuthor] = useState('todos');
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
+  const canCreate = user?.role === 'admin' || user?.role === 'editor';
+  const canEdit = user?.role === 'admin' || user?.role === 'editor';
+  const canDelete = user?.role === 'admin';
 
   // Carregar posts
   const loadPosts = async () => {
     try {
       setLoading(true);
       const result = await getPosts();
-      // Garantir que sempre temos um array, considerando que getPosts pode retornar LegacyPostsResult
-      const postsArray: Post[] = Array.isArray(result) 
-        ? result 
-        : Array.isArray(result?.posts) 
-          ? result.posts 
-          : [];
+      // Normalizar para array com helper do serviço
+      const postsArray: Post[] = ensureArray(result);
       console.log('🔄 PostsManager: Posts carregados:', postsArray.length);
       setPosts(postsArray);
       setFilteredPosts(postsArray);
@@ -446,13 +445,15 @@ Como isso impacta nossa região?
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             <span>Atualizar</span>
           </button>
-          <Link
-          to="/admin/nova-materia"
-          className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-6 py-2 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl flex items-center space-x-2"
-        >
-          <Plus className="w-5 h-5" />
-          <span>Nova Matéria</span>
-        </Link>
+          {canCreate && (
+            <Link
+              to="/admin/nova-materia"
+              className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-6 py-2 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl flex items-center space-x-2"
+            >
+              <Plus className="w-5 h-5" />
+              <span>Nova Matéria</span>
+            </Link>
+          )}
         </div>
       </div>
 
@@ -607,20 +608,24 @@ Como isso impacta nossa região?
                           >
                             <Eye className="w-3 h-3" />
                           </a>
-                          <Link
-                            to={`/admin/editar-materia/${post.id}`}
-                            className="inline-flex items-center p-1 text-xs font-medium text-blue-600 bg-blue-100 rounded hover:bg-blue-200 transition-colors"
-                            title="Editar"
-                          >
-                            <Edit className="w-3 h-3" />
-                          </Link>
-                          <button
-                            onClick={() => handleDeletePost(post.id)}
-                            className="inline-flex items-center p-1 text-xs font-medium text-red-600 bg-red-100 rounded hover:bg-red-200 transition-colors"
-                            title="Excluir"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
+                          {canEdit && (
+                            <Link
+                              to={`/admin/editar-materia/${post.id}`}
+                              className="inline-flex items-center p-1 text-xs font-medium text-blue-600 bg-blue-100 rounded hover:bg-blue-200 transition-colors"
+                              title="Editar"
+                            >
+                              <Edit className="w-3 h-3" />
+                            </Link>
+                          )}
+                          {canDelete && (
+                            <button
+                              onClick={() => handleDeletePost(post.id)}
+                              className="inline-flex items-center p-1 text-xs font-medium text-red-600 bg-red-100 rounded hover:bg-red-200 transition-colors"
+                              title="Excluir"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -672,7 +677,7 @@ Como isso impacta nossa região?
                 ? 'Tente ajustar os filtros para encontrar matérias.'
                 : 'Comece criando uma nova matéria.'}
             </p>
-            {(!searchTerm && selectedCategory === 'todas' && selectedPosition === 'todas' && selectedAuthor === 'todos') && (
+            {canCreate && (!searchTerm && selectedCategory === 'todas' && selectedPosition === 'todas' && selectedAuthor === 'todos') && (
               <div className="mt-6">
                 <Link
                   to="/admin/nova-materia"

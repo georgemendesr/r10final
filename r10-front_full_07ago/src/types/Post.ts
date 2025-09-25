@@ -22,11 +22,13 @@ export interface Post {
   publishedTs?: number;
   slug?: string;
   resumo?: string; // Campo para resumo gerado por IA
+  tags?: string[]; // Opcional, usado no formulário
 }
 
 export interface PostFilters {
   posicao?: string;
   categoria?: string;
+  limit?: number; // Opcional para limitar resultados na API
 }
 
 export interface PostsResponse {

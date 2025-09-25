@@ -18,9 +18,11 @@ import R10PlaySection from './components/R10PlaySection';
 import MunicipiosSection from './components/MunicipiosSection';
 import Footer from './components/Footer';
 import AdminLink from './components/AdminLink';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { initializeTestData } from './services/authService';
 import { getLayoutConfig, getActiveHeroLayout } from './services/layoutService';
 import { initializeServices } from './services/initService';
+import usePageviewTracker from './hooks/usePageviewTracker';
 // Import dinâmico para contornar problema de resolução de export default
 const ArticlePage = React.lazy(() => import('./components/ArticlePage')
   .then(mod => ({ default: (mod as any).default || (mod as any).ArticlePage }))
@@ -33,7 +35,11 @@ const ArticlePage = React.lazy(() => import('./components/ArticlePage')
 // Lazy loading para componentes pesados (admin/dashboard)
 const R10PlayPage = React.lazy(() => import('./components/R10PlayPage'));
 const LoginPage = React.lazy(() => import('./components/LoginPage'));
+const ForgotPasswordPage = React.lazy(() => import('./components/ForgotPasswordPage'));
+const ResetPasswordPage = React.lazy(() => import('./components/ResetPasswordPage'));
 const Dashboard = React.lazy(() => import('./components/Dashboard'));
+// Página de Analytics dedicada (criaremos já já)
+const AnalyticsPage = React.lazy(() => import('./components/AnalyticsPage'));
 const PostForm = React.lazy(() => import('./components/PostForm'));
 const TestePosts = React.lazy(() => import('./components/TestePosts'));
 const SimplePostsTest = React.lazy(() => import('./components/SimplePostsTest'));
@@ -46,6 +52,30 @@ const TestLayoutPremium = React.lazy(() => import('./pages/TestLayoutPremium'));
 // ... (resto dos imports)
 
 function App() {
+  // O tracker precisa rodar dentro do Router
+  const RouterPageview: React.FC = () => { usePageviewTracker(); return null; };
+  // Inicializa usuários locais de teste (apenas em dev/offline)
+  useEffect(() => {
+    try { initializeTestData(); } catch (e) { /* noop */ }
+  }, []);
+
+  // Componente de rota protegida
+  const ProtectedRoute: React.FC<{ children: React.ReactNode, roles?: Array<'admin'|'editor'|'viewer'> }> = ({ children, roles }) => {
+    const { isAuthenticated, isLoading, user } = useAuth();
+    if (isLoading) return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-600"></div>
+      </div>
+    );
+    if (!isAuthenticated) return <Navigate to="/login" replace />;
+    if (roles && roles.length > 0) {
+      const role = (user as any)?.role as 'admin'|'editor'|'viewer'|undefined;
+      if (!role || !roles.includes(role)) {
+        return <Navigate to="/admin" replace />;
+      }
+    }
+    return <>{children}</>;
+  };
   const HomePage = () => {
     const [layoutConfig, setLayoutConfig] = useState(() => getLayoutConfig());
     const [updateKey, setUpdateKey] = useState(0);
@@ -232,6 +262,7 @@ function App() {
   return (
     <AuthProvider>
       <Router>
+        <RouterPageview />
         <Routes>
           <Route path="/" element={<HomePage />} />
           
@@ -320,11 +351,29 @@ function App() {
             } 
           />
           <Route 
-            path="/admin" 
+            path="/esqueci-minha-senha" 
             element={
               <Suspense fallback={<div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-600"></div></div>}>
-                <Dashboard />
+                <ForgotPasswordPage />
               </Suspense>
+            } 
+          />
+          <Route 
+            path="/reset" 
+            element={
+              <Suspense fallback={<div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-600"></div></div>}>
+                <ResetPasswordPage />
+              </Suspense>
+            } 
+          />
+          <Route 
+            path="/admin" 
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-600"></div></div>}>
+                  <Dashboard />
+                </Suspense>
+              </ProtectedRoute>
             } 
           />
           <Route 
@@ -346,42 +395,68 @@ function App() {
           <Route 
             path="/admin/materias" 
             element={
-              <Suspense fallback={<div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-600"></div></div>}>
-                <Dashboard />
-              </Suspense>
+              <ProtectedRoute>
+                <Suspense fallback={<div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-600"></div></div>}>
+                  <Dashboard />
+                </Suspense>
+              </ProtectedRoute>
             } 
           />
           <Route 
             path="/admin/usuarios" 
             element={
-              <Suspense fallback={<div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-600"></div></div>}>
-                <Dashboard />
-              </Suspense>
+              <ProtectedRoute roles={['admin']}>
+                <Suspense fallback={<div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-600"></div></div>}>
+                  <Dashboard />
+                </Suspense>
+              </ProtectedRoute>
             } 
           />
           <Route 
             path="/admin/configuracoes" 
             element={
-              <Suspense fallback={<div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-600"></div></div>}>
-                <Dashboard />
-              </Suspense>
+              <ProtectedRoute>
+                <Suspense fallback={<div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-600"></div></div>}>
+                  <Dashboard />
+                </Suspense>
+              </ProtectedRoute>
+            } 
+          />
+          {/* Página dedicada de Analytics (protegia) */}
+          <Route 
+            path="/analytics" 
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-600"></div></div>}>
+                  <>
+                    <TopAdStrip />
+                    <Header />
+                    <AnalyticsPage />
+                    <Footer />
+                  </>
+                </Suspense>
+              </ProtectedRoute>
             } 
           />
           <Route path="/dashboard" element={<Navigate to="/admin" replace />} />
           <Route 
             path="/admin/nova-materia" 
             element={
-              <Suspense fallback={<div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-600"></div></div>}>
-                <PostForm />
-              </Suspense>
+              <ProtectedRoute roles={['admin','editor']}>
+                <Suspense fallback={<div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-600"></div></div>}>
+                  <PostForm />
+                </Suspense>
+              </ProtectedRoute>
             } 
           />
           <Route 
             path="/admin/editar-materia/:id" 
             element={
-              <Suspense fallback={<div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-600"></div></div>}>
-                <PostForm />
-              </Suspense>
+              <ProtectedRoute roles={['admin','editor']}>
+                <Suspense fallback={<div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-600"></div></div>}>
+                  <PostForm />
+                </Suspense>
+              </ProtectedRoute>
             } 
           />
           <Route path="/categoria/:category" element={<CategoryPage />} />

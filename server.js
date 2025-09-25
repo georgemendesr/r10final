@@ -279,7 +279,7 @@ try {
 }
 
 const INSTAGRAM_CONFIG = {
-  BUSINESS_ID: process.env.IG_BUSINESS_ID || '17841401907016879',
+  BUSINESS_ID: process.env.IG_BUSINESS_ID || '',
   ACCESS_TOKEN: process.env.IG_ACCESS_TOKEN || '',
   GRAPH_API_URL: 'https://graph.facebook.com/v19.0',
   PUBLIC_BASE_URL: process.env.PUBLIC_BASE_URL || '' // URL pública onde a Meta consegue baixar as imagens

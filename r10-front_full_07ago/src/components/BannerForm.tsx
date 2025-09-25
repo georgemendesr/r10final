@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Banner, adsService } from '../services/adsService';
+import { type Banner } from '../services/bannersApi';
+import * as bannersApi from '../services/bannersApi';
 import { Upload, Image, Code, X } from 'lucide-react';
 
 interface BannerFormProps {
@@ -47,7 +48,7 @@ const BannerForm: React.FC<BannerFormProps> = ({ banner, onSave, onCancel }) => 
 
     setUploading(true);
     try {
-      const imageUrl = await adsService.uploadImage(file);
+  const imageUrl = await bannersApi.uploadImage(file);
       setFormData(prev => ({ ...prev, imagem: imageUrl }));
       setImagePreview(imageUrl);
     } catch (error) {
@@ -71,17 +72,19 @@ const BannerForm: React.FC<BannerFormProps> = ({ banner, onSave, onCancel }) => 
       valorTotal: formData.valorTotal ? Number(formData.valorTotal) : undefined,
     };
 
-    if (banner) {
-      const updatedBanner = adsService.updateBanner(banner.id, bannerData);
-      if (updatedBanner) onSave(updatedBanner);
-    } else {
-      const newBanner = adsService.createBanner(bannerData);
-      onSave(newBanner);
-    }
+    (async () => {
+      if (banner) {
+        const updated = await bannersApi.updateBanner(banner.id, bannerData as any);
+        onSave(updated);
+      } else {
+        const created = await bannersApi.createBanner(bannerData as any);
+        onSave(created);
+      }
+    })();
   };
 
-  const positions = adsService.getAvailablePositions();
-  const sizes = adsService.getStandardSizes();
+  const positions = bannersApi.getAvailablePositions();
+  const sizes = bannersApi.getStandardSizes();
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">

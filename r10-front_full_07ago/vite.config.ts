@@ -5,18 +5,21 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  // Permitir customizar portas do backend/instagram via variáveis de ambiente
+  // Use: VITE_API_PORT (default 3002) e VITE_INSTAGRAM_PORT (default 8080)
+  // Em Windows/PowerShell: $env:VITE_API_PORT=3003; npm run dev
   server: {
     host: '0.0.0.0',
     port: 5175,
     strictPort: true,
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:3002', // Backend Docker na porta 3002
+        target: `http://127.0.0.1:${process.env.VITE_API_PORT || 3002}`, // Backend API
         changeOrigin: true,
         secure: false,
       },
       '/instagram': {
-        target: 'http://127.0.0.1:8080', // API Instagram Publisher
+        target: `http://127.0.0.1:${process.env.VITE_INSTAGRAM_PORT || 8080}`, // API Instagram Publisher
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/instagram/, '')

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { adsService, Banner } from '../services/adsService';
+import { listBanners, selectActiveByPosition, type Banner } from '../services/bannersApi';
 
 interface AdBannerProps {
   position: Banner['posicao'];
@@ -15,35 +15,34 @@ const AdBanner: React.FC<AdBannerProps> = ({ position, className = '' }) => {
     console.log(`🔍 AdBanner: Iniciando busca para posição ${position}`);
     setLoading(true);
     setError(null);
-    
-    try {
-      // Buscar banner ativo para a posição
-      const activeBanner = adsService.getActiveBanner(position);
-      console.log(`🎯 AdBanner: Banner encontrado para posição ${position}:`, activeBanner);
-      
-      setBanner(activeBanner);
-      setLoading(false);
-
-      if (activeBanner) {
-        // Registrar impressão simples
-        adsService.registerImpression(activeBanner.id);
-        console.log(`📊 AdBanner: Impressão registrada para banner ${activeBanner.id}`);
-      } else {
-        console.log(`❌ AdBanner: Nenhum banner ativo encontrado para posição ${position}`);
-        setError('Nenhum banner disponível');
+    let cancelled = false;
+    async function loadBanner() {
+      try {
+        const items = await listBanners(false);
+        if (cancelled) return;
+        const activeBanner = selectActiveByPosition(position, items);
+        console.log(`🎯 AdBanner: Banner encontrado para posição ${position}:`, activeBanner);
+        setBanner(activeBanner);
+        setLoading(false);
+        if (!activeBanner) {
+          console.log(`❌ AdBanner: Nenhum banner ativo encontrado para posição ${position}`);
+          setError('Nenhum banner disponível');
+        }
+      } catch (err) {
+        if (cancelled) return;
+        console.error(`💥 AdBanner: Erro ao carregar banner para posição ${position}:`, err);
+        setError('Erro ao carregar banner');
+        setLoading(false);
       }
-    } catch (err) {
-      console.error(`💥 AdBanner: Erro ao carregar banner para posição ${position}:`, err);
-      setError('Erro ao carregar banner');
-      setLoading(false);
     }
+    loadBanner();
+    return () => {
+      cancelled = true;
+    };
   }, [position]);
 
   const handleBannerClick = () => {
-    if (banner) {
-      adsService.registerClick(banner.id);
-      window.open(banner.link, '_blank', 'noopener,noreferrer');
-    }
+    if (banner) window.open(banner.link, '_blank', 'noopener,noreferrer');
   };
 
   // Mostrar loading

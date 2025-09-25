@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Plus, Edit, Trash2, Save, X, Palette } from 'lucide-react';
+import { get as apiGet, post as apiPost, del as apiDel } from '../services/api';
 
 interface Category {
   id: string;
@@ -31,82 +32,30 @@ const CategoryManager = () => {
   const [newSpecial, setNewSpecial] = useState({ name: '', color: '#8B5CF6' });
 
   // Dados simulados
-  const [editorials, setEditorials] = useState<Category[]>([
-    {
-      id: '1',
-      name: 'POLÍTICA',
-      color: '#3B82F6',
-      subcategories: []
-    },
-    {
-      id: '2',
-      name: 'POLÍCIA',
-      color: '#EF4444',
-      subcategories: []
-    },
-    {
-      id: '3',
-      name: 'ESPORTE',
-      color: '#10B981',
-      subcategories: []
-    },
-    {
-      id: '4',
-      name: 'ENTRETENIMENTO',
-      color: '#F59E0B',
-      subcategories: []
-    },
-    {
-      id: '5',
-      name: 'GERAL',
-      color: '#6B7280',
-      subcategories: []
-    }
-  ]);
+  const [editorials, setEditorials] = useState<Category[]>([]);
+  const [municipalities, setMunicipalities] = useState<Municipality[]>([]);
+  const [specials, setSpecials] = useState<Category[]>([]);
 
-  const [municipalities, setMunicipalities] = useState<Municipality[]>([
-    { id: '1', name: 'PEDRO II', color: '#8B5CF6', categoryId: '5' },
-    { id: '2', name: 'CAMPO MAIOR', color: '#EC4899', categoryId: '1' },
-    { id: '3', name: 'BARRAS', color: '#06B6D4', categoryId: '5' },
-    { id: '4', name: 'PIRIPIRI', color: '#84CC16', categoryId: '1' },
-    { id: '5', name: 'OEIRAS', color: '#F97316', categoryId: '4' },
-    { id: '6', name: 'ESPERANTINA', color: '#F59E0B', categoryId: '5' },
-    { id: '7', name: 'BATALHA', color: '#10B981', categoryId: '5' },
-    { id: '8', name: 'BRASILEIRA', color: '#EF4444', categoryId: '5' }
-  ]);
-
-  const [specials, setSpecials] = useState<Category[]>([
-    {
-      id: '1',
-      name: 'EXCLUSIVO',
-      color: '#DC2626',
-      subcategories: []
-    },
-    {
-      id: '2',
-      name: 'ÚLTIMA HORA',
-      color: '#EA580C',
-      subcategories: []
-    },
-    {
-      id: '3',
-      name: 'INVESTIGAÇÃO',
-      color: '#7C3AED',
-      subcategories: []
-    },
-    {
-      id: '4',
-      name: 'ENTREVISTA',
-      color: '#059669',
-      subcategories: []
-    },
-    {
-      id: '5',
-      name: 'REPORTAGEM',
-      color: '#0D9488',
-      subcategories: []
-    }
-  ]);
+  useEffect(() => {
+    let mounted = true;
+    const loadAll = async () => {
+      try {
+        const [eds, muns, sps] = await Promise.all([
+          apiGet<{ items: any[] }>(`/categories?type=editorial`),
+          apiGet<{ items: any[] }>(`/categories?type=municipality`),
+          apiGet<{ items: any[] }>(`/categories?type=special`)
+        ]);
+        if (!mounted) return;
+        setEditorials((eds.items || []).map((i) => ({ id: String(i.id), name: i.name, color: i.color, subcategories: [] })));
+        setMunicipalities((muns.items || []).map((i) => ({ id: String(i.id), name: i.name, color: i.color, categoryId: '0' })));
+        setSpecials((sps.items || []).map((i) => ({ id: String(i.id), name: i.name, color: i.color, subcategories: [] })));
+      } catch (_) {
+        // manter vazio em erro
+      }
+    };
+    loadAll();
+    return () => { mounted = false; };
+  }, []);
 
   const colorOptions = [
     '#EF4444', '#F97316', '#F59E0B', '#EAB308', '#84CC16', '#22C55E',
@@ -114,54 +63,39 @@ const CategoryManager = () => {
     '#8B5CF6', '#A855F7', '#EC4899', '#F43F5E', '#6B7280', '#374151'
   ];
 
-  const handleSaveEditorial = () => {
-    if (newEditorial.name.trim()) {
-      const editorial: Category = {
-        id: Date.now().toString(),
-        name: newEditorial.name.toUpperCase(),
-        color: newEditorial.color,
-        subcategories: []
-      };
-      setEditorials([...editorials, editorial]);
-      setNewEditorial({ name: '', color: '#3B82F6' });
-    }
+  const handleSaveEditorial = async () => {
+    if (!newEditorial.name.trim()) return;
+    const created = await apiPost<any>(`/categories`, { name: newEditorial.name.toUpperCase(), color: newEditorial.color, type: 'editorial' });
+    setEditorials([...editorials, { id: String(created.id), name: created.name, color: created.color, subcategories: [] }]);
+    setNewEditorial({ name: '', color: '#3B82F6' });
   };
 
-  const handleSaveMunicipality = () => {
-    if (newMunicipality.name.trim()) {
-      const municipality: Municipality = {
-        id: Date.now().toString(),
-        name: newMunicipality.name.toUpperCase(),
-        color: newMunicipality.color,
-        categoryId: '5' // Geral por padrão
-      };
-      setMunicipalities([...municipalities, municipality]);
-      setNewMunicipality({ name: '', color: '#6B7280' });
-    }
+  const handleSaveMunicipality = async () => {
+    if (!newMunicipality.name.trim()) return;
+    const created = await apiPost<any>(`/categories`, { name: newMunicipality.name.toUpperCase(), color: newMunicipality.color, type: 'municipality' });
+    setMunicipalities([...municipalities, { id: String(created.id), name: created.name, color: created.color, categoryId: '0' }]);
+    setNewMunicipality({ name: '', color: '#6B7280' });
   };
 
-  const handleSaveSpecial = () => {
-    if (newSpecial.name.trim()) {
-      const special: Category = {
-        id: Date.now().toString(),
-        name: newSpecial.name.toUpperCase(),
-        color: newSpecial.color,
-        subcategories: []
-      };
-      setSpecials([...specials, special]);
-      setNewSpecial({ name: '', color: '#8B5CF6' });
-    }
+  const handleSaveSpecial = async () => {
+    if (!newSpecial.name.trim()) return;
+    const created = await apiPost<any>(`/categories`, { name: newSpecial.name.toUpperCase(), color: newSpecial.color, type: 'special' });
+    setSpecials([...specials, { id: String(created.id), name: created.name, color: created.color, subcategories: [] }]);
+    setNewSpecial({ name: '', color: '#8B5CF6' });
   };
 
-  const handleDeleteEditorial = (id: string) => {
+  const handleDeleteEditorial = async (id: string) => {
+    await apiDel(`/categories/${id}`);
     setEditorials(editorials.filter(ed => ed.id !== id));
   };
 
-  const handleDeleteMunicipality = (id: string) => {
+  const handleDeleteMunicipality = async (id: string) => {
+    await apiDel(`/categories/${id}`);
     setMunicipalities(municipalities.filter(mun => mun.id !== id));
   };
 
-  const handleDeleteSpecial = (id: string) => {
+  const handleDeleteSpecial = async (id: string) => {
+    await apiDel(`/categories/${id}`);
     setSpecials(specials.filter(sp => sp.id !== id));
   };
 

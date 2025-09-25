@@ -188,6 +188,13 @@ const Header = () => {
                   >
                     🏆 Premium
                   </Link>
+                  <Link 
+                    to="/admin?tab=analytics" 
+                    className="bg-gray-100 text-gray-700 px-3 py-1 rounded text-sm hover:bg-gray-200 transition-colors"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    📊 Analytics
+                  </Link>
                 </div>
               </div>
             </div>

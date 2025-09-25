@@ -46,13 +46,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ notifications = 0 }) 
               <p className="text-gray-600 mt-1">Aqui está o resumo das suas atividades</p>
             </div>
             
-            <div className="flex items-center space-x-3 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 px-4 py-2 rounded-full">
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-gradient-to-r from-green-400 to-green-500 rounded-full animate-pulse shadow-lg"></div>
-                <span className="font-semibold text-green-800">1247</span>
-              </div>
-              <span className="text-green-700 text-base">usuários online</span>
-            </div>
+            {/* Removido: chip de usuários online estático */}
           </div>
 
         <div className="flex items-center space-x-4">

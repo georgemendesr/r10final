@@ -63,6 +63,25 @@ const NewsGeneralSection = () => {
   const centerNews = geralPosts.slice(1, 5);
   const rightNews = geralPosts.slice(5, 7);
 
+  // Helpers para subtítulo do card principal
+  const extractPlainText = (html?: string): string => {
+    if (!html) return '';
+    try {
+      return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    } catch {
+      return '';
+    }
+  };
+
+  const buildSubtitle = (p: Post): string => {
+    if (p?.subtitulo && p.subtitulo.trim().length > 0) return p.subtitulo.trim();
+    if (p?.resumo && p.resumo.trim().length > 0) return p.resumo.trim();
+    const txt = extractPlainText(p?.conteudo || '');
+    if (!txt) return '';
+    const cut = 180;
+    return txt.length > cut ? txt.slice(0, cut) + '…' : txt;
+  };
+
   return (
     <section className="py-6 md:py-8 bg-white font-body">
       <div className="container mx-auto px-4 max-w-[1250px]">
@@ -108,6 +127,9 @@ const NewsGeneralSection = () => {
                     category={mainNews.categoria}
                   />
                 </div>
+                <p className="text-gray-600 text-base md:text-lg leading-snug mt-1 md:mt-2 clamp-3">
+                  {buildSubtitle(mainNews)}
+                </p>
               </div>
             </div>
           </div>

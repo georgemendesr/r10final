@@ -1,4 +1,5 @@
 import { Post, PostFilters, PostsResponse } from '../types/Post';
+import * as api from './api';
 import { LS_KEY, readAllOffline, normalizePos, preloadOfflineFromStatic } from './offlineCache';
 
 // MODO OFFLINE FORÇADO - SEM API
@@ -331,15 +332,7 @@ export async function deletePost(id: string): Promise<boolean> {
   console.log('🗑️ Tentando deletar post:', id);
   
   try {
-    const response = await fetch(`${API_BASE_URL}/posts/${id}`, {
-      method: 'DELETE',
-    });
-    
-    if (!response.ok) {
-      console.error(`❌ Erro ao deletar post ${id}: ${response.status}`);
-      return false;
-    }
-    
+    await api.del(`/posts/${id}`);
     console.log(`✅ Post ${id} deletado com sucesso`);
     return true;
     
@@ -354,23 +347,9 @@ export async function createPost(postData: Partial<Post>): Promise<Post | null> 
   console.log('📝 Criando novo post:', postData.titulo);
   
   try {
-    const response = await fetch(`${API_BASE_URL}/posts`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(postData),
-    });
-    
-    if (!response.ok) {
-      console.error(`❌ Erro ao criar post: ${response.status}`);
-      return null;
-    }
-    
-    const data = await response.json();
+    const data = await api.post<any>(`/posts`, postData as any);
     console.log('✅ Post criado com sucesso:', data.id);
     return mapApiResponseToPost(data);
-    
   } catch (error) {
     console.error('❌ Erro ao criar post:', error);
     return null;
@@ -382,23 +361,9 @@ export async function updatePost(id: string, postData: Partial<Post>): Promise<P
   console.log('📝 Atualizando post:', id);
   
   try {
-    const response = await fetch(`${API_BASE_URL}/posts/${id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(postData),
-    });
-    
-    if (!response.ok) {
-      console.error(`❌ Erro ao atualizar post ${id}: ${response.status}`);
-      return null;
-    }
-    
-    const data = await response.json();
+    const data = await api.put<any>(`/posts/${id}`, postData as any);
     console.log(`✅ Post ${id} atualizado com sucesso`);
     return mapApiResponseToPost(data);
-    
   } catch (error) {
     console.error('❌ Erro ao atualizar post:', error);
     return null;
@@ -535,6 +500,25 @@ export async function getHighlights(limit = 5): Promise<Post[]> {
     return arr.map(mapApiResponseToPost);
   } catch (e) {
     console.warn('⚠️ getHighlights fallback falhou, retornando []', e);
+    return [];
+  }
+}
+
+// Top artigos mais lidos
+export async function getMostRead(limit = 5): Promise<Post[]> {
+  try {
+    const url = `${API_BASE_URL}/posts/most-read?limit=${limit}`;
+    const data: any = await fetchJSON<any>(url);
+    const arr = Array.isArray(data)
+      ? data
+      : Array.isArray(data?.items)
+        ? data.items
+        : Array.isArray(data?.posts)
+          ? data.posts
+          : [];
+    return arr.map(mapApiResponseToPost);
+  } catch (e) {
+    console.warn('⚠️ getMostRead falhou, retornando []', e);
     return [];
   }
 }
