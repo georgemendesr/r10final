@@ -637,7 +637,7 @@ function createApp({ dbPath }) {
       console.log('[insights] ordem IG: reach -> impressions | FB: page_engaged_users -> page_impressions -> page_impressions_unique');
     } catch(_) {}
 
-    const base = 'https://graph.facebook.com/v19.0';
+  const base = 'https://graph.facebook.com/v22.0';
     const now = Math.floor(Date.now() / 1000);
     const days = 7;
     const since = now - (days - 1) * 86400;
@@ -859,7 +859,7 @@ function createApp({ dbPath }) {
       });
     }
 
-    const base = 'https://graph.facebook.com/v19.0';
+  const base = 'https://graph.facebook.com/v22.0';
     const daysReq = Math.max(7, Math.min(90, parseInt(String(req.query.days || '30')) || 30));
     const now = Math.floor(Date.now() / 1000);
     const since = now - (daysReq - 1) * 86400;
@@ -907,7 +907,7 @@ function createApp({ dbPath }) {
       const igMetrics = [
         { name: 'reach', period: 'day' },
         { name: 'accounts_engaged', period: 'day' },
-        { name: 'views', period: 'day' },
+        { name: 'impressions', period: 'day' },
         { name: 'profile_views', period: 'day' },
         { name: 'total_interactions', period: 'day' }
       ];
@@ -916,6 +916,7 @@ function createApp({ dbPath }) {
       const fbMetrics = [
         { name: 'page_impressions', period: 'day' },
         { name: 'page_impressions_unique', period: 'day' },
+        { name: 'page_engaged_users', period: 'day' },
         { name: 'page_fan_adds_unique', period: 'day' },
         { name: 'page_fan_removes_unique', period: 'day' }
       ];
@@ -941,22 +942,72 @@ function createApp({ dbPath }) {
         return { name: m.name, period: m.period, status: 'ok', series: values };
       }
 
-      // Executar coletas em paralelo de forma organizada
+      // Executar coletas em paralelo (séries diárias)
       const [igResults, fbResults] = await Promise.all([
         Promise.all(igMetrics.map(fetchIgMetric)),
         Promise.all(fbMetrics.map(fetchFbMetric))
       ]);
+
+      // Coletas agregadas (28 dias) para aproximar valores exibidos na interface da Meta
+      const IG_AGG_METRICS = ['reach','impressions','accounts_engaged','profile_views','total_interactions'];
+      const FB_AGG_METRICS = ['page_impressions','page_impressions_unique','page_engaged_users'];
+
+      async function fetchIgAggregate(metricName) {
+        const needsTotal = IG_TOTAL_VALUE_METRICS.has(metricName);
+        const url = `${base}/${IG_USER_ID}/insights?metric=${metricName}&period=days_28${needsTotal ? '&metric_type=total_value' : ''}&access_token=${encodeURIComponent(META_TOKEN)}`;
+        const r = await getJson(url);
+        if (!r.ok) return { name: metricName, status: 'error', aggregate28: null, error: r.data || r.raw || null };
+        const dataArr = Array.isArray(r.data?.data) ? r.data.data : [];
+        const values = dataArr[0]?.values || [];
+        const firstVal = values[values.length - 1] || values[0] || {};
+        const aggVal = Number((firstVal.value && firstVal.value.value) || firstVal.value || 0);
+        return { name: metricName, status: 'ok', aggregate28: aggVal };
+      }
+
+      async function fetchFbAggregate(metricName) {
+        const url = `${base}/${FB_PAGE_ID}/insights?metric=${metricName}&period=days_28&access_token=${encodeURIComponent(PAGE_TOKEN)}`;
+        const r = await getJson(url);
+        if (!r.ok) return { name: metricName, status: 'error', aggregate28: null, error: r.data || r.raw || null };
+        const dataArr = Array.isArray(r.data?.data) ? r.data.data : [];
+        const values = dataArr[0]?.values || [];
+        const firstVal = values[values.length - 1] || values[0] || {};
+        const aggVal = Number((firstVal.value && firstVal.value.value) || firstVal.value || 0);
+        return { name: metricName, status: 'ok', aggregate28: aggVal };
+      }
+
+      const [igAggResults, fbAggResults] = await Promise.all([
+        Promise.all(IG_AGG_METRICS.map(fetchIgAggregate)),
+        Promise.all(FB_AGG_METRICS.map(fetchFbAggregate))
+      ]);
+
+      // Indexar agregados para anexar
+      const igAggMap = Object.fromEntries(igAggResults.map(r => [r.name, r]));
+      const fbAggMap = Object.fromEntries(fbAggResults.map(r => [r.name, r]));
+
+      function enrich(items, aggMap) {
+        return items.map(it => {
+          const series = it.series || [];
+          const sum = series.reduce((a,b)=> a + (b.value||0), 0);
+          const last = series[series.length - 1]?.value || 0;
+            const avg = series.length ? Math.round((sum / series.length) * 100) / 100 : 0;
+          const agg = aggMap[it.name]?.aggregate28 ?? null;
+          return { ...it, sumDaily: sum, lastDaily: last, avgDaily: avg, aggregate28: agg };
+        });
+      }
+
+      const igEnriched = enrich(igResults, igAggMap);
+      const fbEnriched = enrich(fbResults, fbAggMap);
 
       const payload = {
         generatedAt: new Date().toISOString(),
         period: { since: new Date(since*1000).toISOString().slice(0,10), until: new Date(until*1000).toISOString().slice(0,10), days: daysReq },
         instagram: {
           account: igAccount,
-          metrics: igResults
+          metrics: igEnriched
         },
         facebook: {
           account: fbAccount,
-          metrics: fbResults
+          metrics: fbEnriched
         }
       };
 
@@ -1343,24 +1394,32 @@ function createApp({ dbPath }) {
     });
   });
 
+  // Substituir endpoint PUT /api/users/:id existente por versão extendida
+  // Localizar o trecho anterior e incluir avatar; se já modificado, ignorar duplicação
+  app._router && app._router.stack && (app._router.stack = app._router.stack.filter(l => !(l.route && l.route.path === '/api/users/:id' && l.route.methods.put)));
   app.put('/api/users/:id', authMiddleware, requireRole('admin'), (req, res) => {
     const targetId = Number(req.params.id);
-    const { name, role } = req.body || {};
+    const { name, role, avatar } = req.body || {};
     if (!targetId) return res.status(400).json({ error: 'id inválido' });
     if (role && !['admin','editor'].includes(String(role))) return res.status(400).json({ error: 'role inválida' });
-    db.get('SELECT id,name,email,role FROM usuarios WHERE id = ?', [targetId], (err, user) => {
+    db.get('SELECT id,name,email,role,avatar FROM usuarios WHERE id = ?', [targetId], (err, user) => {
       if (err) return res.status(500).json({ error: 'erro de servidor' });
       if (!user) return res.status(404).json({ error: 'usuário não encontrado' });
       const nextName = typeof name === 'string' && name.trim() ? name.trim() : user.name;
       const nextRole = role ? String(role) : user.role;
+      let avatarResult;
+      if (avatar !== undefined) {
+        avatarResult = validateAvatarInput(avatar);
+        if (!avatarResult.ok) return res.status(400).json({ error: avatarResult.error });
+      }
+      const nextAvatar = avatar === undefined ? user.avatar : (avatarResult ? avatarResult.value : null);
       const applyUpdate = () => {
-        db.run('UPDATE usuarios SET name = ?, role = ? WHERE id = ?', [nextName, nextRole, targetId], (uErr) => {
+        db.run('UPDATE usuarios SET name = ?, role = ?, avatar = ? WHERE id = ?', [nextName, nextRole, nextAvatar, targetId], (uErr) => {
           if (uErr) return res.status(500).json({ error: 'erro de servidor' });
-          res.json({ id: String(user.id), name: nextName, email: user.email, role: nextRole });
+          res.json({ id: String(user.id), name: nextName, email: user.email, role: nextRole, avatar: nextAvatar });
         });
       };
       if (user.role === 'admin' && nextRole !== 'admin') {
-        // Evitar remover o último admin
         db.get("SELECT COUNT(*) as cnt FROM usuarios WHERE role = 'admin'", [], (cErr, row) => {
           if (cErr) return res.status(500).json({ error: 'erro de servidor' });
           if ((row?.cnt || 0) <= 1) return res.status(400).json({ error: 'não é possível rebaixar o último admin' });
@@ -1372,80 +1431,24 @@ function createApp({ dbPath }) {
     });
   });
 
-  app.delete('/api/users/:id', authMiddleware, requireRole('admin'), (req, res) => {
-    const targetId = Number(req.params.id);
+  // Endpoint para o próprio usuário atualizar name e avatar
+  app.put('/api/auth/me', authMiddleware, (req, res) => {
     const meId = Number(req.user.sub);
-    if (!targetId) return res.status(400).json({ error: 'id inválido' });
-    if (targetId === meId) return res.status(400).json({ error: 'não é possível excluir o próprio usuário' });
-    db.get('SELECT id, role FROM usuarios WHERE id = ?', [targetId], (err, user) => {
+    const { name, avatar } = req.body || {};
+    if (!meId) return res.status(400).json({ error: 'id inválido' });
+    db.get('SELECT id,name,email,role,avatar FROM usuarios WHERE id = ?', [meId], (err, user) => {
       if (err) return res.status(500).json({ error: 'erro de servidor' });
       if (!user) return res.status(404).json({ error: 'usuário não encontrado' });
-      const removeUser = () => {
-        db.run('DELETE FROM usuarios WHERE id = ?', [targetId], (dErr) => {
-          if (dErr) return res.status(500).json({ error: 'erro de servidor' });
-          res.json({ ok: true });
-        });
-      };
-      if (user.role === 'admin') {
-        db.get("SELECT COUNT(*) as cnt FROM usuarios WHERE role = 'admin'", [], (cErr, row) => {
-          if (cErr) return res.status(500).json({ error: 'erro de servidor' });
-          if ((row?.cnt || 0) <= 1) return res.status(400).json({ error: 'não é possível excluir o último admin' });
-          removeUser();
-        });
-      } else {
-        removeUser();
+      const nextName = typeof name === 'string' && name.trim() ? name.trim() : user.name;
+      let nextAvatar = user.avatar;
+      if (avatar !== undefined) {
+        const vr = validateAvatarInput(avatar);
+        if (!vr.ok) return res.status(400).json({ error: vr.error });
+        nextAvatar = vr.value;
       }
-    });
-  });
-
-  app.post('/api/auth/logout', (req, res) => {
-    // Revogar refresh token atual (se houver) e limpar cookies
-    const cookies = parseCookies(req);
-    const refresh = cookies[REFRESH_COOKIE];
-    if (refresh) {
-      const h = sha256Hex(refresh);
-      db.run('UPDATE refresh_tokens SET revoked_at = ? WHERE token_hash = ?', [new Date().toISOString(), h], () => {
-        clearAuthCookies(res);
-        res.json({ ok: true });
-      });
-    } else {
-      clearAuthCookies(res);
-      res.json({ ok: true });
-    }
-  });
-
-  app.post('/api/auth/refresh', (req, res) => {
-    const cookies = parseCookies(req);
-    const refresh = cookies[REFRESH_COOKIE];
-    if (!refresh) return res.status(401).json({ error: 'no refresh' });
-    const h = sha256Hex(refresh);
-    db.get('SELECT * FROM refresh_tokens WHERE token_hash = ?', [h], (err, row) => {
-      if (err) return res.status(500).json({ error: 'erro de servidor' });
-      if (!row) return res.status(401).json({ error: 'invalid refresh' });
-      if (row.revoked_at) return res.status(401).json({ error: 'revoked' });
-      if (new Date(row.expires_at).getTime() < Date.now()) return res.status(401).json({ error: 'expired' });
-      // Buscar usuário
-      db.get('SELECT * FROM usuarios WHERE id = ?', [row.user_id], (uErr, user) => {
-        if (uErr || !user) return res.status(401).json({ error: 'invalid user' });
-        const payload = { sub: user.id, email: user.email, role: user.role, name: user.name };
-        const newAccess = signJWT(payload, ACCESS_TTL_SECONDS);
-        // Rotacionar refresh (opcional). Para segurança, geramos novo e revogamos o antigo
-        const newRefreshRaw = base64urlBuffer(48);
-        const newRefreshHash = sha256Hex(newRefreshRaw);
-        const nowIso = new Date().toISOString();
-        const expIso = new Date(Date.now() + (REFRESH_TTL_DAYS * 24 * 60 * 60 * 1000)).toISOString();
-        db.run('UPDATE refresh_tokens SET revoked_at = ? WHERE id = ?', [nowIso, row.id], (rErr) => {
-          if (rErr) console.warn('Falha ao revogar refresh antigo:', rErr?.message);
-          db.run('INSERT INTO refresh_tokens (user_id, token_hash, created_at, expires_at, user_agent, ip) VALUES (?,?,?,?,?,?)',
-            [user.id, newRefreshHash, nowIso, expIso, req.headers['user-agent'] || null, (req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip || '').toString()],
-            (insErr) => {
-              if (insErr) return res.status(500).json({ error: 'erro de servidor' });
-              setAuthCookies(res, newAccess, newRefreshRaw);
-              const outUser = { id: String(user.id), name: user.name, email: user.email, role: user.role, avatar: user.avatar, createdAt: user.created_at };
-              res.json({ token: newAccess, user: outUser });
-            }
-          );
-        });
+      db.run('UPDATE usuarios SET name = ?, avatar = ? WHERE id = ?', [nextName, nextAvatar, meId], (uErr) => {
+        if (uErr) return res.status(500).json({ error: 'erro de servidor' });
+        res.json({ id: String(user.id), name: nextName, email: user.email, role: user.role, avatar: nextAvatar });
       });
     });
   });
@@ -1896,7 +1899,7 @@ function createApp({ dbPath }) {
     // Campos que aceitaremos do front
     const desired = {
       titulo: body.titulo ?? body.title,
-      subtitulo: body.subtitulo ?? body.subtitle,
+  subtitulo: body.subtitulo ?? body.subtitle,
       conteudo: body.conteudo ?? body.content,
       categoria: body.categoria ?? body.category,
       chapeu: body.chapeu,

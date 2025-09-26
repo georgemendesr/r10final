@@ -63,3 +63,4 @@ coverage/
 *.backup
 *.bak
 node_modules
+*.db
