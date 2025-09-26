@@ -2507,7 +2507,7 @@ try {
       const refreshHash = sha256Hex(refreshRaw);
       const now = new Date();
       const created_at = now.toISOString();
-      const expires_at = new Date(now.getTime() + (REFRESH_TTL_DAYS * 86400000)).toISOString();
+      const expires_at = new Date(now.getTime() + (REFRESH_TTL_DAYS * 24 * 60 * 60 * 1000)).toISOString();
       const ua = req.headers['user-agent'] || null;
       const ipAddr = ip;
       db.run('INSERT INTO refresh_tokens (user_id, token_hash, created_at, expires_at, user_agent, ip) VALUES (?,?,?,?,?,?)',
@@ -2540,5 +2540,16 @@ try {
 } catch(e) {
   console.error('Falha ao redefinir rotas de auth com rate limit', e);
 }
-// Fim das extensões de segurança
+
+// Endpoint de logout: revoga refresh tokens ativos do usuário e limpa cookies
+app.post('/api/auth/logout', authMiddleware, (req, res) => {
+  const userId = Number(req.user.sub);
+  const nowIso = new Date().toISOString();
+  db.run('UPDATE refresh_tokens SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL', [nowIso, userId], (err)=>{
+    // Limpa cookies independente de erro (melhor esforço)
+    try { clearAuthCookies(res); } catch(_) {}
+    if (err) return res.status(500).json({ error: 'erro ao revogar tokens' });
+    res.json({ ok: true });
+  });
+});
 }
