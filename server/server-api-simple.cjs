@@ -499,6 +499,11 @@ function createApp({ dbPath }) {
   app.post('/api/auth/login', (req, res) => {
     const { email, password } = req.body || {};
     if (!email || !password) return res.status(400).json({ error: 'email e senha obrigatórios' });
+    const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip || '').toString();
+    const allowed = allowLoginAttempt(ip);
+    if (!allowed.ok) {
+      return res.status(429).json({ error: 'muitas tentativas, tente mais tarde', retryAfterMs: allowed.retryAfter });
+    }
     db.get('SELECT * FROM usuarios WHERE LOWER(email) = LOWER(?)', [String(email).trim()], (err, user) => {
       if (err) return res.status(500).json({ error: 'erro de servidor' });
       if (!user) return res.status(401).json({ error: 'credenciais inválidas' });
@@ -511,13 +516,12 @@ function createApp({ dbPath }) {
       const created_at = now.toISOString();
       const expires_at = new Date(now.getTime() + (REFRESH_TTL_DAYS * 24 * 60 * 60 * 1000)).toISOString();
       const ua = req.headers['user-agent'] || null;
-      const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip || '').toString();
+      const ipAddr = ip;
       db.run('INSERT INTO refresh_tokens (user_id, token_hash, created_at, expires_at, user_agent, ip) VALUES (?,?,?,?,?,?)',
-        [user.id, refreshHash, created_at, expires_at, ua, ip], (insErr) => {
+        [user.id, refreshHash, created_at, expires_at, ua, ipAddr], (insErr) => {
           if (insErr) return res.status(500).json({ error: 'erro de servidor' });
           setAuthCookies(res, accessToken, refreshRaw);
           const outUser = { id: String(user.id), name: user.name, email: user.email, role: user.role, avatar: user.avatar, createdAt: user.created_at };
-          // Mantém token no corpo para retrocompatibilidade, mas cookies passam a ser a fonte preferida
           res.json({ token: accessToken, user: outUser });
         }
       );
@@ -547,6 +551,7 @@ function createApp({ dbPath }) {
   app.post('/api/auth/register', authMiddleware, requireRole('admin'), (req, res) => {
     const { name, email, password, role = 'editor', avatar } = req.body || {};
     if (!name || !email || !password) return res.status(400).json({ error: 'campos obrigatórios: name, email, password' });
+    if (String(password).length < 8) return res.status(400).json({ error: 'senha muito curta (mínimo 8 caracteres)' });
     const created_at = new Date().toISOString();
     const password_hash = hashPassword(String(password));
     db.run('INSERT INTO usuarios (name,email,password_hash,role,avatar,created_at) VALUES (?,?,?,?,?,?)',
@@ -1516,20 +1521,24 @@ function createApp({ dbPath }) {
   app.post('/api/auth/reset', (req, res) => {
     const { token, password } = req.body || {};
     if (!token || !password) return res.status(400).json({ error: 'token e password são obrigatórios' });
+    const pwErr = validatePasswordStrength(password);
+    if (pwErr) return res.status(400).json({ error: pwErr });
     const h = sha256Hex(token);
     db.get('SELECT * FROM password_resets WHERE token_hash = ?', [h], (err, row) => {
       if (err || !row) return res.status(400).json({ error: 'token inválido' });
       if (row.used_at) return res.status(400).json({ error: 'token já usado' });
       if (new Date(row.expires_at).getTime() < Date.now()) return res.status(400).json({ error: 'token expirado' });
-      const newHash = hashPassword(String(password));
-      db.run('UPDATE usuarios SET password_hash = ? WHERE id = ?', [newHash, row.user_id], (uErr) => {
-        if (uErr) return res.status(500).json({ error: 'erro de servidor' });
-        // Marcar token como usado e revogar refresh tokens do usuário
+      db.get('SELECT * FROM usuarios WHERE id = ?', [row.user_id], (uErr, user) => {
+        if (uErr || !user) return res.status(400).json({ error: 'usuário inválido' });
+        const newHash = hashPassword(String(password));
         const nowIso = new Date().toISOString();
-        db.run('UPDATE password_resets SET used_at = ? WHERE id = ?', [nowIso, row.id], () => {});
-        db.run('UPDATE refresh_tokens SET revoked_at = ? WHERE user_id = ?', [nowIso, row.user_id], () => {});
-        clearAuthCookies(res);
-        res.json({ ok: true });
+        db.run('UPDATE usuarios SET password_hash = ? WHERE id = ?', [newHash, row.user_id], (u2Err) => {
+          if (u2Err) return res.status(500).json({ error: 'erro de servidor' });
+          db.run('UPDATE password_resets SET used_at = ? WHERE id = ?', [nowIso, row.id], () => {});
+          // Revogar refresh tokens existentes
+          db.run('UPDATE refresh_tokens SET revoked_at = ? WHERE user_id = ?', [nowIso, row.user_id], () => {});
+          res.json({ ok: true });
+        });
       });
     });
   });
@@ -2459,48 +2468,77 @@ function createApp({ dbPath }) {
     });
   });
 
-  // ===== Cache simples para social metrics =====
-const socialCache = {
-  insights: { data: null, ts: 0, ttl: 60000 },
-  analytics: { key: '', data: null, ts: 0, ttl: 60000 },
-  fbEngagedTried: false // evita repetir métrica inválida
-};
-
-  return app;
+  // ===== Rate Limiter simples para login =====
+const loginRate = { attempts: new Map(), WINDOW_MS: 5*60*1000, MAX: 10 };
+function allowLoginAttempt(ip) {
+  const now = Date.now();
+  const rec = loginRate.attempts.get(ip) || { hits: [], blockedUntil: 0 };
+  if (rec.blockedUntil && rec.blockedUntil > now) return { ok: false, retryAfter: rec.blockedUntil - now };
+  rec.hits = rec.hits.filter(t => now - t < loginRate.WINDOW_MS);
+  rec.hits.push(now);
+  if (rec.hits.length > loginRate.MAX) {
+    rec.blockedUntil = now + 10*60*1000;
+    loginRate.attempts.set(ip, rec);
+    return { ok: false, retryAfter: rec.blockedUntil - now };
+  }
+  loginRate.attempts.set(ip, rec);
+  return { ok: true };
 }
 
-// Iniciar servidor somente quando este arquivo é o entrypoint principal
-if (require.main === module) {
-  const app = createApp({ dbPath: process.env.SQLITE_DB_PATH || path.join(__dirname, 'noticias.db') });
-
-  // Porta principal (default 3002). Porta extra opcional via ADDITIONAL_PORT (não usa 8080 por padrão para evitar conflito com Instagram/TTS)
-  const primary = Number(process.env.PORT || PORT) || 3002;
-  const extra = process.env.ADDITIONAL_PORT ? Number(process.env.ADDITIONAL_PORT) : null;
-  const ports = extra && extra !== primary ? [primary, extra] : [primary];
-
-  ports.forEach((p) => {
-    try {
-      const server = app.listen(p, '0.0.0.0', () => {
-        console.log(`🚀 API SQLite rodando na porta ${p} (todas as interfaces)`);
-        console.log(`📍 Health: http://127.0.0.1:${p}/api/health`);
-        console.log(`📍 Health: http://localhost:${p}/api/health`);
-      });
-      server.on('error', (err) => {
-        if (err && err.code === 'EADDRINUSE') {
-          console.warn(`⚠️  Porta ${p} já está em uso — ignorando.`);
-        } else {
-          console.error(`Erro ao iniciar na porta ${p}:`, err);
+// (Re)definição segura das rotas login e register aplicando rate limit e senha forte
+try {
+  if (app._router && app._router.stack) {
+    app._router.stack = app._router.stack.filter(l => !(l.route && l.route.path === '/api/auth/login' && l.route.methods.post));
+    app._router.stack = app._router.stack.filter(l => !(l.route && l.route.path === '/api/auth/register' && l.route.methods.post));
+  }
+  app.post('/api/auth/login', (req, res) => {
+    const { email, password } = req.body || {};
+    if (!email || !password) return res.status(400).json({ error: 'email e senha obrigatórios' });
+    const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip || '').toString();
+    const allowed = allowLoginAttempt(ip);
+    if (!allowed.ok) return res.status(429).json({ error: 'muitas tentativas, tente mais tarde', retryAfterMs: allowed.retryAfter });
+    db.get('SELECT * FROM usuarios WHERE LOWER(email) = LOWER(?)', [String(email).trim()], (err, user) => {
+      if (err) return res.status(500).json({ error: 'erro de servidor' });
+      if (!user) return res.status(401).json({ error: 'credenciais inválidas' });
+      if (!verifyPassword(String(password), user.password_hash)) return res.status(401).json({ error: 'credenciais inválidas' });
+      const payload = { sub: user.id, email: user.email, role: user.role, name: user.name };
+      const accessToken = signJWT(payload, ACCESS_TTL_SECONDS);
+      const refreshRaw = base64urlBuffer(48);
+      const refreshHash = sha256Hex(refreshRaw);
+      const now = new Date();
+      const created_at = now.toISOString();
+      const expires_at = new Date(now.getTime() + (REFRESH_TTL_DAYS * 86400000)).toISOString();
+      const ua = req.headers['user-agent'] || null;
+      const ipAddr = ip;
+      db.run('INSERT INTO refresh_tokens (user_id, token_hash, created_at, expires_at, user_agent, ip) VALUES (?,?,?,?,?,?)',
+        [user.id, refreshHash, created_at, expires_at, ua, ipAddr], (insErr) => {
+          if (insErr) return res.status(500).json({ error: 'erro de servidor' });
+          setAuthCookies(res, accessToken, refreshRaw);
+          const outUser = { id: String(user.id), name: user.name, email: user.email, role: user.role, avatar: user.avatar, createdAt: user.created_at };
+          res.json({ token: accessToken, user: outUser });
         }
-      });
-    } catch (e) {
-      console.error(`Falha ao iniciar na porta ${p}:`, e);
-    }
+      );
+    });
   });
 
-  // Dicas de rotas (mostra usando a porta primária)
-  console.log(`📰 Posts: http://127.0.0.1:${primary}/api/posts?limit=5`);
-  console.log(`🏠 Home: http://127.0.0.1:${primary}/api/home`);
+  app.post('/api/auth/register', authMiddleware, requireRole('admin'), (req, res) => {
+    const { name, email, password, role = 'editor', avatar } = req.body || {};
+    if (!name || !email || !password) return res.status(400).json({ error: 'campos obrigatórios: name, email, password' });
+    if (String(password).length < 8) return res.status(400).json({ error: 'senha muito curta (mínimo 8 caracteres)' });
+    const created_at = new Date().toISOString();
+    const password_hash = hashPassword(String(password));
+    db.run('INSERT INTO usuarios (name,email,password_hash,role,avatar,created_at) VALUES (?,?,?,?,?,?)',
+      [name, String(email).toLowerCase(), password_hash, role, avatar || null, created_at], function (err) {
+        if (err) {
+          if (String(err.message||'').includes('UNIQUE')) return res.status(409).json({ error: 'email já cadastrado' });
+          return res.status(500).json({ error: 'erro de servidor' });
+        }
+        res.status(201).json({ id: String(this.lastID), name, email: String(email).toLowerCase(), role, avatar: avatar || null, createdAt: created_at });
+      }
+    );
+  });
+} catch(e) {
+  console.error('Falha ao redefinir rotas de auth com rate limit', e);
 }
-
-// Exportar para testes
-module.exports = { createApp, slugify, normalizePos, normalizeCategoria };
+// Fim das extensões de segurança
+}
