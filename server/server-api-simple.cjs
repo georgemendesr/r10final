@@ -1632,10 +1632,10 @@ function createApp({ dbPath }) {
           .filter(line => line.trim())
           .map(line => {
             const cleaned = line.trim()
-              .replace(/^Tópico \d+:/gi, '') // Remove "Tópico X:"
-              .replace(/^\d+\./g, '') // Remove numeração "1."
-              .replace(/^-\s*/, '') // Remove traços
-              .replace(/^\*\s*/, '') // Remove asteriscos
+              .replace(/^Tópico \d+:/gi, '') // Removes "Tópico X:"
+              .replace(/^\d+\./g, '') // Removes numeração "1."
+              .replace(/^-\s*/, '') // Removes traços
+              .replace(/^\*\s*/, '') // Removes asteriscos
               .trim();
             
             // Garantir que cada linha tenha bullet point
@@ -2458,6 +2458,13 @@ function createApp({ dbPath }) {
       });
     });
   });
+
+  // ===== Cache simples para social metrics =====
+const socialCache = {
+  insights: { data: null, ts: 0, ttl: 60000 },
+  analytics: { key: '', data: null, ts: 0, ttl: 60000 },
+  fbEngagedTried: false // evita repetir métrica inválida
+};
 
   return app;
 }
