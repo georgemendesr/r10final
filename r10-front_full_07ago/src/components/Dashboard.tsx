@@ -12,6 +12,7 @@ import DashboardHeader from './DashboardHeader';
 import PostsManager from './PostsManager';
 import MediaGallery from './MediaGallery';
 import InstagramCardGenerator from './InstagramCardGenerator';
+import InstagramInsightsComplete from './InstagramInsightsComplete';
 import LayoutManager from './LayoutManager';
 import { useAuth } from '../contexts/AuthContext';
 import type { Banner } from '../services/bannersApi';
@@ -24,12 +25,15 @@ import { fetchPostsPage, getMostRead, type Post } from '../services/postsService
 import UsersManager from './UsersManager';
 import AnalyticsPanel from './AnalyticsPanel';
 import SiteAnalyticsPanel from './SiteAnalyticsPanel';
+import DashboardOverview from './DashboardOverview';
+import DetailedAnalytics from './DetailedAnalytics';
 
 const Dashboard = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState('overview');
+  const [instagramSubTab, setInstagramSubTab] = useState<'insights' | 'generator'>('insights');
   const [realtimeUsers, setRealtimeUsers] = useState(0);
   const [notifications, setNotifications] = useState(3);
   const [analyticsTimeframe, setAnalyticsTimeframe] = useState('7d');
@@ -66,7 +70,7 @@ const Dashboard = () => {
     } else if (path === '/admin') {
       // Detectar parâmetro tab na URL para compatibilidade
       const tabParam = searchParams.get('tab');
-      if (tabParam && ['overview', 'midia', 'layout', 'instagram', 'agendamento', 'banners', 'categorias', 'analytics'].includes(tabParam)) {
+      if (tabParam && ['overview', 'midia', 'layout', 'instagram', 'agendamento', 'banners', 'categorias', 'analytics', 'advanced-analytics'].includes(tabParam)) {
         setActiveTab(tabParam);
       } else {
         setActiveTab('overview');
@@ -534,6 +538,7 @@ const Dashboard = () => {
             { id: 'banners', label: 'Banner Ads', icon: Target, badge: null, url: '/admin?tab=banners' },
             { id: 'categorias', label: 'Categorias', icon: Settings, badge: null, url: '/admin?tab=categorias' },
             { id: 'analytics', label: 'Analytics', icon: TrendingUp, badge: null, url: '/admin?tab=analytics' },
+            { id: 'advanced-analytics', label: 'Analytics Avançados', icon: BarChart3, badge: 'NEW', url: '/admin?tab=advanced-analytics' },
             ...(isAdmin ? [{ id: 'usuarios', label: 'Usuários', icon: Users, badge: null, url: '/admin/usuarios' }] : [])
           ].map(item => (
             <Link
@@ -579,341 +584,14 @@ const Dashboard = () => {
 
   const OverviewContent = () => {
     return (
-      <div className="space-y-6">
-        {errorOverview && (
-          <div className="p-3 bg-yellow-50 border border-yellow-200 text-yellow-800 rounded">
-            {errorOverview}
-          </div>
-        )}
-        {/* Quick Stats Cards - Compactos */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {quickStats.map((stat, index) => (
-            <div key={index} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow">
-              <div className="flex items-center space-x-3">
-                <div className={`p-2 rounded-lg ${stat.color}`}>
-                  <stat.icon className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-                  <p className="text-base font-medium text-gray-600">{stat.label}</p>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Ações Rápidas - Atalhos Funcionais */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-bold text-gray-900 mb-4">Ações Rápidas</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <button 
-              onClick={() => setActiveTab('materias')}
-              className="flex flex-col items-center p-4 bg-red-50 hover:bg-red-100 rounded-lg border border-red-200 transition-colors group"
-            >
-              <Plus className="w-8 h-8 text-red-600 mb-2 group-hover:scale-110 transition-transform" />
-              <span className="text-base font-medium text-red-700">Nova Matéria</span>
-            </button>
-            
-            <button 
-              onClick={() => setActiveTab('midia')}
-              className="flex flex-col items-center p-4 bg-purple-50 hover:bg-purple-100 rounded-lg border border-purple-200 transition-colors group"
-            >
-              <ImageIcon className="w-8 h-8 text-purple-600 mb-2 group-hover:scale-110 transition-transform" />
-              <span className="text-base font-medium text-purple-700">Gerenciar Mídia</span>
-            </button>
-            
-            <button 
-              onClick={() => setActiveTab('instagram')}
-              className="flex flex-col items-center p-4 bg-pink-50 hover:bg-pink-100 rounded-lg border border-pink-200 transition-colors group"
-            >
-              <Instagram className="w-8 h-8 text-pink-600 mb-2 group-hover:scale-110 transition-transform" />
-              <span className="text-base font-medium text-pink-700">Publicar Instagram</span>
-            </button>
-            
-            <button 
-              onClick={() => setActiveTab('agendamento')}
-              className="flex flex-col items-center p-4 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors group"
-            >
-              <Calendar className="w-8 h-8 text-blue-600 mb-2 group-hover:scale-110 transition-transform" />
-              <span className="text-base font-medium text-blue-700">Agendamentos</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Social Insights */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-lg font-bold text-gray-900">Insights de Redes Sociais</h3>
-          </div>
-          {socialInsights && (
-            <div className="mb-4 text-sm text-gray-600">
-              <div>
-                <span className="font-medium">Instagram:</span> {socialInsights.instagram.account?.username || '—'}
-              </div>
-              <div>
-                <span className="font-medium">Facebook:</span> {socialInsights.facebook.account?.name || '—'}
-              </div>
-            </div>
-          )}
-          {socialInsightsError && (
-            <div className="mb-4 p-3 rounded-md border border-amber-300 bg-amber-50 text-amber-800 text-sm">
-              {socialInsightsError}
-            </div>
-          )}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 rounded-lg border">
-                <p className="text-sm text-gray-500">Facebook Seguidores</p>
-                <p className="text-2xl font-bold text-gray-900">{socialInsights?.facebook.followers?.toLocaleString() || '—'}</p>
-                <p className="text-xs text-blue-600 mt-1">{socialInsights ? `+${socialInsights.facebook.growth7d}% 7d` : 'aguardando...'}</p>
-              </div>
-              <div className="p-4 rounded-lg border">
-                <p className="text-sm text-gray-500">Instagram Seguidores</p>
-                <p className="text-2xl font-bold text-gray-900">{socialInsights?.instagram.followers?.toLocaleString() || '—'}</p>
-                <p className="text-xs text-pink-600 mt-1">{socialInsights ? `+${socialInsights.instagram.growth7d}% 7d` : 'aguardando...'}</p>
-              </div>
-              <div className="p-4 rounded-lg border col-span-2">
-                <p className="text-sm text-gray-500 mb-2">Facebook Engajamento (7d)</p>
-                <div className="h-28">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={socialInsights?.facebook.trend || []}>
-                      <defs>
-                        <linearGradient id="fbColor" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#2563EB" stopOpacity={0.4}/>
-                          <stop offset="95%" stopColor="#2563EB" stopOpacity={0}/>
-                        </linearGradient>
-                      </defs>
-                      <XAxis dataKey="date" hide/>
-                      <YAxis hide/>
-                      <Tooltip />
-                      <Area type="monotone" dataKey="engagement" stroke="#2563EB" fill="url(#fbColor)" strokeWidth={2} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-              <div className="p-4 rounded-lg border col-span-2">
-                <p className="text-sm text-gray-500 mb-2">Instagram Engajamento (7d)</p>
-                <div className="h-28">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={socialInsights?.instagram.trend || []}>
-                      <defs>
-                        <linearGradient id="igColor" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#DB2777" stopOpacity={0.4}/>
-                          <stop offset="95%" stopColor="#DB2777" stopOpacity={0}/>
-                        </linearGradient>
-                      </defs>
-                      <XAxis dataKey="date" hide/>
-                      <YAxis hide/>
-                      <Tooltip />
-                      <Area type="monotone" dataKey="engagement" stroke="#DB2777" fill="url(#igColor)" strokeWidth={2} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            </div>
-            <div className="lg:col-span-2">
-              <div className="bg-gray-50 rounded-lg border p-4 h-full flex items-center justify-center text-gray-500">
-                <span>Mais gráficos e comparativos podem vir aqui.</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Layout Moderno - Grid Dinâmico */}
-        <div className="grid grid-cols-12 gap-6">
-          {/* Últimas Notícias - Card Grande */}
-          <div className="col-span-12 lg:col-span-8 bg-gradient-to-br from-white via-red-50 to-red-100 rounded-2xl shadow-lg border border-red-200 p-6">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center space-x-3">
-                <div className="p-3 bg-red-600 rounded-xl shadow-lg">
-                  <FileText className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-gray-900">Últimas Publicações</h3>
-                  <p className="text-red-600 text-sm font-medium">Atualizações em tempo real</p>
-                </div>
-              </div>
-              <button 
-                onClick={() => setActiveTab('materias')}
-                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl font-medium text-sm shadow-md hover:shadow-lg transition-all duration-200"
-              >
-                Ver todas →
-              </button>
-            </div>
-            
-            {/* Grid de Notícias Moderno - dados reais */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {(loadingOverview ? Array.from({ length: 4 }).map((_, i) => ({ id: `skeleton-${i}` })) : latestPosts.slice(0, 4)).map((post: any, index: number) => {
-                const featured = index === 0;
-                const title = loadingOverview ? 'Carregando…' : (post.titulo || post.title);
-                const views = loadingOverview ? '-' : (post.views || post.visualizacoes || 0).toLocaleString();
-                const time = loadingOverview ? '-' : new Date(post.dataPublicacao || post.publishedAt || Date.now()).toLocaleDateString();
-                return (
-                  <div key={post.id || index} className={`group relative overflow-hidden rounded-xl border-2 hover:shadow-lg transition-all duration-300 cursor-pointer ${
-                    featured 
-                      ? 'bg-gradient-to-br from-red-600 to-red-700 border-red-500 text-white col-span-full' 
-                      : 'bg-white border-gray-200 hover:border-red-300'
-                  }`}>
-                    {featured && (
-                      <div className="absolute top-0 right-0 bg-yellow-400 text-black px-3 py-1 rounded-bl-xl font-bold text-xs">
-                        DESTAQUE
-                      </div>
-                    )}
-                    <div className="p-4">
-                      <h4 className={`font-bold leading-tight mb-3 ${
-                        featured ? 'text-white text-lg' : 'text-gray-900 text-sm'
-                      }`}>
-                        {title}
-                      </h4>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <span className={`text-sm font-medium ${
-                            featured ? 'text-red-200' : 'text-gray-500'
-                          }`}>
-                            {time}
-                          </span>
-                          <div className="flex items-center space-x-1">
-                            <Eye className={`w-4 h-4 ${featured ? 'text-red-200' : 'text-gray-400'}`} />
-                            <span className={`text-sm ${featured ? 'text-red-200' : 'text-gray-500'}`}>
-                              {views}
-                            </span>
-                          </div>
-                        </div>
-                        <span className={`text-sm px-2 py-1 rounded-full font-medium ${
-                          'bg-green-100 text-green-700'
-                        }`}>
-                          ✓ Publicado
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Insights - Card Vertical */}
-          <div className="col-span-12 lg:col-span-4 bg-gradient-to-br from-purple-600 via-purple-700 to-indigo-800 rounded-2xl shadow-lg p-6 text-white">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center space-x-3">
-                <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-                  <TrendingUp className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold">Insights</h3>
-                  <p className="text-purple-200 text-base">Análise em tempo real</p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="space-y-4">
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-                <div className="flex items-center justify-between mb-2">
-                  <Heart className="w-5 h-5 text-pink-300" />
-                  <span className="text-2xl font-bold text-white">2.8k</span>
-                </div>
-                <p className="text-purple-200 text-base">Curtidas hoje</p>
-                <div className="mt-2 w-full bg-white/20 rounded-full h-1.5">
-                  <div className="bg-pink-400 h-1.5 rounded-full" style={{ width: '78%' }}></div>
-                </div>
-              </div>
-
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-                <div className="flex items-center justify-between mb-2">
-                  <MessageSquare className="w-5 h-5 text-green-300" />
-                  <span className="text-2xl font-bold text-white">1.2k</span>
-                </div>
-                <p className="text-purple-200 text-base">Comentários</p>
-                <div className="mt-2 w-full bg-white/20 rounded-full h-1.5">
-                  <div className="bg-green-400 h-1.5 rounded-full" style={{ width: '85%' }}></div>
-                </div>
-              </div>
-
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-                <div className="flex items-center justify-between mb-2">
-                  <Share2 className="w-5 h-5 text-yellow-300" />
-                  <span className="text-2xl font-bold text-white">892</span>
-                </div>
-                <p className="text-purple-200 text-sm">Compartilhamentos</p>
-                <div className="mt-2 w-full bg-white/20 rounded-full h-1.5">
-                  <div className="bg-yellow-400 h-1.5 rounded-full" style={{ width: '72%' }}></div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Rankings - Cards Lado a Lado */}
-          <div className="col-span-12 lg:col-span-6 bg-gradient-to-br from-orange-500 via-red-500 to-pink-600 rounded-2xl shadow-lg p-6 text-white">
-            <div className="flex items-center space-x-3 mb-6">
-              <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-                <div className="text-2xl">🔥</div>
-              </div>
-              <div>
-                <h3 className="text-lg font-bold">Trending Hoje</h3>
-                <p className="text-orange-200 text-sm">Top 3 do dia</p>
-              </div>
-            </div>
-            
-            <div className="space-y-3">
-              {[
-                { title: "Centro médico na zona norte", views: "3.4k", pos: 1 },
-                { title: "Alagamentos em bairros", views: "2.8k", pos: 2 },
-                { title: "Festival gastronômico", views: "2.1k", pos: 3 }
-              ].map((news, index) => (
-                <div key={index} className="flex items-center space-x-4 bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/20">
-                  <div className="w-8 h-8 bg-white text-red-600 rounded-full flex items-center justify-center font-bold text-sm">
-                    {news.pos}
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="font-medium text-white text-sm leading-tight">{news.title}</h4>
-                    <p className="text-orange-200 text-xs">{news.views} views</p>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-xs text-orange-200">crescimento</div>
-                    <div className="text-sm font-bold text-white">+{Math.floor(Math.random() * 500 + 200)}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Performance Semanal - Card Moderno */}
-          <div className="col-span-12 lg:col-span-6 bg-gradient-to-br from-blue-500 via-cyan-500 to-teal-600 rounded-2xl shadow-lg p-6 text-white">
-            <div className="flex items-center space-x-3 mb-6">
-              <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-                <div className="text-2xl">📊</div>
-              </div>
-              <div>
-                <h3 className="text-lg font-bold">Performance Semanal</h3>
-                <p className="text-cyan-200 text-sm">Últimos 7 dias</p>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-                <div className="text-2xl font-bold text-white mb-1">12.5k</div>
-                <div className="text-cyan-200 text-sm">Total de views</div>
-                <div className="flex items-center space-x-1 mt-2">
-                  <ArrowUpRight className="w-3 h-3 text-green-300" />
-                  <span className="text-xs text-green-300 font-medium">+4.8k</span>
-                </div>
-              </div>
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-                <div className="text-2xl font-bold text-white mb-1">89%</div>
-                <div className="text-cyan-200 text-sm">Taxa de leitura</div>
-                <div className="flex items-center space-x-1 mt-2">
-                  <ArrowUpRight className="w-3 h-3 text-green-300" />
-                  <span className="text-xs text-green-300 font-medium">+12%</span>
-                </div>
-              </div>
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 col-span-2">
-                <div className="text-lg font-bold text-white mb-2">Top da Semana</div>
-                <div className="text-sm text-cyan-200">"Governador inaugura rodovia" - 9.8k views</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <DashboardOverview
+        socialInsights={socialInsights}
+        socialInsightsError={socialInsightsError}
+        latestPosts={latestPosts}
+        mostRead={mostRead}
+        loading={loadingOverview}
+        onTabChange={setActiveTab}
+      />
     );
   };
 
@@ -978,7 +656,38 @@ const Dashboard = () => {
           {activeTab === 'banners' && (
             <PublicidadeContent />
           )}
-          {activeTab === 'instagram' && <InstagramCardGenerator />}
+          {activeTab === 'instagram' && (
+            <div className="space-y-6">
+              {/* Instagram Sub-tabs */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-2">
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setInstagramSubTab('insights')}
+                    className={`flex-1 px-4 py-3 rounded-lg font-medium transition-all ${
+                      instagramSubTab === 'insights'
+                        ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-md'
+                        : 'text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    📊 Insights & Analytics
+                  </button>
+                  <button
+                    onClick={() => setInstagramSubTab('generator')}
+                    className={`flex-1 px-4 py-3 rounded-lg font-medium transition-all ${
+                      instagramSubTab === 'generator'
+                        ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-md'
+                        : 'text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    🎨 Gerador de Cards
+                  </button>
+                </div>
+              </div>
+
+              {/* Instagram Content */}
+              {instagramSubTab === 'insights' ? <InstagramInsightsComplete /> : <InstagramCardGenerator />}
+            </div>
+          )}
           {activeTab === 'agendamento' && (
             <div className="space-y-6">
               {/* Scheduling Header */}
@@ -1159,6 +868,9 @@ const Dashboard = () => {
               <SiteAnalyticsPanel days={30} />
               <AnalyticsPanel initialDays={30} />
             </div>
+          )}
+          {activeTab === 'advanced-analytics' && (
+            <DetailedAnalytics />
           )}
           {activeTab === 'publicidade' && (
             <PublicidadeContent />

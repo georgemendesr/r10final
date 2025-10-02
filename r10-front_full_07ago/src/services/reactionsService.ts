@@ -1,11 +1,13 @@
 // Serviço centralizado para gerenciamento de reações
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002';
+
 export interface ReactionCounts {
   feliz: number;
   inspirado: number;
   surpreso: number;
   preocupado: number;
   triste: number;
-  indignado: number; // Padronizado como "indignado"
+  indignado: number;
 }
 
 export interface ReactionStats {
@@ -15,6 +17,21 @@ export interface ReactionStats {
   preocupado: number;
   triste: number;
   indignado: number;
+}
+
+export interface DailyReactionsResponse {
+  period: string;
+  timestamp: string;
+  total: number;
+  counts: ReactionCounts;
+  percentages: Record<keyof ReactionCounts, number>;
+}
+
+export interface PostReactionsResponse {
+  postId: string;
+  reactions: ReactionCounts;
+  total: number;
+  userReaction: string | null;
 }
 
 // Configuração das reações padronizada
@@ -27,7 +44,111 @@ export const reactionConfig = [
   { key: 'indignado', emoji: '😡', label: 'Indignado', color: 'text-red-600', bgColor: 'bg-red-50', borderColor: 'border-red-200', barColor: 'bg-red-500' }
 ] as const;
 
-// Chave para armazenamento centralizado
+// ========== NOVAS FUNÇÕES COM API ==========
+
+// Obter reações de um artigo específico da API
+export const getArticleReactions = async (articleId: string): Promise<ReactionCounts> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/posts/${articleId}/reactions`);
+    
+    if (!response.ok) {
+      throw new Error(`Erro HTTP: ${response.status}`);
+    }
+    
+    const data: PostReactionsResponse = await response.json();
+    return data.reactions;
+  } catch (error) {
+    console.error('Erro ao buscar reações do artigo:', error);
+    // Retornar valores padrão em caso de erro
+    return {
+      feliz: 0,
+      inspirado: 0,
+      surpreso: 0,
+      preocupado: 0,
+      triste: 0,
+      indignado: 0
+    };
+  }
+};
+
+// Adicionar ou atualizar reação em um artigo
+export const reactToPost = async (articleId: string, reactionType: keyof ReactionCounts): Promise<{ success: boolean; reactions: ReactionCounts; action?: string }> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/posts/${articleId}/react`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ tipo: reactionType })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Erro HTTP: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return {
+      success: data.success,
+      reactions: data.reactions,
+      action: data.action
+    };
+  } catch (error) {
+    console.error('Erro ao reagir ao post:', error);
+    return {
+      success: false,
+      reactions: {
+        feliz: 0,
+        inspirado: 0,
+        surpreso: 0,
+        preocupado: 0,
+        triste: 0,
+        indignado: 0
+      }
+    };
+  }
+};
+
+// Obter reações diárias (últimas 24h) da API
+export const getDailyReactions = async (): Promise<DailyReactionsResponse> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/reactions/daily`);
+    
+    if (!response.ok) {
+      throw new Error(`Erro HTTP: ${response.status}`);
+    }
+    
+    const data: DailyReactionsResponse = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Erro ao buscar reações diárias:', error);
+    // Retornar valores padrão em caso de erro
+    return {
+      period: 'last_24_hours',
+      timestamp: new Date().toISOString(),
+      total: 0,
+      counts: {
+        feliz: 0,
+        inspirado: 0,
+        surpreso: 0,
+        preocupado: 0,
+        triste: 0,
+        indignado: 0
+      },
+      percentages: {
+        feliz: 0,
+        inspirado: 0,
+        surpreso: 0,
+        preocupado: 0,
+        triste: 0,
+        indignado: 0
+      }
+    };
+  }
+};
+
+// ========== FUNÇÕES LEGADAS (para compatibilidade com localStorage) ==========
+
+// Chave para armazenamento centralizado (backup local)
 const REACTIONS_STORAGE_KEY = 'r10_reactions_data';
 
 // Função para carregar todas as reações de todos os artigos
@@ -36,36 +157,32 @@ const loadAllReactionsFromStorage = (): Record<string, ReactionCounts> => {
   return stored ? JSON.parse(stored) : {};
 };
 
-// Função para salvar reações de um artigo específico
+// Função para salvar reações de um artigo específico (backup local)
 const saveReactionToStorage = (articleId: string, reactions: ReactionCounts): void => {
   const allReactions = loadAllReactionsFromStorage();
   allReactions[articleId] = reactions;
   localStorage.setItem(REACTIONS_STORAGE_KEY, JSON.stringify(allReactions));
 };
 
-// Obter reações de um artigo específico
-export const getArticleReactions = (articleId: string): ReactionCounts => {
-  const allReactions = loadAllReactionsFromStorage();
-  return allReactions[articleId] || {
-    feliz: 8,
-    inspirado: 12,
-    surpreso: 3,
-    preocupado: 15,
-    triste: 2,
-    indignado: 5
-  };
-};
-
-// Incrementar reação de um artigo
-export const incrementReaction = (articleId: string, reactionType: keyof ReactionCounts): ReactionCounts => {
-  const currentReactions = getArticleReactions(articleId);
-  const updatedReactions = {
-    ...currentReactions,
-    [reactionType]: currentReactions[reactionType] + 1
-  };
-  
-  saveReactionToStorage(articleId, updatedReactions);
-  return updatedReactions;
+// Incrementar reação de um artigo (LEGADO - mantido para compatibilidade com código antigo)
+// NOTA: Use reactToPost() para novas implementações com API
+export const incrementReaction = async (articleId: string, reactionType: keyof ReactionCounts): Promise<ReactionCounts> => {
+  try {
+    const result = await reactToPost(articleId, reactionType);
+    return result.reactions;
+  } catch (error) {
+    console.error('Erro ao incrementar reação (fallback para localStorage):', error);
+    // Fallback para localStorage se API falhar
+    const currentReactions = loadAllReactionsFromStorage()[articleId] || {
+      feliz: 0, inspirado: 0, surpreso: 0, preocupado: 0, triste: 0, indignado: 0
+    };
+    const updatedReactions = {
+      ...currentReactions,
+      [reactionType]: currentReactions[reactionType] + 1
+    };
+    saveReactionToStorage(articleId, updatedReactions);
+    return updatedReactions;
+  }
 };
 
 // Obter estatísticas globais de todas as reações

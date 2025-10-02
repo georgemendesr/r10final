@@ -82,4 +82,10 @@ export default defineConfig(({ mode }) => ({
     include: ['react', 'react-dom', 'react-router-dom', 'lucide-react'],
     exclude: ['@vite/client', '@vite/env']
   },
+
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: ['./vitest.setup.ts']
+  },
 }));

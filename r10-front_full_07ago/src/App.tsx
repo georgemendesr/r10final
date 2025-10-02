@@ -38,8 +38,9 @@ const LoginPage = React.lazy(() => import('./components/LoginPage'));
 const ForgotPasswordPage = React.lazy(() => import('./components/ForgotPasswordPage'));
 const ResetPasswordPage = React.lazy(() => import('./components/ResetPasswordPage'));
 const Dashboard = React.lazy(() => import('./components/Dashboard'));
-// Página de Analytics dedicada (criaremos já já)
+// Página de Analytics dedicada 
 const AnalyticsPage = React.lazy(() => import('./components/AnalyticsPage'));
+const AnalyticsPagePublic = React.lazy(() => import('./components/AnalyticsPagePublic'));
 const PostForm = React.lazy(() => import('./components/PostForm'));
 const TestePosts = React.lazy(() => import('./components/TestePosts'));
 const SimplePostsTest = React.lazy(() => import('./components/SimplePostsTest'));
@@ -461,6 +462,15 @@ function App() {
           />
           <Route path="/categoria/:category" element={<CategoryPage />} />
           <Route path="/municipios" element={<MunicipiosPage />} />
+          {/* Página pública de analytics */}
+          <Route 
+            path="/insights" 
+            element={
+              <Suspense fallback={<div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-600"></div></div>}>
+                <AnalyticsPagePublic />
+              </Suspense>
+            } 
+          />
         </Routes>
       </Router>
     </AuthProvider>

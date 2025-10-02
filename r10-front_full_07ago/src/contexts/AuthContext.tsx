@@ -36,11 +36,37 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     const checkAuthStatus = async () => {
       try {
-        const currentUser = await getCurrentUser();
-        setUser(currentUser);
-        setIsAuthenticated(!!currentUser);
+        // Primeiro verifica se há dados salvos localmente para evitar chamada desnecessária
+        const storedAuth = localStorage.getItem('r10_auth');
+        
+        if (!storedAuth) {
+          // Sem dados salvos, assume não autenticado sem fazer chamada
+          setUser(null);
+          setIsAuthenticated(false);
+          setIsLoading(false);
+          return;
+        }
+        
+        const parsedAuth = JSON.parse(storedAuth);
+        const hasStoredAuth = parsedAuth?.isAuthenticated;
+        
+        // Só faz a chamada se houver indicação de que pode estar autenticado
+        if (hasStoredAuth) {
+          const currentUser = await getCurrentUser();
+          setUser(currentUser);
+          setIsAuthenticated(!!currentUser);
+        } else {
+          // Dados indicam não autenticado
+          setUser(null);
+          setIsAuthenticated(false);
+        }
       } catch (error) {
-        console.error('Erro ao verificar status de autenticação:', error);
+        // Erro silencioso - não loga 401 esperados
+        if ((error as any)?.status !== 401) {
+          console.error('Erro ao verificar status de autenticação:', error);
+        }
+        setUser(null);
+        setIsAuthenticated(false);
       } finally {
         setIsLoading(false);
       }
@@ -50,15 +76,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   const login = async (email: string, password: string) => {
+    console.log('[AuthContext] Login chamado, setando isLoading=true');
     setIsLoading(true);
     try {
+      console.log('[AuthContext] Chamando authLogin do authService...');
       const authState = await authLogin(email, password);
+      console.log('[AuthContext] authLogin retornou:', authState);
       setUser(authState.user);
       setIsAuthenticated(authState.isAuthenticated);
+      console.log('[AuthContext] Estado atualizado com sucesso');
     } catch (error) {
-      console.error('Erro ao fazer login:', error);
+      console.error('[AuthContext] Erro ao fazer login:', error);
       throw error;
     } finally {
+      console.log('[AuthContext] Finalizando - setando isLoading=false');
       setIsLoading(false);
     }
   };

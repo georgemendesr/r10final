@@ -5,6 +5,10 @@ let sqlite3; try { sqlite3 = require('sqlite3').verbose(); console.log('[[bootst
 const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
+const sanitizeHtml = require('sanitize-html');
+const helmet = require('helmet');
+const compression = require('compression');
+const rateLimit = require('express-rate-limit');
 
 // Configurar encoding para UTF-8
 process.env.NODE_ENV = process.env.NODE_ENV || 'development';
@@ -218,19 +222,128 @@ function reorganizePositionHierarchy(db, updatedPostId, newPosition, callback) {
 // Factory para montar o app e conectar no SQLite no caminho informado
 function createApp({ dbPath }) {
   const app = express();
+  // Segurança básica e compressão HTTP
+  app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
+  app.use(compression());
+  // Rate limit global simples
+  const globalLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 1000, standardHeaders: true, legacyHeaders: false });
+  app.use(globalLimiter);
+  const LOG_JSON = process.env.LOG_JSON === '1';
+  // ======= Observability Metrics =======
+  const metrics = {
+    startTime: Date.now(),
+    requestsTotal: 0,
+    requestsByRoute: {},
+    statusCounts: {},
+    slowRequests: 0,
+    maxLatencyMs: 0,
+    authFailures: 0,
+    socialCacheHits: 0,
+    socialCacheMiss: 0,
+    latencyBuckets: { '50':0, '100':0, '300':0, '1000':0, '3000':0, '3000_plus':0 }
+  };
+  // Cache social unificado: { insights: {payload, fetchedAt}, analytics: {...} }
+  const socialCache = { insights: null, analytics: null, ttlMs: 60_000 };
+  function metricsLog(event, extra) {
+    if (!LOG_JSON) return; console.log(JSON.stringify({ ts: new Date().toISOString(), evt: event, ...extra }));
+  }
+  app.use((req,res,next)=>{
+    const start = process.hrtime.bigint();
+    metrics.requestsTotal++;
+    let key = req.method + ' ' + (req.path||'');
+    key = key.replace(/\/[0-9]+(?![0-9])/g,'/:id');
+    metrics.requestsByRoute[key] = (metrics.requestsByRoute[key]||0)+1;
+    res.on('finish', ()=>{
+      const durMs = Number(process.hrtime.bigint() - start)/1e6;
+      const sc = res.statusCode;
+      metrics.statusCounts[sc] = (metrics.statusCounts[sc]||0)+1;
+      if (durMs > 1000) metrics.slowRequests++;
+      if (durMs > metrics.maxLatencyMs) metrics.maxLatencyMs = durMs;
+  // Buckets
+  if (durMs <= 50) metrics.latencyBuckets['50']++; else
+  if (durMs <= 100) metrics.latencyBuckets['100']++; else
+  if (durMs <= 300) metrics.latencyBuckets['300']++; else
+  if (durMs <= 1000) metrics.latencyBuckets['1000']++; else
+  if (durMs <= 3000) metrics.latencyBuckets['3000']++; else metrics.latencyBuckets['3000_plus']++;
+      metricsLog('http_request', { m: req.method, p: req.path, s: sc, ms: Math.round(durMs) });
+    });
+    next();
+  });
+
+  // Endpoint público leve de runtime metrics (sem info sensível)
+  app.get('/api/metrics/runtime', (req,res)=>{
+    const mem = process.memoryUsage ? process.memoryUsage() : null;
+    const summary = {
+      uptimeSeconds: Math.round((Date.now() - metrics.startTime)/1000),
+      memoryMB: mem ? {
+        rss: +(mem.rss/1024/1024).toFixed(2),
+        heapUsed: +(mem.heapUsed/1024/1024).toFixed(2)
+      } : null,
+      requests: {
+        total: metrics.requestsTotal,
+        '2xx': Object.entries(metrics.statusCounts).filter(([c])=>/^2/.test(c)).reduce((a,[,v])=>a+v,0),
+        '4xx': Object.entries(metrics.statusCounts).filter(([c])=>/^4/.test(c)).reduce((a,[,v])=>a+v,0),
+        '5xx': Object.entries(metrics.statusCounts).filter(([c])=>/^5/.test(c)).reduce((a,[,v])=>a+v,0)
+      },
+      slowRequests: metrics.slowRequests,
+      maxLatencyMs: Math.round(metrics.maxLatencyMs)
+    };
+    res.json(summary);
+  });
+
+  // Endpoint Prometheus simples
+  app.get('/metrics', (req,res)=>{
+    res.set('Content-Type','text/plain; version=0.0.4');
+    const mem = process.memoryUsage ? process.memoryUsage() : null;
+    const lines = [];
+    const upSeconds = (Date.now() - metrics.startTime)/1000;
+    lines.push('# HELP app_uptime_seconds Uptime do processo em segundos');
+    lines.push('# TYPE app_uptime_seconds gauge');
+    lines.push(`app_uptime_seconds ${upSeconds.toFixed(0)}`);
+    lines.push('# HELP http_requests_total Total de requisições recebidas');
+    lines.push('# TYPE http_requests_total counter');
+    lines.push(`http_requests_total ${metrics.requestsTotal}`);
+    ['2','4','5'].forEach(cl => {
+      const val = Object.entries(metrics.statusCounts).filter(([c])=>c.startsWith(cl)).reduce((a,[,v])=>a+v,0);
+      lines.push(`http_responses_status_total{class="${cl}xx"} ${val}`);
+    });
+    lines.push('# HELP http_slow_requests_total Requisições >1s');
+    lines.push('# TYPE http_slow_requests_total counter');
+    lines.push(`http_slow_requests_total ${metrics.slowRequests}`);
+    lines.push('# HELP http_request_max_latency_ms Maior latência observada em ms');
+    lines.push('# TYPE http_request_max_latency_ms gauge');
+    lines.push(`http_request_max_latency_ms ${Math.round(metrics.maxLatencyMs)}`);
+    lines.push('# HELP http_request_latency_bucket Requisições por faixas de latência (ms)');
+    lines.push('# TYPE http_request_latency_bucket counter');
+    const b = metrics.latencyBuckets;
+    lines.push(`http_request_latency_bucket{le="50"} ${b['50']}`);
+    lines.push(`http_request_latency_bucket{le="100"} ${b['50']+b['100']}`);
+    lines.push(`http_request_latency_bucket{le="300"} ${b['50']+b['100']+b['300']}`);
+    lines.push(`http_request_latency_bucket{le="1000"} ${b['50']+b['100']+b['300']+b['1000']}`);
+    lines.push(`http_request_latency_bucket{le="3000"} ${b['50']+b['100']+b['300']+b['1000']+b['3000']}`);
+    lines.push(`http_request_latency_bucket{le="+Inf"} ${b['50']+b['100']+b['300']+b['1000']+b['3000']+b['3000_plus']}`);
+    if (mem) {
+      lines.push('# HELP process_resident_memory_bytes RSS em bytes');
+      lines.push('# TYPE process_resident_memory_bytes gauge');
+      lines.push(`process_resident_memory_bytes ${mem.rss}`);
+      lines.push('# HELP process_heap_used_bytes Heap usado em bytes');
+      lines.push('# TYPE process_heap_used_bytes gauge');
+      lines.push(`process_heap_used_bytes ${mem.heapUsed}`);
+    }
+    res.send(lines.join('\n')+'\n');
+  });
   
   // Configuração CORS específica para o frontend
   const corsOptions = {
     origin: (origin, callback) => {
       const staticAllowed = new Set([
-        'http://localhost:5175',
-        'http://127.0.0.1:5175',
-        'http://localhost:5176',
-        'http://127.0.0.1:5176',
-        'http://localhost:5177',
-        'http://127.0.0.1:5177',
-        'http://localhost:3000',
-        'http://127.0.0.1:3000'
+        'http://localhost:5175', 'http://127.0.0.1:5175',
+        'http://localhost:5176', 'http://127.0.0.1:5176',
+        'http://localhost:5177', 'http://127.0.0.1:5177',
+        'http://localhost:3000', 'http://127.0.0.1:3000',
+        // Domínio de produção planejado
+        'https://r10piaui.com',
+        'https://www.r10piaui.com'
       ]);
       const lanRegex = /^http:\/\/192\.168\.[0-9]{1,3}\.[0-9]{1,3}:[0-9]{2,5}$/;
       if (!origin) return callback(null, true); // same-origin / tools
@@ -264,8 +377,129 @@ function createApp({ dbPath }) {
     }
   }
   
-  // CURTO-CIRCUITO: Health check no topo (diagnóstico)
-  app.get('/api/health', (_req,res)=> res.type('text/plain; charset=utf-8').send('ok'));
+  // ===== Logger com níveis =====
+  const LOG_LEVEL = (process.env.LOG_LEVEL || 'info').toLowerCase();
+  const LEVELS = ['error','warn','info','debug'];
+  function shouldLog(l){ return LEVELS.indexOf(l) <= LEVELS.indexOf(LOG_LEVEL); }
+  const logger = {
+    error: (...a)=> shouldLog('error') && console.error('[err]', ...a),
+    warn:  (...a)=> shouldLog('warn')  && console.warn('[warn]', ...a),
+    info:  (...a)=> shouldLog('info')  && console.log('[info]', ...a),
+    debug: (...a)=> shouldLog('debug') && console.debug('[dbg]', ...a)
+  };
+
+  app.locals.logger = logger;
+
+  const startedAt = Date.now();
+  // Health check estendido
+  app.get('/api/health', async (req,res)=> {
+    const now = Date.now();
+    const uptimeMs = now - startedAt;
+    // Verificar DB com uma consulta rápida
+    let dbOk = true; let dbLatencyMs = null; let postsCount = null; let usersCount = null;
+    const tDb = Date.now();
+    try {
+      await new Promise((resolve,reject)=> db.get('SELECT COUNT(*) as c FROM noticias', [], (e,r)=> e?reject(e): (postsCount=r?.c||0, resolve(null))));
+      await new Promise((resolve,reject)=> db.get('SELECT COUNT(*) as c FROM usuarios', [], (e,r)=> e?reject(e): (usersCount=r?.c||0, resolve(null))));
+    } catch(e) { dbOk = false; logger.error('health db check fail', e?.message||e); }
+    dbLatencyMs = Date.now() - tDb;
+
+    // Social cache (se existir) — tolerante
+    let socialCacheStats = null;
+    try {
+      if (typeof socialCache === 'object') {
+        socialCacheStats = {
+          hasInsights: !!socialCache.insights,
+          hasAnalytics: !!socialCache.analytics,
+          lastInsightsAt: socialCache.insights?.fetchedAt || null,
+          lastAnalyticsAt: socialCache.analytics?.fetchedAt || null,
+          ttlMs: 60_000
+        };
+      }
+    } catch(_) {}
+
+    const payload = {
+      status: dbOk ? 'ok' : 'degraded',
+      time: new Date().toISOString(),
+      uptimeMs,
+      db: { ok: dbOk, latencyMs: dbLatencyMs, postsCount, usersCount },
+      cache: { home: { has: !!app.locals.homeCache?.body, expiresAt: app.locals.homeCache?.expiresAt || null } },
+      social: socialCacheStats,
+      memory: process.memoryUsage ? {
+        rss: process.memoryUsage().rss,
+        heapUsed: process.memoryUsage().heapUsed,
+        heapTotal: process.memoryUsage().heapTotal
+      } : null,
+      pid: process.pid
+    };
+    const statusCode = dbOk ? 200 : 503;
+    res.status(statusCode).json(payload);
+  });
+
+  // Readiness probe (para orquestradores / balanceadores) – foco em dependências críticas
+  app.get('/api/readiness', async (req,res) => {
+    const start = Date.now();
+    const checks = { db: { ok:false }, disk: { ok:false }, backup: { ok:false }, migrations: { ok:false } };
+    const diskThreshold = parseInt(process.env.DISK_ALERT_THRESHOLD || '70', 10);
+    // DB check simples
+    try {
+      await new Promise((resolve,reject)=> db.get('SELECT 1 as x',[], (e)=> e?reject(e):resolve()));
+      checks.db.ok = true;
+    } catch(e) { checks.db.error = e.message; }
+    // Uso de disco real (percentual) – implementação simplificada multiplataforma
+    async function getDiskUsage() {
+      return new Promise((resolve) => {
+        if (process.platform === 'win32') {
+          const drive = path.parse(process.cwd()).root.replace('\\','');
+          const { exec } = require('child_process');
+            exec(`wmic logicaldisk where DeviceID='${drive}' get Size,FreeSpace /format:value`, { windowsHide:true }, (err, stdout) => {
+            if (err) return resolve(null);
+            let free=0,size=0; stdout.split(/\r?\n/).forEach(l=>{ const [k,v]=l.split('='); if(k==='FreeSpace') free=parseInt(v||'0'); if(k==='Size') size=parseInt(v||'0'); });
+            if (!size) return resolve(null);
+            resolve({ free, size, used: size-free, usedPercent: (size-free)/size*100 });
+          });
+        } else {
+          const { exec } = require('child_process');
+          exec('df -k .', (err, stdout) => {
+            if (err) return resolve(null);
+            const lines = stdout.trim().split(/\n/); const parts = lines[lines.length-1].split(/\s+/);
+            const size = parseInt(parts[1],10)*1024; const used = parseInt(parts[2],10)*1024; const free = parseInt(parts[3],10)*1024;
+            const usedPercent = used/size*100; resolve({ free,size,used,usedPercent });
+          });
+        }
+      });
+    }
+    try {
+      const du = await getDiskUsage();
+      if (du) {
+        checks.disk.usedPercent = +du.usedPercent.toFixed(2);
+        checks.disk.sizeBytes = du.size;
+        checks.disk.freeBytes = du.free;
+        checks.disk.threshold = diskThreshold;
+        checks.disk.ok = du.usedPercent < diskThreshold;
+      } else {
+        checks.disk.error = 'disk info unavailable';
+      }
+    } catch(e){ checks.disk.error = e.message; }
+    // Backup: ler manifest
+    try {
+      const manifestPath = path.join(process.cwd(),'backups','manifest.json');
+      if (fs.existsSync(manifestPath)) {
+        const m = JSON.parse(fs.readFileSync(manifestPath,'utf8'));
+        checks.backup.manifestAgeMinutes = (Date.now() - new Date(m.generatedAt).getTime())/60000;
+        checks.backup.ok = checks.backup.manifestAgeMinutes < 1440; // < 24h
+      } else {
+        checks.backup.error = 'manifest ausente';
+      }
+    } catch(e){ checks.backup.error = e.message; }
+    // Migrations table (já criada) -> verificar se existe alguma migração pendente (placeholder)
+    try {
+      await new Promise((resolve)=> db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='migrations_applied'",[],()=>resolve()));
+      checks.migrations.ok = true; // Sem sistema de versão avançado implementado
+    } catch(e){ checks.migrations.error = e.message; }
+    const ok = Object.values(checks).every(c=>c.ok);
+    res.status(ok?200:503).json({ status: ok?'ready':'degraded', durationMs: Date.now()-start, checks });
+  });
   
   // Configurar charset UTF-8 para todas as respostas da API
   app.use('/api', (req, res, next) => {
@@ -277,11 +511,13 @@ function createApp({ dbPath }) {
   app.use(express.json({ limit: '100mb' }));
   app.use(express.urlencoded({ limit: '100mb', extended: true }));
   
-  // LOGGER TEMPORÁRIO: Detectar middleware pendurado
+  // Middleware de logging request/response (respeita LOG_LEVEL)
   app.use((req,res,next)=>{
     const t = Date.now();
-    console.log('[REQ]', req.method, req.url);
-    res.on('finish', ()=> console.log('[RES]', req.method, req.url, res.statusCode, (Date.now()-t)+'ms'));
+    if (shouldLog('debug')) logger.debug('REQ', req.method, req.url);
+    res.on('finish', ()=> {
+      if (shouldLog('info')) logger.info('RES', req.method, req.url, res.statusCode, (Date.now()-t)+'ms');
+    });
     next();
   });
   
@@ -315,7 +551,17 @@ function createApp({ dbPath }) {
   console.log('🗄️ Conectado ao banco SQLite:', resolvedDbPath);
 
   // ======= AUTH (local) =======
-  const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-r10';
+  const JWT_SECRET = process.env.JWT_SECRET;
+  if (process.env.NODE_ENV === 'production') {
+    if (!JWT_SECRET || JWT_SECRET.length < 32) {
+      throw new Error('JWT_SECRET ausente ou fraco: defina uma string >=32 chars em produção');
+    }
+  } else {
+    // Em desenvolvimento permitir fallback controlado mas avisar
+    if (!JWT_SECRET) {
+      console.warn('[seguranca] JWT_SECRET não definido; usando fallback DEV inseguro');
+    }
+  }
   const ACCESS_TTL_SECONDS = 60 * 15; // 15 minutos
   const REFRESH_TTL_DAYS = 7; // 7 dias
   const ACCESS_COOKIE = 'r10_access';
@@ -437,34 +683,26 @@ function createApp({ dbPath }) {
 
   function setAuthCookies(res, accessToken, refreshToken) {
     try {
-      res.cookie(ACCESS_COOKIE, accessToken, {
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: false,
-        maxAge: ACCESS_TTL_SECONDS * 1000,
-        path: '/'
-      });
-      res.cookie(REFRESH_COOKIE, refreshToken, {
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: false,
-        maxAge: REFRESH_TTL_DAYS * 24 * 60 * 60 * 1000,
-        path: '/'
-      });
+      const prod = process.env.NODE_ENV === 'production';
+      const base = { httpOnly: true, sameSite: prod ? 'strict' : 'lax', secure: prod, path: '/' };
+      res.cookie(ACCESS_COOKIE, accessToken, { ...base, maxAge: ACCESS_TTL_SECONDS * 1000 });
+      res.cookie(REFRESH_COOKIE, refreshToken, { ...base, maxAge: REFRESH_TTL_DAYS * 24 * 60 * 60 * 1000 });
     } catch (_) {}
   }
 
   function clearAuthCookies(res) {
     try {
-      res.cookie(ACCESS_COOKIE, '', { httpOnly: true, sameSite: 'lax', secure: false, expires: new Date(0), path: '/' });
-      res.cookie(REFRESH_COOKIE, '', { httpOnly: true, sameSite: 'lax', secure: false, expires: new Date(0), path: '/' });
-      // Limpeza extra para casos legados com path antigo
-      res.cookie(ACCESS_COOKIE, '', { httpOnly: true, sameSite: 'lax', secure: false, expires: new Date(0), path: '/api/auth' });
-      res.cookie(REFRESH_COOKIE, '', { httpOnly: true, sameSite: 'lax', secure: false, expires: new Date(0), path: '/api/auth' });
+      const prod = process.env.NODE_ENV === 'production';
+      const base = { httpOnly: true, sameSite: prod ? 'strict' : 'lax', secure: prod, expires: new Date(0) };
+      res.cookie(ACCESS_COOKIE, '', { ...base, path: '/' });
+      res.cookie(REFRESH_COOKIE, '', { ...base, path: '/' });
+      res.cookie(ACCESS_COOKIE, '', { ...base, path: '/api/auth' });
+      res.cookie(REFRESH_COOKIE, '', { ...base, path: '/api/auth' });
     } catch (_) {}
   }
 
   function authMiddleware(req, res, next) {
+    // Middleware de autenticação: tenta obter token de Authorization ou cookie
     const hdr = req.headers['authorization'] || '';
     let token = hdr.startsWith('Bearer ') ? hdr.slice(7) : null;
     if (!token) {
@@ -476,13 +714,15 @@ function createApp({ dbPath }) {
         });
       }
       if (cookies && cookies[ACCESS_COOKIE]) {
-        // Não logar valor do token, apenas comprimento
         console.log('[auth] r10_access presente (len=', String(cookies[ACCESS_COOKIE]||'').length, ')');
       }
       if (cookies && cookies[ACCESS_COOKIE]) token = cookies[ACCESS_COOKIE];
     }
     const payload = token ? verifyJWT(token) : null;
-    if (!payload) return res.status(401).json({ error: 'unauthorized' });
+    if (!payload) {
+      metrics.authFailures++;
+      return res.status(401).json({ error: 'unauthorized' });
+    }
     req.user = payload;
     next();
   }
@@ -495,15 +735,26 @@ function createApp({ dbPath }) {
     };
   }
 
+  // Limiter específico login (IP + email combinados)
+  const loginLimiter = rateLimit({
+    windowMs: 10 * 60 * 1000,
+    limit: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => {
+      const email = (req.body && req.body.email) ? String(req.body.email).toLowerCase() : '';
+      const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip || '').toString();
+      return ip + '|' + email;
+    }
+  });
+
   // Rotas de autenticação
-  app.post('/api/auth/login', (req, res) => {
+  app.post('/api/auth/login', loginLimiter, (req, res) => {
     const { email, password } = req.body || {};
     if (!email || !password) return res.status(400).json({ error: 'email e senha obrigatórios' });
     const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip || '').toString();
     const allowed = allowLoginAttempt(ip);
-    if (!allowed.ok) {
-      return res.status(429).json({ error: 'muitas tentativas, tente mais tarde', retryAfterMs: allowed.retryAfter });
-    }
+    if (!allowed.ok) return res.status(429).json({ error: 'muitas tentativas, tente mais tarde', retryAfterMs: allowed.retryAfter });
     db.get('SELECT * FROM usuarios WHERE LOWER(email) = LOWER(?)', [String(email).trim()], (err, user) => {
       if (err) return res.status(500).json({ error: 'erro de servidor' });
       if (!user) return res.status(401).json({ error: 'credenciais inválidas' });
@@ -526,6 +777,67 @@ function createApp({ dbPath }) {
         }
       );
     });
+  });
+
+  // Rota de refresh token: rotaciona refresh e devolve novo access token
+  app.post('/api/auth/refresh', (req, res) => {
+    try { console.log('[auth][refresh] chamada recebida'); } catch(_) {}
+    try {
+      const cookies = parseCookies(req);
+      const raw = cookies[REFRESH_COOKIE];
+      if (!raw || raw.length < 20) {
+        metrics.authFailures++;
+        return res.status(401).json({ error: 'missing refresh token' });
+      }
+      const hash = sha256Hex(raw);
+      const nowIso = new Date().toISOString();
+      db.get('SELECT * FROM refresh_tokens WHERE token_hash = ? AND revoked_at IS NULL', [hash], (err, row) => {
+        if (err) return res.status(500).json({ error: 'server error' });
+        if (!row) {
+          metrics.authFailures++;
+          clearAuthCookies(res);
+          return res.status(401).json({ error: 'invalid refresh token' });
+        }
+        if (row.expires_at <= nowIso) {
+          metrics.authFailures++;
+          db.run('UPDATE refresh_tokens SET revoked_at = ? WHERE id = ?', [nowIso, row.id], ()=>{});
+          clearAuthCookies(res);
+          return res.status(401).json({ error: 'expired refresh token' });
+        }
+        db.get('SELECT id,name,email,role,avatar,created_at FROM usuarios WHERE id = ?', [row.user_id], (uErr, user) => {
+          if (uErr) return res.status(500).json({ error: 'server error' });
+          if (!user) {
+            db.run('UPDATE refresh_tokens SET revoked_at = ? WHERE id = ?', [nowIso, row.id], ()=>{});
+            return res.status(401).json({ error: 'user not found' });
+          }
+          const payload = { sub: user.id, email: user.email, role: user.role, name: user.name };
+          const newAccess = signJWT(payload, ACCESS_TTL_SECONDS);
+          const newRaw = base64urlBuffer(48);
+          const newHash = sha256Hex(newRaw);
+          const created_at = nowIso;
+          const expires_at = new Date(Date.now() + (REFRESH_TTL_DAYS * 24 * 60 * 60 * 1000)).toISOString();
+          db.run('BEGIN TRANSACTION');
+          db.run('UPDATE refresh_tokens SET revoked_at = ? WHERE id = ?', [nowIso, row.id], ()=>{});
+          db.run('INSERT INTO refresh_tokens (user_id, token_hash, created_at, expires_at, user_agent, ip) VALUES (?,?,?,?,?,?)',
+            [user.id, newHash, created_at, expires_at, req.headers['user-agent']||null, (req.headers['x-forwarded-for']||req.socket.remoteAddress||'').toString()], (insErr) => {
+              db.run('COMMIT');
+              if (insErr) return res.status(500).json({ error: 'server error' });
+              setAuthCookies(res, newAccess, newRaw);
+              // Opcional: retornar user para frontend que espera mesmo shape do login
+              const outUser = { id: String(user.id), name: user.name, email: user.email, role: user.role, avatar: user.avatar, createdAt: user.created_at };
+              res.json({ token: newAccess, user: outUser });
+            }
+          );
+        });
+      });
+    } catch (e) {
+      return res.status(500).json({ error: 'server error' });
+    }
+  });
+
+  // Rota de ping para verificar se a versão nova está ativa
+  app.get('/api/auth/ping', (req,res)=>{
+    res.json({ ok: true, ts: Date.now(), hasRefreshRoute: true, publicSocialDebug: SOCIAL_PUBLIC_DEBUG });
   });
 
   // Endpoint de debug não sensível: inspeciona presença de cookies (sem revelar valores)
@@ -619,7 +931,17 @@ function createApp({ dbPath }) {
   });
 
   // ======= Social Insights (Facebook/Instagram) =======
-  app.get('/api/social/insights', authMiddleware, async (req, res) => {
+  const SOCIAL_PUBLIC_DEBUG = process.env.SOCIAL_PUBLIC_DEBUG === '1';
+  app.get('/api/social/insights', SOCIAL_PUBLIC_DEBUG ? async (req,res,next)=>{ next(); } : authMiddleware, async (req, res) => {
+    // Checagem de cache baseada em timestamp
+    const nowTs = Date.now();
+    if (socialCache.insights && (nowTs - new Date(socialCache.insights.fetchedAt).getTime()) < socialCache.ttlMs) {
+      metrics.socialCacheHits++;
+      try { console.log('[insights] cache HIT'); } catch(_) {}
+      return res.json(socialCache.insights.payload);
+    }
+    metrics.socialCacheMiss++;
+    try { console.log('[insights] cache MISS'); } catch(_) {}
     const IG_USER_ID = process.env.IG_BUSINESS_ID || process.env.IG_USER_ID || '';
     const FB_PAGE_ID = process.env.FB_PAGE_ID || process.env.PAGE_ID || '';
   const META_TOKEN = process.env.IG_ACCESS_TOKEN || process.env.FB_ACCESS_TOKEN || process.env.META_ACCESS_TOKEN || '';
@@ -787,6 +1109,10 @@ function createApp({ dbPath }) {
           metrics: { primary: igResult.metric, status: igResult.status, error: igResult.error || null }
         }
       };
+      // Atualiza cache de insights
+      try {
+        socialCache.insights = { payload, fetchedAt: new Date().toISOString() };
+      } catch(_) {}
 
       // Persistir métricas diárias e calcular growth real (diferença percentual entre primeiro e último dos últimos 7 dias)
       const today = new Date().toISOString().slice(0,10);
@@ -845,9 +1171,11 @@ function createApp({ dbPath }) {
     }
   });
 
-  // ======= Social Analytics (dataset completo) =======
+  // ======= Social Analytics (dataset completo) ======= 
+  // ATUALIZADO: 01/10/2025 - Removida métrica 'impressions' (não existe mais na API v22.0)
   // Retorna várias métricas reais possíveis para IG e FB, com período configurável (7-90 dias)
-  app.get('/api/social/analytics', authMiddleware, async (req, res) => {
+  console.log('[analytics] 🔄 Endpoint /api/social/analytics carregado - VERSÃO ATUALIZADA SEM IMPRESSIONS');
+  app.get('/api/social/analytics', SOCIAL_PUBLIC_DEBUG ? async (req,res,next)=>{ next(); } : authMiddleware, async (req, res) => {
     const IG_USER_ID = process.env.IG_BUSINESS_ID || process.env.IG_USER_ID || '';
     const FB_PAGE_ID = process.env.FB_PAGE_ID || process.env.PAGE_ID || '';
     const META_TOKEN = process.env.IG_ACCESS_TOKEN || process.env.FB_ACCESS_TOKEN || process.env.META_ACCESS_TOKEN || '';
@@ -908,15 +1236,17 @@ function createApp({ dbPath }) {
         followers: Number(fbAccountResp.data?.followers_count || 0)
       } : { id: FB_PAGE_ID, name: null, followers: null, error: fbAccountResp.data || fbAccountResp.raw };
 
-      // Coleções de métricas a tentar (apenas métricas amplamente disponíveis)
+      // Coleções de métricas a tentar (APENAS métricas válidas na API v22.0) - ATUALIZADO 01/10/2025
+      // IMPORTANTE: impressions FOI REMOVIDA pela Meta - não existe mais!
+      // DESCOBERTA: likes, comments, etc só funcionam com period=lifetime, NÃO com period=day
       const igMetrics = [
-        { name: 'reach', period: 'day' },
-        { name: 'accounts_engaged', period: 'day' },
-        { name: 'impressions', period: 'day' },
-        { name: 'profile_views', period: 'day' },
-        { name: 'total_interactions', period: 'day' }
+        { name: 'reach', period: 'day' },  // Funciona com day
+        { name: 'accounts_engaged', period: 'lifetime' },  // Requer lifetime
+        { name: 'profile_views', period: 'day' },  // Funciona com day
+        { name: 'total_interactions', period: 'lifetime' },  // Requer lifetime
       ];
-      const IG_TOTAL_VALUE_METRICS = new Set(['accounts_engaged','profile_views','total_interactions']);
+      console.log('[analytics][IG] Métricas configuradas:', igMetrics.map(m => `${m.name}(${m.period})`).join(', '));
+      const IG_TOTAL_VALUE_METRICS = new Set([]);
 
       const fbMetrics = [
         { name: 'page_impressions', period: 'day' },
@@ -928,12 +1258,22 @@ function createApp({ dbPath }) {
 
       async function fetchIgMetric(m) {
         const needsTotal = IG_TOTAL_VALUE_METRICS.has(m.name);
-        const url = `${base}/${IG_USER_ID}/insights?metric=${m.name}&period=${m.period}&since=${since}&until=${until}${needsTotal ? '&metric_type=total_value' : ''}&access_token=${encodeURIComponent(META_TOKEN)}`;
+        // lifetime não aceita since/until, apenas period=lifetime
+        const timeParams = m.period === 'lifetime' ? '' : `&since=${since}&until=${until}`;
+        const url = `${base}/${IG_USER_ID}/insights?metric=${m.name}&period=${m.period}${timeParams}${needsTotal ? '&metric_type=total_value' : ''}&access_token=${encodeURIComponent(META_TOKEN)}`;
+        console.log(`[analytics][IG] Buscando métrica: ${m.name} (${m.period})${needsTotal ? ' (total_value)' : ''}`);
         const r = await getJson(url);
-        if (!r.ok) return { name: m.name, period: m.period, status: 'error', error: r.data || r.raw || null };
+        if (!r.ok) {
+          console.log(`[analytics][IG] ❌ ${m.name} ERRO ${r.status}:`, JSON.stringify(r.data || r.raw || null).slice(0, 200));
+          return { name: m.name, period: m.period, status: 'error', error: r.data || r.raw || null };
+        }
         const series = Array.isArray(r.data?.data) ? r.data.data : [];
-        const values = (series.find(x => x.name === m.name)?.values || series[0]?.values || [])
-          .map(v => ({ date: String(v.end_time || '').slice(0,10), value: Number((v.value && v.value.value) || v.value || 0) }));
+        // Para lifetime, pegar o valor único; para day, pegar série temporal
+        const values = m.period === 'lifetime' 
+          ? [{ date: new Date().toISOString().slice(0,10), value: Number(series[0]?.values?.[0]?.value || 0) }]
+          : (series.find(x => x.name === m.name)?.values || series[0]?.values || [])
+              .map(v => ({ date: String(v.end_time || '').slice(0,10), value: Number((v.value && v.value.value) || v.value || 0) }));
+        console.log(`[analytics][IG] ✅ ${m.name} OK: ${values.length} pontos, sum=${values.reduce((a,b)=>a+b.value,0)}`);
         return { name: m.name, period: m.period, status: 'ok', series: values };
       }
 
@@ -954,7 +1294,7 @@ function createApp({ dbPath }) {
       ]);
 
       // Coletas agregadas (28 dias) para aproximar valores exibidos na interface da Meta
-      const IG_AGG_METRICS = ['reach','impressions','accounts_engaged','profile_views','total_interactions'];
+      const IG_AGG_METRICS = ['reach','accounts_engaged','profile_views','total_interactions','likes','comments','website_clicks'];
       const FB_AGG_METRICS = ['page_impressions','page_impressions_unique','page_engaged_users'];
 
       async function fetchIgAggregate(metricName) {
@@ -1335,10 +1675,10 @@ function createApp({ dbPath }) {
     const required = ['titulo','posicao','tipo','status'];
     for (const k of required) if (!b[k]) return res.status(400).json({ error: `campo obrigatório: ${k}` });
     const now = new Date().toISOString();
-    const sql = `INSERT INTO banners (titulo,cliente,imagem,link,posicao,tipo,tamanho,status,data_inicio,data_fim,impressoes_max,cliques_max,impressoes_atuais,cliques_atuais,cpm,cpc,valor_total,prioridade,conteudo_html,observacoes,created_at,updated_at)
-                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+    const insertSql = `INSERT INTO banners (titulo,cliente,imagem,link,posicao,tipo,tamanho,status,data_inicio,data_fim,impressoes_max,cliques_max,impressoes_atuais,cliques_atuais,cpm,cpc,valor_total,prioridade,conteudo_html,observacoes,created_at,updated_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
     const params = [b.titulo, b.cliente||null, b.imagem||null, b.link||null, b.posicao, b.tipo, b.tamanho||null, b.status, b.dataInicio||null, b.dataFim||null, b.impressoesMax||null, b.cliquesMax||null, b.impressoesAtuais||0, b.cliquesAtuais||0, b.cpm||null, b.cpc||null, b.valorTotal||null, b.prioridade||3, b.conteudoHtml||null, b.observacoes||null, now, now];
-    db.run(sql, params, function (err) {
+    db.run(insertSql, params, function (err) {
       if (err) return res.status(500).json({ error: 'erro de servidor' });
       db.get('SELECT * FROM banners WHERE id = ?', [this.lastID], (gErr, row) => {
         if (gErr || !row) return res.status(201).json({ id: String(this.lastID) });
@@ -1412,7 +1752,8 @@ function createApp({ dbPath }) {
       if (!user) return res.status(404).json({ error: 'usuário não encontrado' });
       const nextName = typeof name === 'string' && name.trim() ? name.trim() : user.name;
       const nextRole = role ? String(role) : user.role;
-      let avatarResult;
+  const { validateAvatarInput } = require('./helpers/avatar-validator.cjs');
+  let avatarResult;
       if (avatar !== undefined) {
         avatarResult = validateAvatarInput(avatar);
         if (!avatarResult.ok) return res.status(400).json({ error: avatarResult.error });
@@ -1447,6 +1788,7 @@ function createApp({ dbPath }) {
       const nextName = typeof name === 'string' && name.trim() ? name.trim() : user.name;
       let nextAvatar = user.avatar;
       if (avatar !== undefined) {
+        const { validateAvatarInput } = require('./helpers/avatar-validator.cjs');
         const vr = validateAvatarInput(avatar);
         if (!vr.ok) return res.status(400).json({ error: vr.error });
         nextAvatar = vr.value;
@@ -1491,6 +1833,98 @@ function createApp({ dbPath }) {
   ensureSocialMetricsTable((err)=>{
     if (err) console.error('⚠️ Erro ao garantir tabela social_metrics:', err);
     else console.log('📊 Tabela de social_metrics pronta');
+  });
+
+  // ======= Migrations Infra (lightweight) =======
+  // Cria tabela de controle se não existir. Migrations são arquivos .sql em ./migrations nomeados AAAAMMDDHHMM_descricao.sql
+  function ensureMigrationsTable(cb) {
+    db.run(`CREATE TABLE IF NOT EXISTS migrations_applied (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      applied_at TEXT NOT NULL
+    )`, [], (err)=> cb && cb(err));
+  }
+  ensureMigrationsTable(err => {
+    if (err) console.error('⚠️ Erro ao garantir tabela migrations_applied:', err);
+    else console.log('🗂️  Tabela migrations_applied pronta');
+  });
+
+  // Runner interno opcional: se variável RUN_MIGRATIONS=1 estiver setada no start, aplicamos automaticamente.
+  async function autoRunMigrationsIfRequested() {
+    if (process.env.RUN_MIGRATIONS !== '1') return; // opt-in
+    const fs = require('fs');
+    const path = require('path');
+    const migrationsDir = path.join(__dirname, '..', 'migrations');
+    if (!fs.existsSync(migrationsDir)) {
+      console.log('[migrations] diretório não existe, ignorando');
+      return;
+    }
+    const files = fs.readdirSync(migrationsDir)
+      .filter(f => f.endsWith('.sql'))
+      .sort();
+    if (!files.length) {
+      console.log('[migrations] nenhuma migration encontrada');
+      return;
+    }
+    console.log('[migrations] iniciando verificação de', files.length, 'arquivos');
+    const applied = await new Promise((resolve, reject) => {
+      db.all('SELECT name FROM migrations_applied', [], (err, rows) => {
+        if (err) return reject(err); resolve(new Set(rows.map(r=>r.name))); }); });
+    for (const file of files) {
+      if (applied.has(file)) { continue; }
+      const full = path.join(migrationsDir, file);
+      const sqlRaw = fs.readFileSync(full, 'utf8');
+      // Suporta múltiplos statements separados por ; ignorando linhas vazias e comentários --
+      const statements = sqlRaw
+        .split(/;\s*\n|;\r?\n/g)
+        .map(s => s.trim())
+        .filter(s => s && !s.startsWith('--'));
+      console.log(`[migrations] aplicando ${file} (${statements.length} statements)`);
+      try {
+        await new Promise((resolve, reject) => db.run('BEGIN', [], e=> e?reject(e):resolve()));
+        for (const st of statements) {
+          await new Promise((resolve, reject) => db.run(st, [], err => err?reject(err):resolve()));
+        }
+        await new Promise((resolve, reject) => db.run('INSERT INTO migrations_applied (name, applied_at) VALUES (?, ?)', [file, new Date().toISOString()], err=> err?reject(err):resolve()));
+        await new Promise((resolve, reject) => db.run('COMMIT', [], e=> e?reject(e):resolve()));
+        console.log(`[migrations] ${file} OK`);
+      } catch (e) {
+        console.error(`[migrations] falha em ${file}:`, e.message || e);
+        await new Promise((resolve) => db.run('ROLLBACK', [], ()=> resolve()));
+        break; // para evitar aplicar seguintes se uma falhar
+      }
+    }
+  }
+  autoRunMigrationsIfRequested();
+
+  // ======= /api/metrics =======
+  app.get('/api/metrics', authMiddleware, requireRole('admin'), (req,res)=>{
+    const upSec = (Date.now()-metrics.startTime)/1000;
+    const accept = req.headers['accept']||'';
+    if (accept.includes('text/plain')) {
+      let out = '';
+      out += `app_uptime_seconds ${upSec.toFixed(0)}\n`;
+      out += `app_requests_total ${metrics.requestsTotal}\n`;
+      Object.entries(metrics.statusCounts).forEach(([c,v])=>{ out += `app_http_status_total{code="${c}"} ${v}\n`; });
+      Object.entries(metrics.requestsByRoute).forEach(([r,v])=>{ const esc=r.replace(/"/g,''); out += `app_http_requests_route_total{route="${esc}"} ${v}\n`; });
+      out += `app_http_slow_requests_total ${metrics.slowRequests}\n`;
+      out += `app_http_max_latency_ms ${Math.round(metrics.maxLatencyMs)}\n`;
+      out += `app_auth_failures_total ${metrics.authFailures}\n`;
+      out += `app_social_cache_hits_total ${metrics.socialCacheHits}\n`;
+      out += `app_social_cache_miss_total ${metrics.socialCacheMiss}\n`;
+      res.setHeader('Content-Type','text/plain; version=0.0.4');
+      return res.send(out);
+    }
+    res.json({
+      uptimeSeconds: upSec,
+      requestsTotal: metrics.requestsTotal,
+      statusCounts: metrics.statusCounts,
+      requestsByRoute: metrics.requestsByRoute,
+      slowRequests: metrics.slowRequests,
+      maxLatencyMs: Math.round(metrics.maxLatencyMs),
+      authFailures: metrics.authFailures,
+      socialCache: { hits: metrics.socialCacheHits, miss: metrics.socialCacheMiss }
+    });
   });
 
   app.post('/api/auth/request-reset', (req, res) => {
@@ -1906,10 +2340,44 @@ function createApp({ dbPath }) {
     console.log(`📝 [BACKEND] Resumo recebido: ${body.resumo ? body.resumo.substring(0, 100) + '...' : 'VAZIO'}`);
 
     // Campos que aceitaremos do front
+    // Sanitização de campos HTML ricos
+    const sanitizeOptions = {
+      allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img','figure','figcaption','iframe']),
+      allowedAttributes: {
+        a: ['href','name','target','rel'],
+        img: ['src','alt','title','width','height','loading'],
+        iframe: ['src','width','height','allow','allowfullscreen','frameborder'],
+        '*': ['style']
+      },
+      allowedSchemes: ['http','https','data','mailto'],
+      transformTags: {
+        'b': 'strong',
+        'i': 'em'
+      },
+      // limitar style inline potencialmente perigoso (remoção automática por default se não configurado)
+      allowedStyles: {
+        '*': {
+          // Permitir somente alguns estilos básicos (regex simples)
+          'text-align': [/^left$/,/^right$/,/^center$/,/^justify$/],
+          'font-weight': [/^bold$/,/^700$/],
+          'font-style': [/^italic$/],
+        }
+      },
+      enforceHtmlBoundary: true
+    };
+
+    const rawConteudo = body.conteudo ?? body.content ?? '';
+    let sanitizedConteudo = sanitizeHtml(String(rawConteudo), sanitizeOptions);
+    // Proteção extra: limitar tamanho máximo (ex: 300KB) para evitar payloads gigantes
+    if (sanitizedConteudo.length > 300 * 1024) {
+      console.warn(`⚠️ Conteúdo sanitizado excedeu 300KB. Truncando.`);
+      sanitizedConteudo = sanitizedConteudo.slice(0, 300 * 1024);
+    }
+
     const desired = {
       titulo: body.titulo ?? body.title,
-  subtitulo: body.subtitulo ?? body.subtitle,
-      conteudo: body.conteudo ?? body.content,
+	subtitulo: body.subtitulo ?? body.subtitle,
+      conteudo: sanitizedConteudo,
       categoria: body.categoria ?? body.category,
       chapeu: body.chapeu,
       resumo: body.resumo, // ✅ RESUMO INCLUÍDO!
@@ -1997,7 +2465,26 @@ function createApp({ dbPath }) {
         }
         
         // Gerar resumo automaticamente se o conteúdo foi atualizado
-        const updatedContent = desired.conteudo;
+        let updatedContent = desired.conteudo;
+        if (updatedContent) {
+          try {
+            const sanitizeOptions = {
+              allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img','figure','figcaption','iframe']),
+              allowedAttributes: {
+                a: ['href','name','target','rel'],
+                img: ['src','alt','title','width','height','loading'],
+                iframe: ['src','width','height','allow','allowfullscreen','frameborder'],
+                '*': ['style']
+              },
+              allowedSchemes: ['http','https','data','mailto'],
+              transformTags: { 'b': 'strong', 'i': 'em' },
+              allowedStyles: { '*': { 'text-align': [/^left$/,/^right$/,/^center$/,/^justify$/] } },
+              enforceHtmlBoundary: true
+            };
+            updatedContent = sanitizeHtml(String(updatedContent), sanitizeOptions);
+            if (updatedContent.length > 300*1024) updatedContent = updatedContent.slice(0,300*1024);
+          } catch(_) {}
+        }
         if (updatedContent && updatedContent.trim().length > 50) {
           generateSummary(updatedContent).then(resumo => {
             if (resumo) {
@@ -2196,7 +2683,20 @@ function createApp({ dbPath }) {
     
     // Campos opcionais
     const subtitulo = body.subtitulo || body.subtitle || '';
-    const conteudo = body.conteudo || body.content || '';
+    // Sanitização de conteúdo
+    const sanitizeOptions = {
+      allowedTags: ['p','b','i','strong','em','a','ul','ol','li','br','blockquote'],
+      allowedAttributes: { a: ['href','name','target','rel'] },
+      allowedSchemes: ['http','https','mailto'],
+      transformTags: { 'b': 'strong', 'i': 'em' },
+      enforceHtmlBoundary: true
+    };
+    let conteudo = body.conteudo || body.content || '';
+    conteudo = sanitizeHtml(String(conteudo), sanitizeOptions);
+    if (conteudo.length > 300 * 1024) {
+      console.warn('⚠️ Conteúdo sanitizado >300KB. Truncando.');
+      conteudo = conteudo.slice(0, 300 * 1024);
+    }
     const autor = body.autor || body.author || 'Redação R10 Piauí';
     const chapeu = body.chapeu || '';
     const posicao = body.posicao || body.position || 'geral';
@@ -2314,6 +2814,238 @@ function createApp({ dbPath }) {
       });
     });
   });
+
+  // ======= REAÇÕES (Reactions System) =======
+  
+  // Criar tabela de reações se não existir
+  db.run(`CREATE TABLE IF NOT EXISTS reactions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    post_id INTEGER NOT NULL,
+    tipo TEXT NOT NULL CHECK (tipo IN ('feliz','inspirado','surpreso','preocupado','triste','indignado')),
+    ip_hash TEXT NOT NULL,
+    timestamp TEXT NOT NULL,
+    FOREIGN KEY (post_id) REFERENCES noticias(id) ON DELETE CASCADE
+  )`, (err) => {
+    if (err) console.error('Erro ao criar tabela reactions:', err);
+  });
+
+  // Criar índices para performance
+  db.run(`CREATE INDEX IF NOT EXISTS idx_reactions_post_id ON reactions(post_id)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_reactions_timestamp ON reactions(timestamp)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_reactions_ip_post ON reactions(ip_hash, post_id)`);
+
+  // POST /api/posts/:id/react - Adicionar ou alterar reação
+  app.post('/api/posts/:id/react', (req, res) => {
+    const { id } = req.params;
+    const { tipo } = req.body || {};
+    
+    // Validações
+    if (!id || isNaN(Number(id))) {
+      return res.status(400).json({ error: 'ID de post inválido' });
+    }
+    
+    const tiposValidos = ['feliz', 'inspirado', 'surpreso', 'preocupado', 'triste', 'indignado'];
+    if (!tipo || !tiposValidos.includes(String(tipo).toLowerCase())) {
+      return res.status(400).json({ error: 'Tipo de reação inválido', tiposValidos });
+    }
+    
+    // Hash do IP para privacidade
+    const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip || '').toString().split(',')[0].trim();
+    const ipHash = sha256Hex(ip);
+    const tipoNormalizado = String(tipo).toLowerCase();
+    const timestamp = new Date().toISOString();
+    
+    console.log(`😊 Reação recebida: Post ${id}, Tipo: ${tipoNormalizado}, IP Hash: ${ipHash.substring(0, 8)}...`);
+    
+    // Verificar se o post existe
+    db.get('SELECT id FROM noticias WHERE id = ?', [id], (err, post) => {
+      if (err) {
+        console.error('Erro ao verificar post:', err);
+        return res.status(500).json({ error: 'Erro interno do servidor' });
+      }
+      
+      if (!post) {
+        return res.status(404).json({ error: 'Post não encontrado' });
+      }
+      
+      // Verificar se usuário já reagiu (por IP)
+      db.get('SELECT id, tipo FROM reactions WHERE post_id = ? AND ip_hash = ?', [id, ipHash], (errCheck, existing) => {
+        if (errCheck) {
+          console.error('Erro ao verificar reação existente:', errCheck);
+          return res.status(500).json({ error: 'Erro interno do servidor' });
+        }
+        
+        if (existing) {
+          // Usuário já reagiu - atualizar reação
+          if (existing.tipo === tipoNormalizado) {
+            // Mesma reação - remover (toggle)
+            db.run('DELETE FROM reactions WHERE id = ?', [existing.id], (errDel) => {
+              if (errDel) {
+                console.error('Erro ao remover reação:', errDel);
+                return res.status(500).json({ error: 'Erro interno do servidor' });
+              }
+              
+              console.log(`🗑️ Reação removida: Post ${id}, Tipo: ${tipoNormalizado}`);
+              
+              // Retornar contagens atualizadas
+              getReactionCounts(id, (counts) => {
+                res.json({ 
+                  success: true, 
+                  action: 'removed',
+                  message: 'Reação removida com sucesso',
+                  reactions: counts
+                });
+              });
+            });
+          } else {
+            // Reação diferente - atualizar
+            db.run('UPDATE reactions SET tipo = ?, timestamp = ? WHERE id = ?', [tipoNormalizado, timestamp, existing.id], (errUpd) => {
+              if (errUpd) {
+                console.error('Erro ao atualizar reação:', errUpd);
+                return res.status(500).json({ error: 'Erro interno do servidor' });
+              }
+              
+              console.log(`🔄 Reação atualizada: Post ${id}, ${existing.tipo} → ${tipoNormalizado}`);
+              
+              // Retornar contagens atualizadas
+              getReactionCounts(id, (counts) => {
+                res.json({ 
+                  success: true, 
+                  action: 'updated',
+                  message: 'Reação atualizada com sucesso',
+                  previousReaction: existing.tipo,
+                  reactions: counts
+                });
+              });
+            });
+          }
+        } else {
+          // Nova reação
+          db.run('INSERT INTO reactions (post_id, tipo, ip_hash, timestamp) VALUES (?, ?, ?, ?)', 
+            [id, tipoNormalizado, ipHash, timestamp], 
+            function(errIns) {
+              if (errIns) {
+                console.error('Erro ao inserir reação:', errIns);
+                return res.status(500).json({ error: 'Erro interno do servidor' });
+              }
+              
+              console.log(`✅ Nova reação adicionada: Post ${id}, Tipo: ${tipoNormalizado}, ID: ${this.lastID}`);
+              
+              // Retornar contagens atualizadas
+              getReactionCounts(id, (counts) => {
+                res.status(201).json({ 
+                  success: true, 
+                  action: 'created',
+                  message: 'Reação adicionada com sucesso',
+                  reactionId: this.lastID,
+                  reactions: counts
+                });
+              });
+            }
+          );
+        }
+      });
+    });
+  });
+
+  // GET /api/posts/:id/reactions - Obter reações de um post específico
+  app.get('/api/posts/:id/reactions', (req, res) => {
+    const { id } = req.params;
+    
+    if (!id || isNaN(Number(id))) {
+      return res.status(400).json({ error: 'ID de post inválido' });
+    }
+    
+    getReactionCounts(id, (counts) => {
+      // Verificar se usuário já reagiu (opcional)
+      const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip || '').toString().split(',')[0].trim();
+      const ipHash = sha256Hex(ip);
+      
+      db.get('SELECT tipo FROM reactions WHERE post_id = ? AND ip_hash = ?', [id, ipHash], (err, userReaction) => {
+        res.json({
+          postId: id,
+          reactions: counts,
+          total: Object.values(counts).reduce((sum, count) => sum + count, 0),
+          userReaction: userReaction ? userReaction.tipo : null
+        });
+      });
+    });
+  });
+
+  // GET /api/reactions/daily - Agregação das últimas 24 horas (para o painel "Como os leitores se sentem")
+  app.get('/api/reactions/daily', (req, res) => {
+    const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    
+    db.all(`
+      SELECT tipo, COUNT(*) as count 
+      FROM reactions 
+      WHERE timestamp >= ? 
+      GROUP BY tipo
+    `, [last24h], (err, rows) => {
+      if (err) {
+        console.error('Erro ao buscar reações diárias:', err);
+        return res.status(500).json({ error: 'Erro interno do servidor' });
+      }
+      
+      // Inicializar todos os tipos com zero
+      const counts = {
+        feliz: 0,
+        inspirado: 0,
+        surpreso: 0,
+        preocupado: 0,
+        triste: 0,
+        indignado: 0
+      };
+      
+      // Preencher com valores reais
+      (rows || []).forEach(row => {
+        counts[row.tipo] = row.count;
+      });
+      
+      // Calcular total
+      const total = Object.values(counts).reduce((sum, count) => sum + count, 0);
+      
+      // Calcular percentuais
+      const percentages = {};
+      if (total > 0) {
+        Object.keys(counts).forEach(tipo => {
+          percentages[tipo] = Math.round((counts[tipo] / total) * 100);
+        });
+      } else {
+        // Se não houver reações, todos ficam com 0%
+        Object.keys(counts).forEach(tipo => {
+          percentages[tipo] = 0;
+        });
+      }
+      
+      res.json({
+        period: 'last_24_hours',
+        timestamp: new Date().toISOString(),
+        total,
+        counts,
+        percentages
+      });
+    });
+  });
+
+  // Função auxiliar para obter contagens de reações de um post
+  function getReactionCounts(postId, callback) {
+    db.all('SELECT tipo, COUNT(*) as count FROM reactions WHERE post_id = ? GROUP BY tipo', [postId], (err, rows) => {
+      if (err) {
+        console.error('Erro ao contar reações:', err);
+        return callback({ feliz: 0, inspirado: 0, surpreso: 0, preocupado: 0, triste: 0, indignado: 0 });
+      }
+      
+      const counts = { feliz: 0, inspirado: 0, surpreso: 0, preocupado: 0, triste: 0, indignado: 0 };
+      (rows || []).forEach(row => {
+        counts[row.tipo] = row.count;
+      });
+      
+      callback(counts);
+    });
+  }
+
+  // ======= FIM REAÇÕES =======
 
   // Buscar por slug (quando não há coluna slug, calculamos em memória)
   app.get('/api/posts/slug/:slug', (req, res) => {
@@ -2537,19 +3269,91 @@ try {
       }
     );
   });
-} catch(e) {
-  console.error('Falha ao redefinir rotas de auth com rate limit', e);
+
+  // ======= User Management (Admin only) =======
+  app.get('/api/users', authMiddleware, requireRole('admin'), (req, res) => {
+    db.all('SELECT id,name,email,role,avatar,created_at FROM usuarios ORDER BY created_at DESC', [], (err, rows) => {
+      if (err) return res.status(500).json({ error: 'erro de servidor' });
+      const users = (rows || []).map(r => ({ id: String(r.id), name: r.name, email: r.email, role: r.role, avatar: r.avatar, createdAt: r.created_at }));
+      res.json({ items: users, total: users.length });
+    });
+  });
+
+  // ======= Categories (editorial/municipality/special) =======
+  // Tabela e endpoints simples para gerenciar categorias básicas usadas no painel
+  db.run(`CREATE TABLE IF NOT EXISTS categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    color TEXT,
+    type TEXT NOT NULL CHECK (type IN ('editorial','municipality','special')),
+    created_at TEXT
+  )`);
+
+  app.get('/api/categories', authMiddleware, requireRole('admin'), (req, res) => {
+    const type = String(req.query.type || '').trim();
+    const params = [];
+    let sql = 'SELECT id,name,color,type,created_at FROM categories';
+    if (type) { sql += ' WHERE type = ?'; params.push(type); }
+    sql += ' ORDER BY created_at DESC, id DESC';
+    db.all(sql, params, (err, rows) => {
+      if (err) return res.status(500).json({ error: 'erro de servidor' });
+      const items = (rows || []).map(r => ({ id: String(r.id), name: r.name, color: r.color, type: r.type, createdAt: r.created_at }));
+      res.json({ items, total: items.length });
+    });
+  });
+
+  app.post('/api/categories', authMiddleware, requireRole('admin'), (req, res) => {
+    const { name, color = '#6B7280', type } = req.body || {};
+    if (!name || !type || !['editorial','municipality','special'].includes(String(type))) {
+      return res.status(400).json({ error: 'parâmetros inválidos' });
+    }
+    const created_at = new Date().toISOString();
+    db.run('INSERT INTO categories (name,color,type,created_at) VALUES (?,?,?,?)', [String(name).trim(), String(color), String(type), created_at], function (err) {
+      if (err) return res.status(500).json({ error: 'erro de servidor' });
+      res.status(201).json({ id: String(this.lastID), name: String(name).trim(), color: String(color), type: String(type), createdAt: created_at });
+    });
+  });
+
+  app.delete('/api/categories/:id', authMiddleware, requireRole('admin'), (req, res) => {
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ error: 'id inválido' });
+    db.run('DELETE FROM categories WHERE id = ?', [id], (err) => {
+      if (err) return res.status(500).json({ error: 'erro de servidor' });
+      res.json({ ok: true });
+    });
+  });
+
+  // ======= Social Insights (Facebook/Instagram) =======
+  // (duplicado removido)
+} catch(_) { /* noop */ }
+  return app;
 }
 
-// Endpoint de logout: revoga refresh tokens ativos do usuário e limpa cookies
-app.post('/api/auth/logout', authMiddleware, (req, res) => {
-  const userId = Number(req.user.sub);
-  const nowIso = new Date().toISOString();
-  db.run('UPDATE refresh_tokens SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL', [nowIso, userId], (err)=>{
-    // Limpa cookies independente de erro (melhor esforço)
-    try { clearAuthCookies(res); } catch(_) {}
-    if (err) return res.status(500).json({ error: 'erro ao revogar tokens' });
-    res.json({ ok: true });
+// Iniciar servidor somente quando este arquivo é o entrypoint principal
+if (require.main === module) {
+  const app = createApp({ dbPath: process.env.SQLITE_DB_PATH || path.join(__dirname, 'noticias.db') });
+  const primary = Number(process.env.PORT || PORT) || 3002;
+  const extra = process.env.ADDITIONAL_PORT ? Number(process.env.ADDITIONAL_PORT) : null;
+  const ports = extra && extra !== primary ? [primary, extra] : [primary];
+  ports.forEach((p) => {
+    try {
+      const server = app.listen(p, '127.0.0.1', () => {
+        console.log(`🚀 API SQLite rodando na porta ${p} (apenas localhost)`);
+        console.log(`📍 Health: http://127.0.0.1:${p}/api/health`);
+      });
+      server.on('error', (err) => {
+        if (err && err.code === 'EADDRINUSE') {
+          console.warn(`⚠️  Porta ${p} já está em uso — ignorando.`);
+        } else {
+          console.error(`Erro ao iniciar na porta ${p}:`, err);
+        }
+      });
+    } catch (e) {
+      console.error(`Falha ao iniciar na porta ${p}:`, e);
+    }
   });
-});
+  console.log(`📰 Posts: http://127.0.0.1:${primary}/api/posts?limit=5`);
+  console.log(`🏠 Home: http://127.0.0.1:${primary}/api/home`);
 }
+
+module.exports = { createApp };

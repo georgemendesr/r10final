@@ -1,21 +1,52 @@
 import React, { useState, useEffect, memo } from 'react';
-import { getGlobalReactionStats, getReactionPercentages, reactionConfig, initializeReactionsData } from '../services/reactionsService';
+import { getDailyReactions, reactionConfig } from '../services/reactionsService';
 
 const DailyEmotionsSection: React.FC = memo(() => {
   const [percentages, setPercentages] = useState<Record<string, number>>({});
+  const [loading, setLoading] = useState(true);
+  const [total, setTotal] = useState(0);
 
   useEffect(() => {
-    // Inicializar dados se necessário
-    initializeReactionsData();
-    
-    // Carregar estatísticas reais
-    const reactionPercentages = getReactionPercentages();
-    
-    setPercentages(reactionPercentages);
+    const loadDailyReactions = async () => {
+      try {
+        setLoading(true);
+        const data = await getDailyReactions();
+        setPercentages(data.percentages);
+        setTotal(data.total);
+      } catch (error) {
+        console.error('Erro ao carregar reações diárias:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadDailyReactions();
+
+    // Atualizar a cada 5 minutos
+    const interval = setInterval(loadDailyReactions, 5 * 60 * 1000);
+    return () => clearInterval(interval);
   }, []);
 
   // Encontrar o valor máximo para calcular a largura das barras
-  const maxPercentage = Math.max(...Object.values(percentages));
+  const maxPercentage = Math.max(...Object.values(percentages), 1);
+
+  if (loading) {
+    return (
+      <section className="bg-gradient-to-b from-blue-50 to-white py-6 font-body">
+        <div className="container mx-auto px-4 max-w-[1250px]">
+          <div className="text-center mb-6">
+            <h2 className="text-[35px] leading-[1.1] text-[#57534f] font-body">
+              <span className="font-medium italic">como os leitores</span> <span className="font-bold italic">se sentem</span>
+            </h2>
+            <div className="w-32 h-1.5 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 mx-auto rounded-full shadow-lg mt-2"></div>
+          </div>
+          <div className="text-center text-gray-500 py-8">
+            <div className="animate-pulse">Carregando reações...</div>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="bg-gradient-to-b from-blue-50 to-white py-6 font-body">
@@ -26,6 +57,11 @@ const DailyEmotionsSection: React.FC = memo(() => {
             <span className="font-medium italic">como os leitores</span> <span className="font-bold italic">se sentem</span>
           </h2>
           <div className="w-32 h-1.5 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 mx-auto rounded-full shadow-lg mt-2"></div>
+          {total > 0 && (
+            <p className="text-sm text-gray-600 mt-2">
+              {total} {total === 1 ? 'reação' : 'reações'} nas últimas 24 horas
+            </p>
+          )}
         </div>
 
         {/* Grid de Emoções */}

@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
  * R10 Manager
- * Objetivo: subir backend (porta 3002) e frontend (porta 5175) de forma estável
- * com auto-restart simples quando algum processo cair inesperadamente.
+ * Objetivo: subir backend (porta 3002), frontend (porta 5175) e instagram (porta 8080)
+ * de forma estável com auto-restart simples quando algum processo cair inesperadamente.
  * Comandos: start | stop | status | restart
- * Por padrão NÃO inicia Instagram. Use --with-instagram para incluir.
+ * Por padrão INICIA TODOS OS 3 SERVIÇOS. Use --no-instagram para desabilitar Instagram.
  */
 
 const { spawn } = require('child_process');
@@ -20,7 +20,7 @@ const args = process.argv.slice(2);
 const cmd = (args[0] || 'start').toLowerCase();
 const flags = new Set(args.slice(1));
 
-const WANT_INSTAGRAM = flags.has('--with-instagram');
+const WANT_INSTAGRAM = !flags.has('--no-instagram'); // INVERTIDO: Instagram por padrão
 const ONLY_BACKEND = flags.has('--backend-only');
 const ONLY_FRONTEND = flags.has('--frontend-only');
 
@@ -47,7 +47,7 @@ if (!ONLY_BACKEND) {
     useShell: process.platform === 'win32'
   });
 }
-if (WANT_INSTAGRAM) {
+if (WANT_INSTAGRAM && !ONLY_BACKEND && !ONLY_FRONTEND) {
   SERVICES.push({
     name: 'instagram',
     cwd: ROOT,

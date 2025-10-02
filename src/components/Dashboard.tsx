@@ -18,6 +18,7 @@ import { adsService, Banner } from '../services/adsService';
 import BannerForm from './BannerForm';
 import CategoryManager from './CategoryManager';
 import UsersManager from './UsersManager';
+import DetailedAnalytics from './DetailedAnalytics';
 import instagramAutomation from '../services/instagramAutomation';
 
 const Dashboard = () => {
@@ -44,6 +45,7 @@ const Dashboard = () => {
     { id: 'banners', label: 'Banner Ads', icon: Target, badge: null as string | null, url: '/admin?tab=banners' },
     { id: 'categorias', label: 'Categorias', icon: Settings, badge: null as string | null, url: '/admin?tab=categorias' },
     { id: 'analytics', label: 'Analytics', icon: TrendingUp, badge: null as string | null, url: '/admin?tab=analytics' },
+    { id: 'advanced-analytics', label: 'Analytics Avançados', icon: Activity, badge: 'NEW' as string | null, url: '/admin?tab=advanced-analytics' },
     { id: 'usuarios', label: 'Usuários', icon: Users, badge: null as string | null, url: '/admin/usuarios' }
   ];
 
@@ -68,7 +70,7 @@ const Dashboard = () => {
       setActiveTab('configuracoes');
     } else if (path === '/admin') {
       const tabParam = searchParams.get('tab');
-      if (tabParam && ['overview', 'midia', 'layout', 'instagram', 'agendamento', 'banners', 'categorias', 'analytics'].includes(tabParam)) {
+      if (tabParam && ['overview', 'midia', 'layout', 'instagram', 'agendamento', 'banners', 'categorias', 'analytics', 'advanced-analytics'].includes(tabParam)) {
         setActiveTab(tabParam);
       } else {
         setActiveTab('overview');
@@ -1165,6 +1167,9 @@ const Dashboard = () => {
                 </div>
               </div>
             </div>
+          )}
+          {activeTab === 'advanced-analytics' && isTabAllowed('advanced-analytics') && (
+            <DetailedAnalytics />
           )}
           {activeTab === 'banners' && isTabAllowed('banners') && (
             <PublicidadeContent />

@@ -27,8 +27,6 @@ export const reorganizePositionHierarchy = async (
   newPosition: PosicaoAPI
 ): Promise<void> => {
   try {
-    console.log(`🔄 Reorganizando hierarquia: Post ${updatedPostId} -> ${newPosition}`);
-    
     // Buscar todos os posts atuais
     const result = await getPosts();
     const allPosts = Array.isArray(result) ? result : result.posts || [];
@@ -42,8 +40,6 @@ export const reorganizePositionHierarchy = async (
     const superManchetes = otherPosts.filter(post => normalizePosition(post.posicao) === 'supermanchete');
     const destaques = otherPosts.filter(post => normalizePosition(post.posicao) === 'destaque');
     
-    console.log(`📊 Estado atual: ${superManchetes.length} super manchetes, ${destaques.length} destaques`);
-    
     const updates: Array<{ id: string; posicao: string }> = [];
     
     if (normalizedNewPosition === 'supermanchete') {
@@ -53,7 +49,6 @@ export const reorganizePositionHierarchy = async (
       if (superManchetes.length > 0) {
         const currentSuperManchete = superManchetes[0];
         updates.push({ id: currentSuperManchete.id, posicao: 'destaque' });
-        console.log(`📰 Super manchete anterior (${currentSuperManchete.titulo}) vira DESTAQUE`);
       }
       
       // 2. Se já temos 5+ destaques, o mais antigo vira GERAL
@@ -67,7 +62,6 @@ export const reorganizePositionHierarchy = async (
         
         const oldestDestaque = sortedDestaques[0];
         updates.push({ id: oldestDestaque.id, posicao: 'geral' });
-        console.log(`📄 Destaque mais antigo (${oldestDestaque.titulo}) vira GERAL`);
       }
       
     } else if (normalizedNewPosition === 'destaque') {
@@ -83,7 +77,6 @@ export const reorganizePositionHierarchy = async (
         
         const oldestDestaque = sortedDestaques[0];
         updates.push({ id: oldestDestaque.id, posicao: 'geral' });
-        console.log(`📄 Destaque mais antigo (${oldestDestaque.titulo}) vira GERAL`);
       }
     }
     
@@ -91,13 +84,10 @@ export const reorganizePositionHierarchy = async (
     for (const update of updates) {
       try {
         await updatePost(update.id, { posicao: update.posicao });
-        console.log(`✅ Post ${update.id} atualizado para ${update.posicao}`);
       } catch (error) {
         console.error(`❌ Erro ao atualizar post ${update.id}:`, error);
       }
     }
-    
-    console.log(`🎯 Reorganização concluída! ${updates.length} posts foram atualizados`);
     
   } catch (error) {
     console.error('❌ Erro na reorganização da hierarquia:', error);

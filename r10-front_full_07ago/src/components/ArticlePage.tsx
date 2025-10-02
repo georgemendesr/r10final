@@ -133,30 +133,41 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
     return () => { alive = false; };
   }, [id]);
 
-  // 3) Efeito para animar highlight quando aparecer na tela
+  // 3) Efeito para animar highlight QUANDO USUÁRIO VÊ (scroll-based)
   useEffect(() => {
     const animateHighlights = () => {
       const highlightElements = document.querySelectorAll('span[data-highlight="animated"]:not(.animate-in-view)');
+      
+      console.log('🔍 ANIMAÇÃO: Elementos com data-highlight encontrados:', highlightElements.length);
       
       highlightElements.forEach((element) => {
         const rect = element.getBoundingClientRect();
         const windowHeight = window.innerHeight;
         
-        // Se está visível (com margem para animar antes de aparecer totalmente)
+        console.log('📏 Elemento:', {
+          texto: element.textContent?.substring(0, 30),
+          top: rect.top,
+          bottom: rect.bottom,
+          windowHeight,
+          visivel: rect.top < windowHeight - 50 && rect.bottom > 50
+        });
+        
+        // ✅ Só anima quando usuário REALMENTE VÊ o elemento
+        // Margem de 50px para começar animação um pouco antes
         if (rect.top < windowHeight - 50 && rect.bottom > 50) {
-          console.log('✨ ANIMAÇÃO: Ativando highlight para:', element.textContent?.substring(0, 30));
+          console.log('✨ ANIMAÇÃO ATIVADA: Usuário viu o destaque:', element.textContent?.substring(0, 30));
           (element as HTMLElement).classList.add('animate-in-view');
         }
       });
     };
 
-    // Verificar imediatamente após renderização
+    // Verificar elementos que já estão visíveis ao carregar
     const checkTimer = setTimeout(() => {
-      console.log('🔍 Buscando elementos highlight...');
+      console.log('🔍 === VERIFICAÇÃO INICIAL DE DESTAQUES ===');
       animateHighlights();
     }, 100);
 
-    // Escutar scroll para animações futuras
+    // ✅ IMPORTANTE: Escutar scroll para animar quando usuário rolar até o elemento
     window.addEventListener('scroll', animateHighlights, { passive: true });
     
     return () => {
@@ -582,104 +593,96 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
               <div ref={articleRef} className="prose prose-lg max-w-none artigo-texto">
                 {finalArticle.content.map((paragraph, index) => {
                   // Renderizar diferentes tipos de conteúdo
-                  if (paragraph.startsWith('### ')) {
-                    // Subtítulo H3
-                                        return (
-                      <h3 key={index} className="text-3xl font-bold text-gray-900 mt-8 mb-4 font-poppins">
-                        {paragraph.replace('### ', '')}
+                  
+                  // 1. SUBTÍTULOS H3
+                  if (paragraph.startsWith('### ') || paragraph.includes('<h3')) {
+                    let processedText = paragraph
+                      .replace(/### (.*?)(?=\n|$)/g, '$1')
+                      .replace(/<h3[^>]*>(.*?)<\/h3>/g, '$1');
+                      
+                    return (
+                      <h3 key={index} className="text-2xl font-bold text-gray-900 my-6 mt-8 font-poppins">
+                        {processedText}
                       </h3>
                     );
-                  } else if (paragraph.startsWith('> ')) {
-                    // Citação
+                  }
+                  
+                  // 2. CITAÇÕES (BLOCKQUOTE)
+                  else if (paragraph.startsWith('> ') || paragraph.includes('<blockquote')) {
+                    let processedText = paragraph
+                      .replace(/^> (.*?)(?=\n|$)/gm, '$1')
+                      .replace(/<blockquote[^>]*>(.*?)<\/blockquote>/g, '$1');
+                      
                     return (
-                      <blockquote key={index} className="border-l-4 border-blue-500 pl-6 py-4 my-6 bg-blue-50 rounded-r-lg">
-                                                 <p className="text-base italic text-gray-800">
-                          "{paragraph.replace('> ', '')}"
+                      <blockquote key={index} className="border-l-4 border-blue-600 pl-6 py-4 my-8 bg-blue-50 rounded-r-lg">
+                        <p className="text-lg font-normal text-gray-800"
+                           dangerouslySetInnerHTML={{ __html: processedText }}>
                         </p>
-                        <cite className="text-sm text-gray-600 mt-2 block">
-                          — Dr. Kleber Montezuma, Prefeito de Teresina
-                        </cite>
                       </blockquote>
                     );
-                  } else if (paragraph.startsWith('• ')) {
-                    // Lista
+                  }
+                  
+                  // 3. LISTAS
+                  else if (paragraph.startsWith('• ')) {
                     return (
                       <div key={index} className="flex items-start mb-3">
                         <span className="text-blue-600 font-bold mr-3 mt-1">•</span>
-                                                 <span className="text-gray-800 text-base">{paragraph.replace('• ', '')}</span>
+                        <span className="text-gray-800 text-base">{paragraph.replace('• ', '')}</span>
                       </div>
                     );
-                                     } else if (paragraph.includes('==') && paragraph.includes('==') || 
-                              paragraph.includes('<span class="highlight-simple">') ||
-                              paragraph.includes('<span class="highlight-animated">')) {
-                     // Processar destaques com animação funcionando
-                     let highlightedText = paragraph
-                       // Formato antigo: ===texto=== = ANIMADO
-                       .replace(/===(.*?)===/g, '<span data-highlight="animated">$1<\/span>')
-                       // Formato antigo: ==texto== = SIMPLES
-                       .replace(/==(.*?)==/g, '<span class="bg-yellow-200 px-1 rounded border border-yellow-400">$1</span>')
-                       // Formato novo já com animação
-                       .replace(/<span class="highlight-animated"[^>]*>(.*?)<\/span>/g, '<span data-highlight="animated">$1<\/span>')
-                       // Normalizar spans já com data-highlight (remover estilos inline vindos do editor)
-                       .replace(/<span[^>]*data-highlight=\"animated\"[^>]*>(.*?)<\/span>/g, '<span data-highlight="animated">$1<\/span>')
-                       // Formato simples
-                       .replace(/<span class="highlight-simple"[^>]*>(.*?)<\/span>/g, '<span class="bg-yellow-200 px-1 rounded border border-yellow-400">$1</span>')
-                       // Processar formatação básica
-                       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                       .replace(/(?<!\*)\*([^*\n]+?)\*(?!\*)/g, '<em>$1</em>')
-                       .replace(/__(.*?)__/g, '<u>$1</u>');
-                       
-                     return (
-                       <p key={index} className="text-gray-800 leading-relaxed mb-6" 
-                          style={{ fontFamily: 'Figtree, sans-serif', fontSize: '18px', lineHeight: '1.6' }}
-                          dangerouslySetInnerHTML={{ __html: highlightedText }} />
-                     );
-                                     } else if (paragraph.includes('💡') || paragraph.includes('<div class="info-box">')) {
-                     // Caixa de informação - processar HTML se necessário
-                     let processedText = paragraph
-                       .replace(/<div class="info-box"[^>]*>(.*?)<\/div>/g, '$1');
-                       
-                     return (
-                       <div key={index} className="bg-blue-50 border-l-4 border-blue-500 p-4 my-6 rounded-r-lg">
-                         <p className="text-gray-800 text-base font-normal"
-                            dangerouslySetInnerHTML={{ __html: processedText }}>
-                         </p>
-                       </div>
-                     );
-                   } else if (paragraph.startsWith('### ') || paragraph.includes('<h3')) {
-                     // Subtítulos H3
-                     let processedText = paragraph
-                       .replace(/### (.*?)(?=\n|$)/g, '$1')
-                       .replace(/<h3[^>]*>(.*?)<\/h3>/g, '$1');
-                       
-                     return (
-                       <h3 key={index} className="text-lg font-semibold text-gray-900 my-6 mt-8">
-                         {processedText}
-                       </h3>
-                     );
-                   } else if (paragraph.startsWith('> ') || paragraph.includes('<blockquote')) {
-                     // Citações
-                     let processedText = paragraph
-                       .replace(/^> (.*?)(?=\n|$)/gm, '$1')
-                       .replace(/<blockquote[^>]*>(.*?)<\/blockquote>/g, '$1');
-                       
-                     return (
-                       <blockquote key={index} className="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 text-blue-900 my-6 rounded-r-lg">
-                         <p className="text-base font-normal italic"
-                            dangerouslySetInnerHTML={{ __html: processedText }}>
-                         </p>
-                       </blockquote>
-                     );
-                  } else {
-                     // Parágrafo normal - processar formatação básica
-                     let processedText = paragraph
-                       // Processar formatação básica
-                       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                       .replace(/(?<!\*)\*([^*\n]+?)\*(?!\*)/g, '<em>$1</em>')
-                       .replace(/__(.*?)__/g, '<u>$1</u>');
-                       
+                  }
+                  
+                  // 4. DESTAQUES ANIMADOS (highlight-animated)
+                  else if (paragraph.includes('data-highlight="animated"') || 
+                           paragraph.includes('class="highlight-animated"') ||
+                           paragraph.includes('===') ||
+                           paragraph.includes('<span class="highlight-simple">')) {
+                    let highlightedText = paragraph
+                      // Preservar data-highlight existente (já salvo corretamente)
+                      .replace(/<span[^>]*data-highlight="animated"[^>]*style="[^"]*">(.*?)<\/span>/g, 
+                               '<span data-highlight="animated" class="highlight-animated">$1</span>')
+                      // Formato antigo: ===texto=== = ANIMADO
+                      .replace(/===(.*?)===/g, '<span data-highlight="animated" class="highlight-animated">$1</span>')
+                      // Formato antigo: ==texto== = SIMPLES
+                      .replace(/==(.*?)==/g, '<span class="bg-yellow-200 px-1 rounded border border-yellow-400">$1</span>')
+                      // Formato simples já existente
+                      .replace(/<span class="highlight-simple"[^>]*>(.*?)<\/span>/g, 
+                               '<span class="bg-yellow-200 px-1 rounded border border-yellow-400">$1</span>')
+                      // Processar formatação básica
+                      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                      .replace(/(?<!\*)\*([^*\n]+?)\*(?!\*)/g, '<em>$1</em>')
+                      .replace(/__(.*?)__/g, '<u>$1</u>');
+                      
                     return (
-                      <p key={index} className="text-gray-700 leading-relaxed mb-6" 
+                      <p key={index} className="text-gray-800 leading-relaxed mb-6" 
+                         style={{ fontFamily: 'Figtree, sans-serif', fontSize: '18px', lineHeight: '1.6' }}
+                         dangerouslySetInnerHTML={{ __html: highlightedText }} />
+                    );
+                  }
+                  
+                  // 5. CAIXAS DE INFORMAÇÃO
+                  else if (paragraph.includes('💡') || paragraph.includes('<div class="info-box">')) {
+                    let processedText = paragraph
+                      .replace(/<div class="info-box"[^>]*>(.*?)<\/div>/g, '$1');
+                      
+                    return (
+                      <div key={index} className="bg-blue-50 border-l-4 border-blue-500 p-4 my-6 rounded-r-lg">
+                        <p className="text-gray-800 text-base font-normal"
+                           dangerouslySetInnerHTML={{ __html: processedText }}>
+                        </p>
+                      </div>
+                    );
+                  }
+                  
+                  // 6. PARÁGRAFOS NORMAIS (com formatação básica)
+                  else {
+                    let processedText = paragraph
+                      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                      .replace(/(?<!\*)\*([^*\n]+?)\*(?!\*)/g, '<em>$1</em>')
+                      .replace(/__(.*?)__/g, '<u>$1</u>');
+                      
+                    return (
+                      <p key={index} className="text-gray-800 leading-relaxed mb-6" 
                          style={{ fontFamily: 'Figtree, sans-serif', fontSize: '18px', lineHeight: '1.6' }}
                          dangerouslySetInnerHTML={{ __html: processedText }}>
                       </p>

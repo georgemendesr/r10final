@@ -379,48 +379,71 @@ async function optimizeTitle(title, contextDescription) {
         messages: [
           {
             role: 'system',
-            content: `Você é editor de manchetes jornalísticas para Instagram. Produza títulos curtos (até 70 caracteres), completos e informativos.
-Regras inegociáveis:
-- Manchete deve ter sujeito + verbo de ação + complemento (predicado). Não retorne apenas nomes ou sujeito solto.
-- Não use reticências. Não quebre palavras. Gramática perfeita e natural.
-- Não termine em verbo auxiliar ou preposição ("é", "foi", "de", "da", "no", "na").
-- Evite terminar apenas em particípio ("nomeado", "anunciado", "confirmado"). Se ocorrer, COMPLETE o cargo/ação.
-- Se o cargo específico não estiver claro, use forma genérica, mas completa: "assume cargo" ou "é nomeado para cargo".
-- Opção de lead geográfico é válida quando fizer sentido: "Piripiri:" ou "Teresina:".
-Exemplos bons: "Prefeitura de Teresina anuncia nova obra"; "José Amâncio Neto é nomeado coordenador"; "Piripiri: secretária assume pasta da Saúde".
-Exemplos ruins (NÃO FAZER): "José Amâncio Neto"; "Governador do Piauí"; "Prefeitura anuncia no...".`
+            content: `Você é editor de manchetes para cards do Instagram. LIMITE ABSOLUTO: 65 caracteres.
+
+REGRAS OBRIGATÓRIAS:
+1. Máximo 65 caracteres (card visual tem limite físico!)
+2. Manchete COMPLETA: sujeito + verbo + complemento
+3. NUNCA corte palavras ("hospi..." é PROIBIDO)
+4. NUNCA use reticências "..."
+5. NUNCA termine em preposição ("de", "em", "no", "da")
+6. NUNCA termine em verbo auxiliar ("é", "foi", "tem")
+7. **REFORMULE CRIATIVAMENTE** - não simplesmente corte o original
+
+ESTRATÉGIAS PARA REFORMULAR:
+- Trocar palavras longas por sinônimos curtos
+- Usar números em vez de extenso ("1 ano" vs "um ano")
+- Inverter ordem da frase (mais importante primeiro)
+- Usar siglas conhecidas (STF, PI, DF, BR)
+- Simplificar "Prefeitura Municipal de" → "Prefeitura de" → "Pref."
+- Lead geográfico: "Teresina:" no lugar de "Prefeitura de Teresina"
+- Verbos diretos: "realizará" → "vai fazer"
+- Remover adjetivos: "marca histórica" → só deixar o número
+
+EXEMPLOS DE REFORMULAÇÃO CRIATIVA:
+Original: "Tempo de espera por cirurgias em hospitais do Piauí atinge marca histórica de um ano"
+❌ ERRADO: "Tempo de espera por cirurgias em hospitais do PI..." (cortado)
+✅ CERTO: "Fila de cirurgias no PI chega a 1 ano" (43 chars, reformulado)
+
+Original: "Advogado piripiriense José Amâncio Neto é nomeado coordenador estadual de programa"
+❌ ERRADO: "Advogado José Amâncio Neto é nomeado coordenador..." (cortado)
+✅ CERTO: "José Amâncio é novo coordenador estadual" (42 chars, reformulado)
+
+Original: "Prefeitura Municipal de Teresina anuncia novos investimentos em infraestrutura"
+❌ ERRADO: "Prefeitura Municipal de Teresina anuncia no..." (cortado)
+✅ CERTO: "Teresina anuncia obras de infraestrutura" (42 chars, reformulado)
+
+LEMBRE-SE: Se não couber, REESCREVA a ideia principal de forma mais enxuta. Não corte.`
           },
           {
             role: 'user',
-            content: `Reescreva para uma manchete enxuta e COMPLETA.
+            content: `Reescreva esta manchete para caber no card do Instagram.
 
 TÍTULO ORIGINAL: "${title}"
-${contextDescription ? `\nCONTEXTO (descrição da matéria): ${contextDescription}` : ''}
+${contextDescription ? `CONTEXTO: ${contextDescription}` : ''}
 
-INSTRUÇÕES OBRIGATÓRIAS:
-- Máximo 70 caracteres (essencial!)
-- Preservar TODAS as informações importantes
-- Linguagem clara e direta
-- NUNCA cortar palavras no meio (proibido "co...", "no...", etc)
-- Manter nomes próprios completos sempre
-- Se necessário, reformular completamente em vez de apenas cortar
-- Gramática perfeita e natural
- - PROIBIDO usar reticências "..."
- - O título deve ser uma frase/manchete COMPLETA (com conclusão)
- - NUNCA terminar em verbo auxiliar ou preposição (ex.: "é", "foi", "de", "da", "no", "na")
- - Evite terminar com particípios sem complemento (ex.: "nomeado", "anunciado", "confirmado"). Se aparecerem, complete o cargo/ação.
+⚠️ LIMITE CRÍTICO: Máximo 65 caracteres (visual do card)
+⚠️ OBRIGATÓRIO: Manchete COMPLETA (com início, meio e fim)
+⚠️ ESTRATÉGIA: **REFORMULAR criativamente** (não só cortar)
 
-EXEMPLOS ESPECÍFICOS DO QUE FAZER:
-❌ PÉSSIMO: "Advogado Piripiriense José Amâncio Neto é nomeado co..."
-✅ EXCELENTE: "José Amâncio Neto é nomeado coordenador"
+PENSE ASSIM:
+1. Qual a informação PRINCIPAL? (foco)
+2. Posso usar palavra mais curta? (ex: "realiza" → "faz")
+3. Posso usar número? (ex: "um ano" → "1 ano")
+4. Posso inverter a ordem? (info principal primeiro)
+5. Posso usar sigla? (ex: "Piauí" → "PI")
 
-❌ PÉSSIMO: "Prefeitura Municipal de Teresina anuncia no..."
-✅ EXCELENTE: "Prefeitura de Teresina anuncia nova obra"
+EXEMPLOS DE BOA REFORMULAÇÃO:
+"Tempo de espera por cirurgias em hospitais do Piauí atinge marca histórica de um ano"
+→ "Fila de cirurgias no PI chega a 1 ano" (43 chars ✓)
 
-❌ PÉSSIMO: "Governador do Estado do Piauí participa de ev..."
-✅ EXCELENTE: "Governador participa de evento importante"
+"Advogado piripiriense José Amâncio Neto é nomeado coordenador estadual"
+→ "José Amâncio é coordenador estadual" (37 chars ✓)
 
-Responda APENAS com o título reformulado, sem aspas ou explicações. O resultado deve caber sozinho e ter sentido completo.`
+"Prefeitura Municipal de Teresina anuncia investimentos em infraestrutura urbana"
+→ "Teresina anuncia obras de infraestrutura" (42 chars ✓)
+
+Responda APENAS com o título reformulado (sem aspas, explicações ou quebras).`
           }
         ],
         max_tokens: 100,
@@ -436,10 +459,23 @@ Responda APENAS com o título reformulado, sem aspas ou explicações. O resulta
       
       const optimizedTitle = data.choices[0]?.message?.content?.trim();
       if (optimizedTitle && optimizedTitle.length > 0) {
-        const cleanTitle = optimizedTitle.replace(/^['"]|['"]$/g, '');
+        let cleanTitle = optimizedTitle.replace(/^['"]|['"]$/g, '');
+        
+        // ⚠️ VALIDAÇÃO CRÍTICA: Limitar a 65 caracteres para o card
+        if (cleanTitle.length > 65) {
+          console.warn(`⚠️ Título do Groq muito longo (${cleanTitle.length} chars): "${cleanTitle}"`);
+          // Cortar no último espaço antes de 65 chars para não quebrar palavras
+          cleanTitle = cleanTitle.substring(0, 65).trim();
+          const lastSpace = cleanTitle.lastIndexOf(' ');
+          if (lastSpace > 40) { // Se tiver espaço razoável, cortar ali
+            cleanTitle = cleanTitle.substring(0, lastSpace).trim();
+          }
+          console.log(`✂️ Título cortado: "${cleanTitle}" (${cleanTitle.length} chars)`);
+        }
+        
         console.log(`✅ Título otimizado: "${cleanTitle}" (${cleanTitle.length} caracteres)`);
         // Normalizar para evitar reticências e final incompleto + corrigir terminações com "nomeado"
-        let finalized = finalizeHeadline(cleanTitle, 70);
+        let finalized = finalizeHeadline(cleanTitle, 65);
         finalized = fixNominationEndings(finalized);
         return finalized;
       } else {
@@ -1255,6 +1291,148 @@ async function publishToInstagram(imageBuffer, caption) {
 }
 
 // ROTAS DA API
+
+// API REST para gerar cards Instagram (usado pelo Dashboard R10)
+app.post('/api/social/generate', async (req, res) => {
+  console.log('📨 [/api/social/generate] Requisição recebida');
+  console.log('📋 Body:', req.body);
+  
+  try {
+    const { title, hat, imageUrl, categoria, type } = req.body;
+    
+    if (!title) {
+      return res.status(400).json({ ok: false, error: 'Título é obrigatório' });
+    }
+    
+    console.log(`🎨 Gerando ${type || 'card'} para: "${title}"`);
+    console.log(`📸 Imagem: ${imageUrl || 'nenhuma'}`);
+    console.log(`🏷️ Categoria: ${categoria || 'geral'}`);
+    console.log(`🎩 Chapéu: ${hat || 'nenhum'}`);
+    
+    // Determinar tipo de template
+    const templateType = type === 'story' ? 'story' : 'card';
+    
+    // Baixar imagem se fornecida e salvar em arquivo temporário
+    let imagePath = null;
+    if (imageUrl) {
+      console.log(`📥 Processando imagem...`);
+      console.log(`🔍 Tipo de URL: ${imageUrl.startsWith('data:') ? 'Base64' : 'HTTP URL'}`);
+      
+      // Verificar se é base64 ou URL HTTP
+      if (imageUrl.startsWith('data:image/')) {
+        // É uma imagem base64 - converter diretamente para buffer
+        console.log(`� Imagem em base64 detectada`);
+        try {
+          const base64Data = imageUrl.split(',')[1];
+          const imageBuffer = Buffer.from(base64Data, 'base64');
+          console.log(`✅ Base64 convertido: ${imageBuffer.length} bytes`);
+          
+          if (!imageBuffer || imageBuffer.length === 0) {
+            console.error(`❌ Buffer da imagem base64 está vazio!`);
+            return res.status(400).json({ ok: false, error: 'Imagem base64 está vazia' });
+          }
+          
+          // Salvar em arquivo temporário
+          const tempDir = path.join(__dirname, 'uploads', 'temp');
+          if (!fs.existsSync(tempDir)) {
+            fs.mkdirSync(tempDir, { recursive: true });
+          }
+          
+          const filename = `temp_${Date.now()}.jpg`;
+          imagePath = path.join(tempDir, filename);
+          await fs.writeFile(imagePath, imageBuffer);
+          console.log(`💾 Imagem base64 salva em: ${imagePath}`);
+        } catch (err) {
+          console.error(`❌ Erro ao processar base64:`, err.message);
+          return res.status(400).json({ ok: false, error: 'Erro ao processar imagem base64: ' + err.message });
+        }
+      } else {
+        // É uma URL HTTP - baixar normalmente
+        console.log(`📥 Baixando imagem de URL: ${imageUrl}`);
+        try {
+          const imageResponse = await makeHttpsRequest(imageUrl, { method: 'GET' });
+        
+          console.log(`📡 Resposta HTTP: status=${imageResponse.status}, ok=${imageResponse.ok}`);
+          console.log(`📋 Headers: ${JSON.stringify(imageResponse.headers)}`);
+        
+          if (!imageResponse.ok) {
+            console.error(`❌ Erro HTTP ao baixar imagem: ${imageResponse.status} ${imageResponse.statusText}`);
+            return res.status(400).json({ ok: false, error: `Erro ao baixar imagem: HTTP ${imageResponse.status}` });
+          }
+        
+          const imageBuffer = await imageResponse.buffer();
+          console.log(`✅ Imagem baixada: ${imageBuffer.length} bytes`);
+        
+          if (!imageBuffer || imageBuffer.length === 0) {
+            console.error(`❌ Buffer da imagem está vazio!`);
+            return res.status(400).json({ ok: false, error: 'Imagem baixada está vazia' });
+          }
+        
+          // Salvar em arquivo temporário
+          const tempDir = path.join(__dirname, 'uploads', 'temp');
+          if (!fs.existsSync(tempDir)) {
+            fs.mkdirSync(tempDir, { recursive: true });
+          }
+        
+          const filename = `temp_${Date.now()}.jpg`;
+          imagePath = path.join(tempDir, filename);
+          await fs.writeFile(imagePath, imageBuffer);
+          console.log(`💾 Imagem salva em: ${imagePath}`);
+        } catch (err) {
+          console.error(`❌ Erro ao baixar imagem:`, err.message);
+          return res.status(400).json({ ok: false, error: 'Erro ao baixar imagem: ' + err.message });
+        }
+      }
+    }
+    
+    if (!imagePath) {
+      return res.status(400).json({ ok: false, error: 'URL da imagem é obrigatória' });
+    }
+    
+    // Gerar card usando a mesma função que já funciona
+    const cardBuffer = await generateInstagramCard({
+      title: title,
+      categoria: categoria || 'geral',
+      imagePath: imagePath,
+      chapeu: hat || '',
+      type: templateType
+    });
+    
+    // Limpar arquivo temporário
+    try {
+      if (imagePath && fs.existsSync(imagePath)) {
+        await fs.unlink(imagePath);
+        console.log(`🗑️ Arquivo temporário removido`);
+      }
+    } catch (err) {
+      console.warn(`⚠️ Erro ao remover arquivo temporário:`, err.message);
+    }
+    
+    // Converter para base64
+    const preview = `data:image/png;base64,${cardBuffer.toString('base64')}`;
+    
+    console.log(`✅ Card gerado com sucesso (${cardBuffer.length} bytes)`);
+    
+    res.json({
+      ok: true,
+      preview,
+      type: templateType,
+      metadata: {
+        title,
+        hat,
+        categoria,
+        hasImage: true
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Erro ao gerar card:', error);
+    res.status(500).json({ 
+      ok: false, 
+      error: error.message || 'Erro ao gerar card' 
+    });
+  }
+});
 
 // Healthcheck simples para validar requisitos de execução
 app.get('/health', async (req, res) => {
@@ -2212,15 +2390,54 @@ app.post('/api/publish-instagram', async (req, res) => {
 // Servir fontes como arquivos estáticos (backup para Render)
 app.use('/fonts', express.static(path.join(__dirname, 'fonts')));
 
-// Iniciar servidor
-app.listen(PORT, '0.0.0.0', () => {
+// Iniciar servidor COM TRATAMENTO DE ERRO E VERIFICAÇÃO REAL
+console.log(`⏳ Tentando iniciar servidor na porta ${PORT}...`);
+
+const server = app.listen(PORT, '127.0.0.1', () => {
+  const addr = server.address();
   console.log(`🚀 R10 Instagram Publisher iniciado na porta ${PORT}`);
   console.log(`🌐 Acesse: http://localhost:${PORT}`);
-  console.log(`📱 Instagram Business ID: ${INSTAGRAM_CONFIG.BUSINESS_ID || 'NÃO DEFINIDO'}`);
+  console.log(`� Server listening on: ${addr.address}:${addr.port} (${addr.family})`);
+  console.log(`�📱 Instagram Business ID: ${INSTAGRAM_CONFIG.BUSINESS_ID || 'NÃO DEFINIDO'}`);
   console.log(`🔑 IG Token configurado? ${INSTAGRAM_CONFIG.ACCESS_TOKEN ? 'Sim' : 'Não'}`);
   console.log(`🤖 Groq AI configurado? ${GROQ_CONFIG.API_KEY ? 'Sim' : 'Não'}`);
   console.log(`💾 Diretório persistente da PUBLI: ${PERSIST_DIR}`);
   if (!GROQ_CONFIG.API_KEY) console.log('⚠️ Defina a variável de ambiente GROQ_API_KEY para habilitar IA.');
   if (!INSTAGRAM_CONFIG.ACCESS_TOKEN) console.log('⚠️ Defina IG_ACCESS_TOKEN para publicar no Instagram.');
   if (!INSTAGRAM_CONFIG.PUBLIC_BASE_URL) console.log('⚠️ Defina PUBLIC_BASE_URL (ex.: https://seu-dominio.com) para permitir a publicação (image_url exigido pela Meta).');
+  
+  // ✅ VERIFICAÇÃO REAL: Testar se servidor está REALMENTE aceitando conexões
+  console.log(`🔍 Verificando se servidor está REALMENTE aceitando conexões...`);
+  setTimeout(() => {
+    http.get(`http://127.0.0.1:${PORT}/health`, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        if (res.statusCode === 200) {
+          console.log(`✅✅✅ SERVIDOR VALIDADO: Responde corretamente em /health`);
+          console.log(`📋 Resposta:`, JSON.parse(data));
+        } else {
+          console.error(`⚠️ Servidor responde mas com status ${res.statusCode}`);
+        }
+      });
+    }).on('error', (err) => {
+      console.error(`❌❌❌ SERVIDOR NÃO ESTÁ ACEITANDO CONEXÕES!`);
+      console.error(`❌ Erro: ${err.message}`);
+      console.error(`⚠️ Servidor está quebrado! Encerrando...`);
+      process.exit(1);
+    });
+  }, 500);
+});
+
+server.on('error', (err) => {
+  console.error('❌❌❌ ERRO AO INICIAR SERVIDOR:', err);
+  if (err.code === 'EADDRINUSE') {
+    console.error(`⚠️ PORTA ${PORT} JÁ ESTÁ EM USO! Libere a porta ou use outra.`);
+    console.error(`💡 Execute: taskkill /F /IM node.exe && node server.js`);
+  } else if (err.code === 'EACCES') {
+    console.error(`⚠️ SEM PERMISSÃO para usar a porta ${PORT}!`);
+  } else {
+    console.error(`⚠️ Código de erro: ${err.code}`);
+  }
+  process.exit(1);
 });

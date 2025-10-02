@@ -146,8 +146,8 @@ const HeroGrid = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr] gap-4 md:gap-6">
           {/* Notícia Principal */}
-          <Link to={`/noticia/${getCategory(mainArticle)}/${createSlug(getTitle(mainArticle))}/${mainArticle.id}`} className="group">
             <article>
+            <Link to={`/noticia/${getCategory(mainArticle)}/${createSlug(getTitle(mainArticle))}/${mainArticle.id}`}>
             <div className={`w-full h-[250px] md:h-[350px] lg:h-[400px] rounded-xl overflow-hidden mb-4 md:mb-5 tint ${getEditorialClasses(getCategory(mainArticle)).tint}`}>
               <img 
                 src={getImage(mainArticle) || "https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=620&h=350&fit=crop"}
@@ -156,6 +156,7 @@ const HeroGrid = () => {
                 style={{ borderRadius: '12px' }}
               />
             </div>
+            </Link>
                             <div className="flex items-start gap-3 mb-3 md:mb-4">
                               <h1 className="destaque-principal-title flex-1">
                                 <TitleLink
@@ -176,7 +177,6 @@ const HeroGrid = () => {
               {getSubtitle(mainArticle)}
             </p>
           </article>
-            </Link>
 
           {/* Grid de Notícias Laterais */}
           <div className="space-y-2 md:space-y-3">
@@ -203,7 +203,6 @@ const HeroGrid = () => {
                           <TitleLink
                             title={getTitle(sideArticles[0])}
                             categoria={getCategory(sideArticles[0])}
-                            href={`/noticia/${getCategory(sideArticles[0])}/${createSlug(getTitle(sideArticles[0]))}/${sideArticles[0].id}`}
                             className=""
                           />
                         </h2>
@@ -245,7 +244,6 @@ const HeroGrid = () => {
                           <TitleLink
                             title={getTitle(sideArticles[1])}
                             categoria={getCategory(sideArticles[1])}
-                            href={`/noticia/${getCategory(sideArticles[1])}/${createSlug(getTitle(sideArticles[1]))}/${sideArticles[1].id}`}
                             className=""
                           />
                         </h2>
@@ -295,7 +293,6 @@ const HeroGrid = () => {
                           <TitleLink
                             title={getTitle(sideArticles[2])}
                             categoria={getCategory(sideArticles[2])}
-                            href={`/noticia/${getCategory(sideArticles[2])}/${createSlug(getTitle(sideArticles[2]))}/${sideArticles[2].id}`}
                             className=""
                           />
                         </h2>
@@ -336,7 +333,6 @@ const HeroGrid = () => {
                             <TitleLink
                               title={getTitle(sideArticles[3])}
                               categoria={getCategory(sideArticles[3])}
-                              href={`/noticia/${getCategory(sideArticles[3])}/${createSlug(getTitle(sideArticles[3]))}/${sideArticles[3].id}`}
                               className=""
                             />
                           </h2>

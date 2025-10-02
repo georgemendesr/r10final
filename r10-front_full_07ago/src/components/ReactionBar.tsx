@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getArticleReactions, reactToPost, ReactionCounts } from '../services/reactionsService';
 
 // Adicionar CSS customizado para animações
 const customStyles = `
@@ -23,15 +24,6 @@ interface ReactionBarProps {
   articleId: string;
 }
 
-interface ReactionCounts {
-  feliz: number;
-  inspirado: number;
-  surpreso: number;
-  preocupado: number;
-  triste: number;
-  indignado: number;
-}
-
 const reactions = [
   { key: 'feliz', emoji: '😀', label: 'Feliz' },
   { key: 'inspirado', emoji: '🤩', label: 'Inspirado' },
@@ -43,45 +35,102 @@ const reactions = [
 
 const ReactionBar: React.FC<ReactionBarProps> = ({ articleId }) => {
   const [counts, setCounts] = useState<ReactionCounts>({
-    feliz: 8,
-    inspirado: 12,
-    surpreso: 3,
-    preocupado: 15,
-    triste: 2,
-    indignado: 5
+    feliz: 0,
+    inspirado: 0,
+    surpreso: 0,
+    preocupado: 0,
+    triste: 0,
+    indignado: 0
   });
   
   const [userReaction, setUserReaction] = useState<string | null>(null);
   const [showResult, setShowResult] = useState(false);
   const [animatingReaction, setAnimatingReaction] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Verificar se usuário já reagiu
-    const savedReaction = localStorage.getItem(`r10_rx_${articleId}`);
-    if (savedReaction) {
-      setUserReaction(savedReaction);
-      setShowResult(true);
-    }
+    // Carregar reações do artigo
+    const loadReactions = async () => {
+      try {
+        setLoading(true);
+        const reactions = await getArticleReactions(articleId);
+        setCounts(reactions);
+        
+        // Verificar se usuário já reagiu (fallback localStorage)
+        const savedReaction = localStorage.getItem(`r10_rx_${articleId}`);
+        if (savedReaction) {
+          setUserReaction(savedReaction);
+          setShowResult(true);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar reações:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadReactions();
   }, [articleId]);
 
-  const handleReaction = (emotionKey: string) => {
-    if (userReaction) return; // Já reagiu
+  const handleReaction = async (emotionKey: string) => {
+    if (userReaction && userReaction === emotionKey) {
+      // Toggle - remover reação
+      setAnimatingReaction(emotionKey);
+      
+      try {
+        const result = await reactToPost(articleId, emotionKey as keyof ReactionCounts);
+        
+        if (result.success && result.action === 'removed') {
+          setCounts(result.reactions);
+          setUserReaction(null);
+          setShowResult(false);
+          localStorage.removeItem(`r10_rx_${articleId}`);
+        }
+      } catch (error) {
+        console.error('Erro ao remover reação:', error);
+      }
+      
+      setTimeout(() => setAnimatingReaction(null), 1000);
+      return;
+    }
 
-    // Animar botão
+    if (userReaction && userReaction !== emotionKey) {
+      // Trocar reação
+      setAnimatingReaction(emotionKey);
+      
+      try {
+        const result = await reactToPost(articleId, emotionKey as keyof ReactionCounts);
+        
+        if (result.success) {
+          setCounts(result.reactions);
+          setUserReaction(emotionKey);
+          setShowResult(true);
+          localStorage.setItem(`r10_rx_${articleId}`, emotionKey);
+        }
+      } catch (error) {
+        console.error('Erro ao trocar reação:', error);
+      }
+      
+      setTimeout(() => setAnimatingReaction(null), 1000);
+      return;
+    }
+
+    // Nova reação
     setAnimatingReaction(emotionKey);
     
-    // Simular incremento (em produção seria uma API call)
-    setCounts(prev => ({
-      ...prev,
-      [emotionKey]: prev[emotionKey as keyof ReactionCounts] + 1
-    }));
+    try {
+      const result = await reactToPost(articleId, emotionKey as keyof ReactionCounts);
+      
+      if (result.success) {
+        setCounts(result.reactions);
+        setUserReaction(emotionKey);
+        setShowResult(true);
+        localStorage.setItem(`r10_rx_${articleId}`, emotionKey);
+      }
+    } catch (error) {
+      console.error('Erro ao adicionar reação:', error);
+    }
 
-    // Salvar reação do usuário
-    localStorage.setItem(`r10_rx_${articleId}`, emotionKey);
-    setUserReaction(emotionKey);
-    setShowResult(true);
-
-    // Parar animação após delay
     setTimeout(() => setAnimatingReaction(null), 1000);
 
     // Analytics (se disponível)
@@ -106,6 +155,16 @@ const ReactionBar: React.FC<ReactionBarProps> = ({ articleId }) => {
     return Object.values(counts).reduce((sum, count) => sum + count, 0);
   };
 
+  if (loading) {
+    return (
+      <div className="my-6" data-e2e="reaction-bar">
+        <div className="flex items-center justify-center gap-2 py-3 px-4 bg-white rounded-full shadow-sm border border-gray-200">
+          <div className="animate-pulse text-gray-400 text-sm">Carregando reações...</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="my-6" data-e2e="reaction-bar">
       {/* Uma linha moderna com emojis */}
@@ -118,12 +177,11 @@ const ReactionBar: React.FC<ReactionBarProps> = ({ articleId }) => {
             <div key={reaction.key} className="relative group">
               <button
                 onClick={() => handleReaction(reaction.key)}
-                disabled={!!userReaction}
                 className={`relative flex items-center gap-1 px-3 py-2 rounded-full transition-all duration-300 ${
                   isSelected 
                     ? 'bg-blue-100 text-blue-700 transform scale-110' 
                     : 'hover:bg-gray-100 hover:scale-105'
-                } ${!!userReaction && !isSelected ? 'opacity-50' : ''}`}
+                }`}
               >
                 <span className="text-lg">{reaction.emoji}</span>
                 <span className={`text-xs font-bold min-w-[20px] text-center ${

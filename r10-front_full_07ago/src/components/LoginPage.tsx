@@ -21,12 +21,18 @@ const LoginPage: React.FC = () => {
     setError(null);
     setIsLoading(true);
     
+    console.log('[LoginPage] Iniciando login...', { email });
+    
     try {
+      console.log('[LoginPage] Chamando login do AuthContext...');
       await login(email, password);
+      console.log('[LoginPage] Login concluído, navegando para /admin');
       navigate('/admin');
     } catch (err) {
+      console.error('[LoginPage] Erro capturado:', err);
       setError('Email ou senha inválidos. Tente novamente.');
     } finally {
+      console.log('[LoginPage] Finalizando - setando isLoading para false');
       setIsLoading(false);
     }
   };

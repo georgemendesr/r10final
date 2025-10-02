@@ -28,33 +28,50 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
   // Inicializar editor com conteúdo
   useEffect(() => {
-    if (editorRef.current && editorRef.current.innerHTML !== value) {
-      editorRef.current.innerHTML = value || '';
+    if (editorRef.current && !isComposing) {
+      const currentContent = editorRef.current.innerHTML;
+      const newContent = value || '';
+      
+      // Só atualizar se o conteúdo realmente mudou
+      if (currentContent !== newContent) {
+        // Salvar posição do cursor
+        const selection = window.getSelection();
+        const range = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+        const cursorOffset = range ? range.startOffset : 0;
+        const cursorNode = range ? range.startContainer : null;
+        
+        editorRef.current.innerHTML = newContent;
+        
+        // Restaurar cursor se possível
+        if (cursorNode && editorRef.current.contains(cursorNode)) {
+          try {
+            const newRange = document.createRange();
+            newRange.setStart(cursorNode, Math.min(cursorOffset, cursorNode.textContent?.length || 0));
+            newRange.collapse(true);
+            selection?.removeAllRanges();
+            selection?.addRange(newRange);
+          } catch (e) {
+            // Ignorar erros de restauração de cursor
+          }
+        }
+      }
     }
-  }, [value]);
+  }, [value, isComposing]);
 
-  // Observer para animação de highlights quando entram na viewport
+  // Preview de animação no editor (apenas visual, não afeta salvamento)
   useEffect(() => {
     if (!editorRef.current) return;
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting && (entry.target as HTMLElement).getAttribute('data-highlight') === 'animated') {
-            const element = entry.target as HTMLElement;
-            element.classList.add('animate-in-view');
-            observer.unobserve(element);
-          }
-        });
-      },
-      { threshold: 0.1 }
-    );
-
-    // Observar elementos com animação
-    const animatedElements = editorRef.current.querySelectorAll('[data-highlight="animated"]:not(.animate-in-view)');
-    animatedElements.forEach((el) => observer.observe(el));
-
-    return () => observer.disconnect();
+    // Ativar animação para elementos que já existem (preview no editor)
+    const animatedElements = editorRef.current.querySelectorAll('[data-highlight="animated"]');
+    animatedElements.forEach((el) => {
+      const element = el as HTMLElement;
+      // Pequeno delay para mostrar a animação
+      setTimeout(() => {
+        element.style.backgroundSize = '100% 100%';
+        element.classList.add('animate-in-view');
+      }, 300);
+    });
   }, [value]);
 
   // Adicionar ao histórico
@@ -78,11 +95,20 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     if (!editorRef.current || isComposing) return;
     
     const content = editorRef.current.innerHTML;
+    
+    // Chamar onChange SEMPRE que houver mudança
     onChange(content);
     
     // Adicionar ao histórico apenas se o conteúdo mudou significativamente
     const lastHistory = history[historyIndex];
-    if (!lastHistory || content !== lastHistory.content) {
+    const now = Date.now();
+    
+    // Adicionar ao histórico se:
+    // 1. Não há histórico anterior
+    // 2. Conteúdo é diferente
+    // 3. Passou mais de 500ms desde última entrada (evitar spam)
+    if (!lastHistory || 
+        (content !== lastHistory.content && (!lastHistory.timestamp || now - lastHistory.timestamp > 500))) {
       addToHistory(content);
     }
   }, [onChange, isComposing, history, historyIndex, addToHistory]);
@@ -144,54 +170,78 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   // Inserir highlight
   const insertHighlight = (type: 'simple' | 'animated') => {
     const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0) return;
+    if (!selection || selection.rangeCount === 0) {
+      alert('Por favor, selecione o texto que deseja destacar.');
+      return;
+    }
     
     const range = selection.getRangeAt(0);
-    const selectedText = range.toString();
+    const selectedText = range.toString().trim();
     
-    if (selectedText) {
-      const span = document.createElement('span');
-      if (type === 'animated') {
-        span.className = 'highlight-animated';
-        span.setAttribute('data-highlight', 'animated');
-        // Inline styles para garantir que funcionem no renderizado final
-        span.style.cssText = `
-          position: relative !important;
-          background: linear-gradient(90deg, #fbbf24, #f59e0b) !important;
-          background-size: 0% 100% !important;
-          background-repeat: no-repeat !important;
-          background-position: left center !important;
-          transition: background-size 2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-          color: #000 !important;
-          font-weight: 600 !important;
-          padding: 2px 4px !important;
-          border-radius: 4px !important;
-          display: inline !important;
-          -webkit-box-decoration-break: clone; box-decoration-break: clone; line-height: inherit !important;
-        `;
-      } else {
-        span.className = 'bg-yellow-200 px-1 rounded';
-        span.style.cssText = `
-          background-color: #fef3c7 !important;
-          padding: 2px 4px !important;
-          border-radius: 4px !important;
-          display: inline !important;
-        `;
-      }
+    if (!selectedText) {
+      alert('Por favor, selecione o texto que deseja destacar.');
+      return;
+    }
+    
+    const span = document.createElement('span');
+    
+    if (type === 'animated') {
+      // Classes e atributos
+      span.className = 'highlight-animated';
+      span.setAttribute('data-highlight', 'animated');
+      
+      // Estilos inline CRÍTICOS - serão preservados ao salvar
+      span.style.cssText = `
+        position: relative;
+        background: linear-gradient(90deg, #fbbf24, #f59e0b);
+        background-size: 0% 100%;
+        background-repeat: no-repeat;
+        background-position: left center;
+        transition: background-size 2s cubic-bezier(0.4, 0, 0.2, 1);
+        color: #000;
+        font-weight: 600;
+        padding: 2px 4px;
+        border-radius: 4px;
+        display: inline;
+        -webkit-box-decoration-break: clone;
+        box-decoration-break: clone;
+      `.replace(/\s+/g, ' ').trim();
+      
+      span.textContent = selectedText;
+      
+      // Inserir o span
+      range.deleteContents();
+      range.insertNode(span);
+      
+      // Limpar seleção
+      selection.removeAllRanges();
+      
+      // Ativar animação após delay (preview no editor)
+      setTimeout(() => {
+        span.style.backgroundSize = '100% 100%';
+        span.classList.add('animate-in-view');
+      }, 300);
+      
+    } else {
+      // Destaque simples
+      span.className = 'highlight-simple';
+      span.style.cssText = `
+        background-color: #fef3c7;
+        padding: 2px 4px;
+        border-radius: 4px;
+        display: inline;
+      `.replace(/\s+/g, ' ').trim();
       
       span.textContent = selectedText;
       range.deleteContents();
       range.insertNode(span);
       selection.removeAllRanges();
-      
-      // Para o efeito animado, ativar imediatamente para demonstração no editor
-      if (type === 'animated') {
-        setTimeout(() => {
-          span.style.backgroundSize = '100% 100%';
-          span.classList.add('animate-in-view');
-        }, 200);
-      }
     }
+    
+    // CRÍTICO: Chamar handleContentChange para salvar
+    setTimeout(() => {
+      handleContentChange();
+    }, 100);
   };
 
   // Inserir elemento especial

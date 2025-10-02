@@ -53,34 +53,38 @@ const generateToken = (): string => Math.random().toString(36).substring(2) + Ma
 export const login = async (email: string, password: string): Promise<AuthState> => {
   // Tentar backend primeiro
   try {
+    console.log('[AuthService] Tentando login no backend...', email);
     const res = await fetch(`${API_BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
       credentials: 'include'
     });
+    
+    console.log('[AuthService] Resposta do servidor:', res.status, res.statusText);
+    
     if (res.ok) {
       const data = await res.json();
+      console.log('[AuthService] Login bem-sucedido:', data);
       const authState: AuthState = { user: data.user, isAuthenticated: true };
       // Persistir token (fallback Authorization) além dos cookies HttpOnly
       try {
         const raw = localStorage.getItem('r10_auth');
         const cur = raw ? JSON.parse(raw) : {};
-        const next = { ...cur, token: data?.token || null };
+        const next = { ...cur, token: data?.token || null, user: data.user, isAuthenticated: true };
         localStorage.setItem('r10_auth', JSON.stringify(next));
       } catch (_) {}
       saveAuthToStorage(authState);
       return authState;
+    } else {
+      const errorText = await res.text();
+      console.error('[AuthService] Erro do servidor:', errorText);
+      throw new Error(errorText || 'Erro ao fazer login');
     }
-  } catch (_) { /* cairá para fallback */ }
-
-  // Fallback localStorage (modo dev offline)
-  const users = loadUsersFromStorage();
-  const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
-  if (!user) throw new Error('Usuário não encontrado');
-  const authState: AuthState = { user, isAuthenticated: true };
-  saveAuthToStorage(authState);
-  return authState;
+  } catch (error) {
+    console.error('[AuthService] Exceção durante login:', error);
+    throw error;
+  }
 };
 
 export const logout = async (): Promise<void> => {
@@ -100,21 +104,32 @@ export const logout = async (): Promise<void> => {
 
 export const getCurrentUser = async (): Promise<User | null> => {
   try {
-    const user = await apiGet<User>(`/auth/me`);
+    const user = await apiGet<User>(`/auth/me`, { silent401: true });
     const next = { user, isAuthenticated: true } as AuthState;
     saveAuthToStorage(next);
     return user;
-  } catch (_) {}
+  } catch (error: any) {
+    // Se erro 401, usuário não está autenticado - limpar storage e retornar null silenciosamente
+    if (error?.status === 401 || error?.response?.status === 401) {
+      saveAuthToStorage({ user: null, isAuthenticated: false });
+      return null;
+    }
+  }
   // tentar refresh e reconectar usando o cliente central (com Authorization)
   try {
     const r = await apiPost<any>(`/auth/refresh`);
     if (r && r.user) {
-      const user = await apiGet<User>(`/auth/me`);
+      const user = await apiGet<User>(`/auth/me`, { silent401: true });
       const next = { user, isAuthenticated: true } as AuthState;
       saveAuthToStorage(next);
       return user;
     }
-  } catch (_) {}
+  } catch (error: any) {
+    // Se refresh também falhar, limpar storage
+    if (error?.status === 401 || error?.response?.status === 401) {
+      saveAuthToStorage({ user: null, isAuthenticated: false });
+    }
+  }
   return null;
 };
 
