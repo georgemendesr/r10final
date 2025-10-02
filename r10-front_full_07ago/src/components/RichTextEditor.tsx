@@ -190,14 +190,14 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
       span.className = 'highlight-animated';
       span.setAttribute('data-highlight', 'animated');
       
-      // Estilos inline CRÍTICOS - serão preservados ao salvar
+      // 🔧 FIX: Salvar com backgroundSize JÁ em 0% (será animado na página publicada)
+      // O editor mostra preview, mas o HTML salvo fica pronto para animação scroll-based
       span.style.cssText = `
         position: relative;
         background: linear-gradient(90deg, #fbbf24, #f59e0b);
         background-size: 0% 100%;
         background-repeat: no-repeat;
         background-position: left center;
-        transition: background-size 2s cubic-bezier(0.4, 0, 0.2, 1);
         color: #000;
         font-weight: 600;
         padding: 2px 4px;
@@ -216,11 +216,11 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
       // Limpar seleção
       selection.removeAllRanges();
       
-      // Ativar animação após delay (preview no editor)
+      // Preview TEMPORÁRIO no editor (não será salvo)
       setTimeout(() => {
+        span.style.transition = 'background-size 0.8s ease-out';
         span.style.backgroundSize = '100% 100%';
-        span.classList.add('animate-in-view');
-      }, 300);
+      }, 100);
       
     } else {
       // Destaque simples
@@ -269,10 +269,14 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
           element.className = 'bg-blue-50 border border-blue-200 rounded-lg p-3 my-2 text-blue-800';
         }
         
-        element.textContent = selectedText;
-        range.deleteContents();
+        // 🔧 FIX: Usar extractContents() para preservar a seleção EXATA
+        const fragment = range.extractContents();
+        element.appendChild(fragment);
         range.insertNode(element);
         selection.removeAllRanges();
+        
+        // Salvar alteração
+        setTimeout(() => handleContentChange(), 100);
       } else {
         // Se não há seleção, inserir elemento vazio com placeholder
         const element = document.createElement(tag);
@@ -299,6 +303,9 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
         newRange.selectNodeContents(element);
         selection.removeAllRanges();
         selection.addRange(newRange);
+        
+        // Salvar alteração
+        setTimeout(() => handleContentChange(), 100);
       }
     }
   };

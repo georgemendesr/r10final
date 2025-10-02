@@ -308,6 +308,32 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
           );
         })()}
       </Helmet>
+      
+      {/* CSS para animação de highlights */}
+      <style>{`
+        /* Destaque animado - estado inicial (salvo no banco) */
+        span[data-highlight="animated"],
+        .highlight-animated {
+          position: relative;
+          background: linear-gradient(90deg, #fbbf24, #f59e0b);
+          background-size: 0% 100%;
+          background-repeat: no-repeat;
+          background-position: left center;
+          transition: background-size 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+          color: #000;
+          font-weight: 600;
+          padding: 2px 4px;
+          border-radius: 4px;
+          display: inline;
+        }
+        
+        /* Destaque animado - quando visível na tela */
+        span[data-highlight="animated"].animate-in-view,
+        .highlight-animated.animate-in-view {
+          background-size: 100% 100% !important;
+        }
+      `}</style>
+      
       <Header />
       <BreakingBar />
       
