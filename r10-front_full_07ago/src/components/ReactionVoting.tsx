@@ -64,6 +64,11 @@ const ReactionVoting: React.FC<ReactionVotingProps> = memo(({ articleId, onVote 
         localStorage.setItem(`r10_user_reaction_${articleId}`, reactionKey);
         
         onVote?.(reactionKey);
+        try {
+          window.dispatchEvent(new CustomEvent('reaction-updated', { detail: { articleId, reaction: reactionKey } }));
+        } catch (e) {
+          console.warn('Falha ao despachar evento reaction-updated', e);
+        }
       }
     } catch (error) {
       console.error('Erro ao votar:', error);
