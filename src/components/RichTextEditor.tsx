@@ -275,8 +275,9 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     
     // Se há texto selecionado, usar esse texto; senão usar placeholder
     if (selectedText) {
-      element.textContent = selectedText;
-      range.deleteContents();
+      // 🔧 FIX: Usar extractContents() para preservar formatação inline
+      const fragment = range.extractContents();
+      element.appendChild(fragment);
     } else {
       element.textContent = placeholder;
     }

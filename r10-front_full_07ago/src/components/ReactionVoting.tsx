@@ -2,7 +2,7 @@ import React, { useState, useEffect, memo } from 'react';
 import { 
   getArticleReactions, 
   getUserReaction, 
-  saveUserReaction, 
+  reactToPost, 
   reactionConfig,
   ReactionCounts
 } from '../services/reactionsService';
@@ -23,40 +23,55 @@ const ReactionVoting: React.FC<ReactionVotingProps> = memo(({ articleId, onVote 
   });
   const [userVote, setUserVote] = useState<string | null>(null);
   const [animatingVote, setAnimatingVote] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
+  // 🔧 FIX: Carregar reações da API (async)
   useEffect(() => {
-    const articleReactions = getArticleReactions(articleId);
-    const savedUserVote = getUserReaction(articleId);
+    const loadReactions = async () => {
+      try {
+        const reactions = await getArticleReactions(articleId);
+        const savedUserVote = getUserReaction(articleId);
+        
+        setCounts(reactions);
+        if (savedUserVote) {
+          setUserVote(savedUserVote);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar reações:', error);
+      }
+    };
     
-    setCounts(articleReactions);
-    if (savedUserVote) {
-      setUserVote(savedUserVote);
-    }
+    loadReactions();
   }, [articleId]);
 
-  const handleVote = (reactionKey: string) => {
-    if (userVote === reactionKey) return;
+  // 🔧 FIX: Enviar voto para API (async)
+  const handleVote = async (reactionKey: string) => {
+    if (userVote === reactionKey || loading) return;
 
-    const newCounts = { ...counts };
-    
-    if (userVote) {
-      newCounts[userVote as keyof ReactionCounts] = Math.max(0, newCounts[userVote as keyof ReactionCounts] - 1);
-    }
-    
-    newCounts[reactionKey as keyof ReactionCounts] += 1;
-    
+    setLoading(true);
     setAnimatingVote(reactionKey);
-    setTimeout(() => setAnimatingVote(null), 1000);
     
-    setCounts(newCounts);
-    setUserVote(reactionKey);
-    
-    const allReactions = JSON.parse(localStorage.getItem('r10_reactions_data') || '{}');
-    allReactions[articleId] = newCounts;
-    localStorage.setItem('r10_reactions_data', JSON.stringify(allReactions));
-    saveUserReaction(articleId, reactionKey);
-    
-    onVote?.(reactionKey);
+    try {
+      // Chamar API para registrar voto
+      const result = await reactToPost(articleId, reactionKey as keyof ReactionCounts);
+      
+      if (result.success) {
+        // Atualizar estado com dados da API
+        setCounts(result.reactions);
+        setUserVote(reactionKey);
+        
+        // Salvar no localStorage também (para persistência offline)
+        localStorage.setItem(`r10_user_reaction_${articleId}`, reactionKey);
+        
+        onVote?.(reactionKey);
+      }
+    } catch (error) {
+      console.error('Erro ao votar:', error);
+      alert('Erro ao registrar seu voto. Tente novamente.');
+    } finally {
+      setLoading(false);
+      setTimeout(() => setAnimatingVote(null), 1000);
+    }
   };
 
   const totalVotes = Object.values(counts).reduce((sum, count) => sum + count, 0);
@@ -83,6 +98,7 @@ const ReactionVoting: React.FC<ReactionVotingProps> = memo(({ articleId, onVote 
             <button
               key={reaction.key}
               onClick={() => handleVote(reaction.key)}
+              disabled={loading}
               className={`
                 relative flex flex-col items-center p-4 rounded-xl border-2 transition-all duration-300
                 ${isSelected 
@@ -90,6 +106,7 @@ const ReactionVoting: React.FC<ReactionVotingProps> = memo(({ articleId, onVote 
                   : 'bg-white border-gray-200 hover:border-gray-300 hover:scale-105'
                 }
                 ${isAnimating ? 'animate-pulse' : ''}
+                ${loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
                 group
               `}
               title={`${reaction.label} - ${percentage}%`}

@@ -4,7 +4,8 @@ import {
   getUserReaction, 
   saveUserReaction, 
   reactionConfig,
-  ReactionCounts
+  ReactionCounts,
+  reactToPost
 } from '../services/reactionsService';
 
 interface ReactionVotingProps {
@@ -25,41 +26,42 @@ const ReactionVoting: React.FC<ReactionVotingProps> = memo(({ articleId, onVote 
   const [animatingVote, setAnimatingVote] = useState<string | null>(null);
 
   useEffect(() => {
-    const articleReactions = getArticleReactions(articleId);
-    const savedUserVote = getUserReaction(articleId);
-    
-    setCounts(articleReactions);
-    if (savedUserVote) {
-      setUserVote(savedUserVote);
-    }
+    (async () => {
+      const articleReactions = await getArticleReactions(articleId);
+      const savedUserVote = getUserReaction(articleId);
+      setCounts(articleReactions);
+      if (savedUserVote) setUserVote(savedUserVote);
+    })();
   }, [articleId]);
 
-  const handleVote = (reactionKey: string) => {
+  const handleVote = async (reactionKey: string) => {
     if (userVote === reactionKey) return;
-
-    const newCounts = { ...counts };
-    
-    if (userVote) {
-      newCounts[userVote as keyof ReactionCounts] = Math.max(0, newCounts[userVote as keyof ReactionCounts] - 1);
+    try {
+      setAnimatingVote(reactionKey);
+      setTimeout(() => setAnimatingVote(null), 1000);
+      const result = await reactToPost(articleId, reactionKey as keyof ReactionCounts);
+      if (result?.reactions) {
+        setCounts(result.reactions);
+      } else {
+        // Fallback: recarregar
+        const refreshed = await getArticleReactions(articleId);
+        setCounts(refreshed);
+      }
+      setUserVote(reactionKey);
+      saveUserReaction(articleId, reactionKey);
+      onVote?.(reactionKey);
+      // Dispara evento global para outros componentes (ReactionResults) atualizarem
+      try {
+        window.dispatchEvent(new CustomEvent('reaction-updated', { detail: { articleId, reaction: reactionKey } }));
+      } catch (e) {
+        console.warn('Falha ao despachar evento reaction-updated', e);
+      }
+    } catch (e) {
+      console.error('Erro ao votar reação', e);
     }
-    
-    newCounts[reactionKey as keyof ReactionCounts] += 1;
-    
-    setAnimatingVote(reactionKey);
-    setTimeout(() => setAnimatingVote(null), 1000);
-    
-    setCounts(newCounts);
-    setUserVote(reactionKey);
-    
-    const allReactions = JSON.parse(localStorage.getItem('r10_reactions_data') || '{}');
-    allReactions[articleId] = newCounts;
-    localStorage.setItem('r10_reactions_data', JSON.stringify(allReactions));
-    saveUserReaction(articleId, reactionKey);
-    
-    onVote?.(reactionKey);
   };
 
-  const totalVotes = Object.values(counts).reduce((sum, count) => sum + count, 0);
+  const totalVotes = Object.values(counts).reduce<number>((sum, count) => sum + (count as number), 0);
   
   const getPercentage = (count: number) => {
     if (totalVotes === 0) return 0;
@@ -73,7 +75,7 @@ const ReactionVoting: React.FC<ReactionVotingProps> = memo(({ articleId, onVote 
       </h3>
       
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        {reactionConfig.map((reaction) => {
+  {reactionConfig.map((reaction: typeof reactionConfig[number]) => {
           const count = counts[reaction.key as keyof ReactionCounts];
           const percentage = getPercentage(count);
           const isSelected = userVote === reaction.key;
@@ -119,7 +121,7 @@ const ReactionVoting: React.FC<ReactionVotingProps> = memo(({ articleId, onVote 
       {userVote && (
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-600">
-            Você escolheu: <strong>{reactionConfig.find(r => r.key === userVote)?.label}</strong>
+            Você escolheu: <strong>{reactionConfig.find((r: typeof reactionConfig[number]) => r.key === userVote)?.label}</strong>
           </p>
           <p className="text-xs text-gray-500 mt-1">
             Toque em outra reação para alterar seu voto

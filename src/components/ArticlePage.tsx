@@ -626,7 +626,7 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
                     // Processar conteúdo HTML preservando a estrutura correta
                     return (
                       <div key={index} 
-                           className="text-gray-800 leading-relaxed mb-6 text-base font-normal"
+                           className="text-gray-800 leading-relaxed mb-6 text-base font-normal article-paragraph"
                            dangerouslySetInnerHTML={{ __html: paragraph }}
                            style={{
                              lineHeight: '1.8',
@@ -790,15 +790,49 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
         }
         
         .article-html-content blockquote {
-          border-left: 4px solid #3b82f6;
+          border-left: 4px solid #2563eb;
           padding-left: 1.5rem;
-          padding-top: 0.75rem;
-          padding-bottom: 0.75rem;
-          margin: 1.5rem 0;
+          padding-right: 1rem;
+          padding-top: 1rem;
+          padding-bottom: 1rem;
+          margin: 0;
           font-style: italic;
           background-color: #eff6ff;
           border-radius: 0 0.5rem 0.5rem 0;
-          color: #1f2937;
+          color: #1e3a8a;
+          display: inline;
+          font-size: 18px;
+        }
+        
+        .article-paragraph blockquote {
+          border-left: 4px solid #2563eb;
+          padding-left: 1.5rem;
+          padding-right: 1rem;
+          padding-top: 1rem;
+          padding-bottom: 1rem;
+          margin: 0;
+          font-style: italic;
+          background-color: #eff6ff;
+          border-radius: 0 0.5rem 0.5rem 0;
+          color: #1e3a8a;
+          display: inline;
+          font-size: 18px;
+        }
+        
+        .inline-blockquote {
+          border-left: 4px solid #2563eb;
+          padding-left: 1.5rem;
+          padding-right: 1rem;
+          padding-top: 0.5rem;
+          padding-bottom: 0.5rem;
+          margin: 0 0.25rem;
+          font-style: italic;
+          background-color: #eff6ff;
+          border-radius: 0 0.5rem 0.5rem 0;
+          color: #1e3a8a;
+          display: inline-block;
+          font-size: 18px;
+          line-height: 1.6;
         }
         
         .article-html-content br {

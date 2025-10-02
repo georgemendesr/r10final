@@ -1,6 +1,7 @@
 {
   "restartCounts": {
-    "backend": 31,
-    "frontend": 24
+    "backend": 32,
+    "frontend": 25,
+    "instagram": 5
   }
 }

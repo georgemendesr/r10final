@@ -16,21 +16,37 @@ const ReactionResults: React.FC<ReactionResultsProps> = memo(({ articleId }) => 
   });
 
   useEffect(() => {
-    // Carregar dados reais do serviço
-    const articleReactions = getArticleReactions(articleId);
-    setCounts(articleReactions);
+    // 🔧 FIX: Carregar dados reais do serviço com async/await
+    const loadReactions = async () => {
+      try {
+        const articleReactions = await getArticleReactions(articleId);
+        setCounts(articleReactions);
+      } catch (error) {
+        console.error('Erro ao carregar reações:', error);
+      }
+    };
+    
+    loadReactions();
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.articleId === articleId) {
+        loadReactions();
+      }
+    };
+    window.addEventListener('reaction-updated', handler as EventListener);
+    return () => window.removeEventListener('reaction-updated', handler as EventListener);
   }, [articleId]);
 
-  const totalReactions = Object.values(counts).reduce((sum, count) => sum + count, 0);
+  const totalReactions = Object.values(counts).reduce<number>((sum, count) => sum + (count as number), 0);
   
   // Mostrar apenas as 3 reações com mais votos
   const topReactions = reactionConfig
-    .map(reaction => ({
+    .map((reaction: typeof reactionConfig[number]) => ({
       ...reaction,
       count: counts[reaction.key as keyof ReactionCounts],
       percentage: totalReactions > 0 ? Math.round((counts[reaction.key as keyof ReactionCounts] / totalReactions) * 100) : 0
     }))
-    .sort((a, b) => b.count - a.count)
+    .sort((a, b) => (b.count as number) - (a.count as number))
     .slice(0, 3);
 
   return (

@@ -1,0 +1,6 @@
+fix: corrigido sistema de reacoes - NaN% e async/await
+
+- useEffect agora é async para carregar reacoes
+- handleVote chama API POST /api/posts/:id/react
+- Adicionado estado loading
+- Corrigido percentuais NaN

@@ -635,14 +635,28 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
                   
                   // 2. CITAÇÕES (BLOCKQUOTE)
                   else if (paragraph.startsWith('> ') || paragraph.includes('<blockquote')) {
-                    let processedText = paragraph
-                      .replace(/^> (.*?)(?=\n|$)/gm, '$1')
-                      .replace(/<blockquote[^>]*>(.*?)<\/blockquote>/g, '$1');
+                    // 🔧 FIX: Extrair APENAS o conteúdo do <blockquote>, não o parágrafo inteiro
+                    const blockquoteMatch = paragraph.match(/<blockquote[^>]*>(.*?)<\/blockquote>/s);
+                    let quoteContent = '';
+                    
+                    if (blockquoteMatch) {
+                      // Se tem tag <blockquote>, extrair só o conteúdo dela
+                      quoteContent = blockquoteMatch[1];
+                    } else if (paragraph.startsWith('> ')) {
+                      // Se é formato Markdown (> texto)
+                      quoteContent = paragraph.replace(/^> (.*?)(?=\n|$)/gm, '$1');
+                    }
+                    
+                    // Limpar tags extras (div, span) mas manter formatação inline
+                    quoteContent = quoteContent
+                      .replace(/<\/?div[^>]*>/g, '')
+                      .replace(/<br\s*\/?>/g, '')
+                      .trim();
                       
                     return (
                       <blockquote key={index} className="border-l-4 border-blue-600 pl-6 py-4 my-8 bg-blue-50 rounded-r-lg">
-                        <p className="text-lg font-normal text-gray-800"
-                           dangerouslySetInnerHTML={{ __html: processedText }}>
+                        <p className="text-lg font-normal text-gray-800 italic"
+                           dangerouslySetInnerHTML={{ __html: quoteContent }}>
                         </p>
                       </blockquote>
                     );
