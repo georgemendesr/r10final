@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "dev": "node r10-manager.js start",
-    "start": "node r10-manager.js start",
+    "start": "node server/server-api-simple.cjs",
+    "start:full": "node r10-manager.js start",
     "stop": "node r10-manager.js stop",
     "status": "node r10-manager.js status",
     "restart": "node r10-manager.js restart",
