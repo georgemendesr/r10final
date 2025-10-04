@@ -315,7 +315,7 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
         span[data-highlight="animated"],
         .highlight-animated {
           position: relative;
-          background: linear-gradient(90deg, #fbbf24, #f59e0b);
+          background: linear-gradient(90deg, #FF8C42, #FF6B35);
           background-size: 0% 100%;
           background-repeat: no-repeat;
           background-position: left center;
@@ -678,13 +678,19 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
                            paragraph.includes('===') ||
                            paragraph.includes('<span class="highlight-simple">')) {
                     let highlightedText = paragraph
-                      // Preservar data-highlight existente (já salvo corretamente)
-                      .replace(/<span[^>]*data-highlight="animated"[^>]*style="[^"]*">(.*?)<\/span>/g, 
-                               '<span data-highlight="animated" class="highlight-animated">$1</span>')
+                      // ✅ PRESERVAR SPAN COMPLETO (não remover style!) - apenas normalizar se necessário
+                      .replace(/<span[^>]*data-highlight="animated"[^>]*>(.*?)<\/span>/g, (match, content) => {
+                        // Se já tem style inline, preservar o span original
+                        if (match.includes('style=')) {
+                          return match;
+                        }
+                        // Se não tem style, adicionar atributos completos
+                        return `<span data-highlight="animated" class="highlight-animated">${content}</span>`;
+                      })
                       // Formato antigo: ===texto=== = ANIMADO
                       .replace(/===(.*?)===/g, '<span data-highlight="animated" class="highlight-animated">$1</span>')
                       // Formato antigo: ==texto== = SIMPLES
-                      .replace(/==(.*?)==/g, '<span class="bg-yellow-200 px-1 rounded border border-yellow-400">$1</span>')
+                      .replace(/==(.*?)===/g, '<span class="bg-yellow-200 px-1 rounded border border-yellow-400">$1</span>')
                       // Formato simples já existente
                       .replace(/<span class="highlight-simple"[^>]*>(.*?)<\/span>/g, 
                                '<span class="bg-yellow-200 px-1 rounded border border-yellow-400">$1</span>')

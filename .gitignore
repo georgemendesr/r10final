@@ -17,7 +17,8 @@ lerna-debug.log*
 .env.production.local
 
 # Build outputs
-dist/
+# IMPORTANTE: dist/ do frontend DEVE ser commitado para Integrator!
+# Comentado: # r10-front_full_07ago/dist/
 build/
 *.tsbuildinfo
 

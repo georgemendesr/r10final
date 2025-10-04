@@ -194,7 +194,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
       // O editor mostra preview, mas o HTML salvo fica pronto para animação scroll-based
       span.style.cssText = `
         position: relative;
-        background: linear-gradient(90deg, #fbbf24, #f59e0b);
+        background: linear-gradient(90deg, #FF8C42, #FF6B35);
         background-size: 0% 100%;
         background-repeat: no-repeat;
         background-position: left center;

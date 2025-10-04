@@ -2347,20 +2347,47 @@ function createApp({ dbPath }) {
         a: ['href','name','target','rel'],
         img: ['src','alt','title','width','height','loading'],
         iframe: ['src','width','height','allow','allowfullscreen','frameborder'],
-        '*': ['style']
+        span: ['class', 'style', 'data-highlight'], // ✅ PERMITIR data-highlight para destaques animados
+        '*': ['style', 'class']
       },
       allowedSchemes: ['http','https','data','mailto'],
       transformTags: {
         'b': 'strong',
         'i': 'em'
       },
-      // limitar style inline potencialmente perigoso (remoção automática por default se não configurado)
+      // ✅ PERMITIR TODOS OS ESTILOS INLINE SEGUROS (necessário para destaques animados)
       allowedStyles: {
         '*': {
-          // Permitir somente alguns estilos básicos (regex simples)
-          'text-align': [/^left$/,/^right$/,/^center$/,/^justify$/],
-          'font-weight': [/^bold$/,/^700$/],
-          'font-style': [/^italic$/],
+          // Estilos de texto
+          'text-align': [/.*/],
+          'font-weight': [/.*/],
+          'font-style': [/.*/],
+          'font-size': [/.*/],
+          'font-family': [/.*/],
+          'line-height': [/.*/],
+          'color': [/.*/],
+          // Estilos de background (necessário para destaques)
+          'background': [/.*/],
+          'background-color': [/.*/],
+          'background-size': [/.*/],
+          'background-position': [/.*/],
+          'background-repeat': [/.*/],
+          // Estilos de layout
+          'padding': [/.*/],
+          'margin': [/.*/],
+          'border': [/.*/],
+          'border-radius': [/.*/],
+          'border-left': [/.*/],
+          'border-color': [/.*/],
+          // Estilos de posição
+          'position': [/^(relative|absolute|static)$/],
+          'display': [/.*/],
+          // Animação e transição
+          'transition': [/.*/],
+          'animation': [/.*/],
+          // Box decoration
+          '-webkit-box-decoration-break': [/.*/],
+          'box-decoration-break': [/.*/],
         }
       },
       enforceHtmlBoundary: true
@@ -2683,12 +2710,47 @@ function createApp({ dbPath }) {
     
     // Campos opcionais
     const subtitulo = body.subtitulo || body.subtitle || '';
-    // Sanitização de conteúdo
+    // Sanitização de conteúdo (mesma config do PUT para consistência)
     const sanitizeOptions = {
-      allowedTags: ['p','b','i','strong','em','a','ul','ol','li','br','blockquote'],
-      allowedAttributes: { a: ['href','name','target','rel'] },
-      allowedSchemes: ['http','https','mailto'],
+      allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img','figure','figcaption','iframe']),
+      allowedAttributes: {
+        a: ['href','name','target','rel'],
+        img: ['src','alt','title','width','height','loading'],
+        iframe: ['src','width','height','allow','allowfullscreen','frameborder'],
+        span: ['class', 'style', 'data-highlight'], // ✅ PERMITIR data-highlight para destaques animados
+        '*': ['style', 'class']
+      },
+      allowedSchemes: ['http','https','data','mailto'],
       transformTags: { 'b': 'strong', 'i': 'em' },
+      // ✅ PERMITIR TODOS OS ESTILOS INLINE SEGUROS (necessário para destaques animados)
+      allowedStyles: {
+        '*': {
+          'text-align': [/.*/],
+          'font-weight': [/.*/],
+          'font-style': [/.*/],
+          'font-size': [/.*/],
+          'font-family': [/.*/],
+          'line-height': [/.*/],
+          'color': [/.*/],
+          'background': [/.*/],
+          'background-color': [/.*/],
+          'background-size': [/.*/],
+          'background-position': [/.*/],
+          'background-repeat': [/.*/],
+          'padding': [/.*/],
+          'margin': [/.*/],
+          'border': [/.*/],
+          'border-radius': [/.*/],
+          'border-left': [/.*/],
+          'border-color': [/.*/],
+          'position': [/^(relative|absolute|static)$/],
+          'display': [/.*/],
+          'transition': [/.*/],
+          'animation': [/.*/],
+          '-webkit-box-decoration-break': [/.*/],
+          'box-decoration-break': [/.*/],
+        }
+      },
       enforceHtmlBoundary: true
     };
     let conteudo = body.conteudo || body.content || '';

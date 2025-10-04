@@ -473,7 +473,7 @@ span[style*="animation"] {
 .highlight-animated,
 [data-highlight="animated"] {
   position: relative !important;
-  background: linear-gradient(90deg, #fbbf24, #f59e0b) !important;
+  background: linear-gradient(90deg, #FF8C42, #FF6B35) !important;
   background-size: 0% 100% !important; /* força estado inicial */
   background-repeat: no-repeat !important;
   background-position: left center !important;
