@@ -40,14 +40,20 @@ RUN npm ci --only=production
 # Copiar código
 COPY . .
 
-# Build do frontend (se necessário)
-RUN cd r10-front_full_07ago && npm ci && npm run build && cd .. && cp -r r10-front_full_07ago/dist ./dist || true
+# Build do frontend
+RUN cd r10-front_full_07ago && npm ci && npm run build && cd .. && cp -r r10-front_full_07ago/dist ./dist
 
 # Criar diretório para dados persistentes
 RUN mkdir -p /data
 
+# Baixar fontes necessárias
+RUN npm run fetch:fonts || true
+
 # Expor porta
 EXPOSE 8080
 
-# Comando de inicialização
-CMD ["node", "server/server-api-simple.cjs"]
+# Criar arquivo que inicia API + Instagram juntos
+RUN echo 'console.log("[BOOT] Iniciando API + Instagram Publisher");\nrequire("./server/server-api-simple.cjs");\nsetTimeout(() => {\n  console.log("[BOOT] Iniciando Instagram Publisher em 5s...");\n  process.env.PORT_INSTAGRAM = "8081";\n  require("./server.js");\n}, 5000);' > start-all.js
+
+# Comando de inicialização (API + Instagram)
+CMD ["node", "start-all.js"]

@@ -7,6 +7,7 @@ primary_region = "gru"
 [env]
   NODE_ENV = "production"
   PORT = "8080"
+  SERVE_STATIC_FRONT = "1"
 
 [http_service]
   internal_port = 8080

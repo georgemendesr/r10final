@@ -37,7 +37,8 @@ try {
   require('dotenv').config({ path: path.join(process.cwd(), '.env') });
 } catch (_) {}
 
-const PORT = 3002;
+// Porta do servidor: agora lê da variável de ambiente (Integrador define PORT=62013)
+const PORT = process.env.PORT ? Number(process.env.PORT) : 3002;
 
 // Util: slugify seguro para PT-BR
 function slugify(texto = '') {
