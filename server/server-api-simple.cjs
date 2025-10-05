@@ -3426,22 +3426,29 @@ try {
     }
 
     const noticias = [
-      {t:'Governo do Piauí anuncia investimento de R$ 500 milhões em infraestrutura',ch:'Desenvolvimento',r:'Recursos para 12 municípios',c:'<p>Investimento histórico em obras públicas.</p>',a:'João Silva',cat:'politica',p:1,d:1},
-      {t:'Piripiri recebe primeira indústria de tecnologia do interior',ch:'Economia',r:'150 empregos diretos',c:'<p>TechNorte inaugura sede no distrito industrial.</p>',a:'Maria Santos',cat:'piripiri',p:2,d:1},
-      {t:'Festival de Verão movimenta economia em 15 municípios',ch:'Cultura',r:'50 mil visitantes esperados',c:'<p>Shows e feiras gastronômicas movimentam o estado.</p>',a:'Carlos Mendes',cat:'entretenimento',p:3,d:1},
-      {t:'UESPI abre 500 vagas em cursos gratuitos',ch:'Educação',r:'Cursos técnicos e graduação',c:'<p>Inscrições abertas até dia 20 de outubro.</p>',a:'Ana Paula',cat:'geral',p:4,d:1},
-      {t:'Operação policial prende 12 suspeitos de tráfico',ch:'Segurança',r:'Drogas e armas apreendidas',c:'<p>Ação coordenada da Polícia Civil em Teresina.</p>',a:'Roberto Lima',cat:'policia',p:5,d:1},
-      {t:'Seleção piauiense de futsal conquista título nacional sub-17',ch:'Esporte',r:'Vitória sobre São Paulo por 4 a 2',c:'<p>Primeira vez que o Piauí vence a competição.</p>',a:'Fernando Costa',cat:'esporte',p:6,d:1},
-      {t:'Chuvas atingem 12 municípios do interior',ch:'Clima',r:'Defesa Civil emite alerta',c:'<p>Possíveis alagamentos nas próximas 48 horas.</p>',a:'Paula Rodrigues',cat:'geral',p:0,d:0},
-      {t:'Preço da gasolina cai 5% em postos de Teresina',ch:'Economia',r:'Redução no mercado internacional',c:'<p>Litro pode ser encontrado por R$ 5,59.</p>',a:'Marcos Oliveira',cat:'geral',p:0,d:0},
-      {t:'Hospital Regional de Picos amplia leitos de UTI',ch:'Saúde',r:'De 10 para 20 leitos',c:'<p>Investimento de R$ 5 milhões reduz fila de espera.</p>',a:'Juliana Barros',cat:'geral',p:0,d:0},
-      {t:'Feira de artesanato reúne 200 expositores em Parnaíba',ch:'Cultura',r:'Entrada gratuita no fim de semana',c:'<p>Cerâmica, tecelagem e gastronomia piauiense.</p>',a:'Ricardo Alves',cat:'entretenimento',p:0,d:0},
-      {t:'Concurso público oferece 300 vagas para professores',ch:'Emprego',r:'Salários até R$ 5 mil',c:'<p>Inscrições começam na próxima segunda-feira.</p>',a:'Beatriz Lima',cat:'geral',p:0,d:0},
-      {t:'Pedro II recebe obras de pavimentação no centro histórico',ch:'Infraestrutura',r:'Investimento de R$ 2 milhões',c:'<p>Obras devem ser concluídas em 6 meses.</p>',a:'Antônio Sousa',cat:'pedro-ii',p:0,d:0},
-      {t:'Piracuruca inaugura novo mercado público',ch:'Comércio',r:'Espaço com 80 boxes',c:'<p>Investimento de R$ 1,5 milhão moderniza comércio local.</p>',a:'Carla Mendes',cat:'piracuruca',p:0,d:0},
-      {t:'Brasileira recebe investimento em energia solar',ch:'Sustentabilidade',r:'Painéis em prédios públicos',c:'<p>Expectativa de reduzir 40% dos gastos com energia elétrica.</p>',a:'Eduardo Silva',cat:'brasileira',p:0,d:0},
-      {t:'Lagoa de São Francisco promove festival de pesca esportiva',ch:'Esporte',r:'200 pescadores de vários estados',c:'<p>5º Festival com shows e feira gastronômica para toda família.</p>',a:'Rafael Oliveira',cat:'lagoa-de-sao-francisco',p:0,d:0},
-      {t:'São José do Divino amplia rede escolar',ch:'Educação',r:'Nova escola com 12 salas',c:'<p>Investimento estadual de R$ 2,5 milhões beneficia 600 alunos.</p>',a:'Patrícia Rocha',cat:'sao-jose-do-divino',p:0,d:0}
+      // 1 Supermanchete
+      {t:'Governo do Piauí anuncia investimento de R$ 500 milhões em infraestrutura',ch:'Desenvolvimento',r:'Recursos para 12 municípios',c:'<p>Investimento histórico em obras públicas que vai transformar a infraestrutura de 12 municípios do Piauí.</p>',a:'João Silva',cat:'politica',p:'supermanchete'},
+      
+      // 5 Destaques
+      {t:'Piripiri recebe primeira indústria de tecnologia do interior',ch:'Economia',r:'150 empregos diretos',c:'<p>TechNorte inaugura sede no distrito industrial trazendo inovação.</p>',a:'Maria Santos',cat:'piripiri',p:'destaque'},
+      {t:'Festival de Verão movimenta economia em 15 municípios',ch:'Cultura',r:'50 mil visitantes esperados',c:'<p>Shows e feiras gastronômicas movimentam o estado todo.</p>',a:'Carlos Mendes',cat:'entretenimento',p:'destaque'},
+      {t:'UESPI abre 500 vagas em cursos gratuitos',ch:'Educação',r:'Cursos técnicos e graduação',c:'<p>Inscrições abertas até dia 20 de outubro para diversos cursos.</p>',a:'Ana Paula',cat:'geral',p:'destaque'},
+      {t:'Operação policial prende 12 suspeitos de tráfico',ch:'Segurança',r:'Drogas e armas apreendidas',c:'<p>Ação coordenada da Polícia Civil em Teresina desmantela quadrilha.</p>',a:'Roberto Lima',cat:'policia',p:'destaque'},
+      {t:'Seleção piauiense de futsal conquista título nacional sub-17',ch:'Esporte',r:'Vitória sobre São Paulo por 4 a 2',c:'<p>Primeira vez que o Piauí vence a competição nacional.</p>',a:'Fernando Costa',cat:'esporte',p:'destaque'},
+      
+      // 8 Notícias gerais
+      {t:'Chuvas atingem 12 municípios do interior',ch:'Clima',r:'Defesa Civil emite alerta',c:'<p>Possíveis alagamentos nas próximas 48 horas requerem atenção.</p>',a:'Paula Rodrigues',cat:'geral',p:'geral'},
+      {t:'Preço da gasolina cai 5% em postos de Teresina',ch:'Economia',r:'Redução no mercado internacional',c:'<p>Litro pode ser encontrado por R$ 5,59 em alguns postos.</p>',a:'Marcos Oliveira',cat:'geral',p:'geral'},
+      {t:'Hospital Regional de Picos amplia leitos de UTI',ch:'Saúde',r:'De 10 para 20 leitos',c:'<p>Investimento de R$ 5 milhões reduz fila de espera por UTI.</p>',a:'Juliana Barros',cat:'geral',p:'geral'},
+      {t:'Feira de artesanato reúne 200 expositores em Parnaíba',ch:'Cultura',r:'Entrada gratuita no fim de semana',c:'<p>Cerâmica, tecelagem e gastronomia piauiense em destaque.</p>',a:'Ricardo Alves',cat:'entretenimento',p:'geral'},
+      {t:'Concurso público oferece 300 vagas para professores',ch:'Emprego',r:'Salários até R$ 5 mil',c:'<p>Inscrições começam na próxima segunda-feira para rede estadual.</p>',a:'Beatriz Lima',cat:'geral',p:'geral'},
+      
+      // 5 Notícias de municípios
+      {t:'Pedro II recebe obras de pavimentação no centro histórico',ch:'Infraestrutura',r:'Investimento de R$ 2 milhões',c:'<p>Obras devem ser concluídas em 6 meses preservando patrimônio.</p>',a:'Antônio Sousa',cat:'pedro-ii',p:'geral'},
+      {t:'Piracuruca inaugura novo mercado público',ch:'Comércio',r:'Espaço com 80 boxes',c:'<p>Investimento de R$ 1,5 milhão moderniza comércio local da cidade.</p>',a:'Carla Mendes',cat:'piracuruca',p:'geral'},
+      {t:'Brasileira recebe investimento em energia solar',ch:'Sustentabilidade',r:'Painéis em prédios públicos',c:'<p>Expectativa de reduzir 40% dos gastos com energia elétrica.</p>',a:'Eduardo Silva',cat:'brasileira',p:'geral'},
+      {t:'Lagoa de São Francisco promove festival de pesca esportiva',ch:'Esporte',r:'200 pescadores de vários estados',c:'<p>5º Festival com shows e feira gastronômica para toda família.</p>',a:'Rafael Oliveira',cat:'lagoa-de-sao-francisco',p:'geral'},
+      {t:'São José do Divino amplia rede escolar',ch:'Educação',r:'Nova escola com 12 salas',c:'<p>Investimento estadual de R$ 2,5 milhões beneficia 600 alunos.</p>',a:'Patrícia Rocha',cat:'sao-jose-do-divino',p:'geral'}
     ];
 
     const banners = [
@@ -3462,9 +3469,9 @@ try {
     let inserted = { noticias: 0, banners: 0 };
     
     db.serialize(() => {
-      const stmtN = db.prepare('INSERT INTO noticias (titulo,chapeu,resumo,conteudo,autor,categoria,posicao,destaque,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,datetime("now"),datetime("now"))');
+      const stmtN = db.prepare('INSERT INTO noticias (titulo,chapeu,resumo,conteudo,autor,categoria,posicao,created_at,updated_at) VALUES (?,?,?,?,?,?,?,datetime("now"),datetime("now"))');
       noticias.forEach(n => {
-        stmtN.run(n.t, n.ch, n.r, n.c, n.a, n.cat, n.p, n.d, (err) => {
+        stmtN.run(n.t, n.ch, n.r, n.c, n.a, n.cat, n.p, (err) => {
           if (!err) inserted.noticias++;
         });
       });
