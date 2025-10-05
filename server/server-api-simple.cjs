@@ -391,6 +391,33 @@ function createApp({ dbPath }) {
 
   app.locals.logger = logger;
 
+  // ======= INICIALIZAR TABELA NOTICIAS =======
+  db.run(`CREATE TABLE IF NOT EXISTS noticias (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    titulo TEXT NOT NULL,
+    chapeu TEXT,
+    resumo TEXT,
+    conteudo TEXT NOT NULL,
+    autor TEXT NOT NULL,
+    categoria TEXT NOT NULL,
+    posicao INTEGER DEFAULT 0,
+    destaque INTEGER DEFAULT 0,
+    imagem_url TEXT,
+    views INTEGER DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`, [], (err) => {
+    if (err) console.error('⚠️ Erro ao criar tabela noticias:', err);
+    else {
+      console.log('📰 Tabela de notícias pronta');
+      // Criar índices
+      db.run(`CREATE INDEX IF NOT EXISTS idx_noticias_categoria ON noticias(categoria)`);
+      db.run(`CREATE INDEX IF NOT EXISTS idx_noticias_posicao ON noticias(posicao)`);
+      db.run(`CREATE INDEX IF NOT EXISTS idx_noticias_destaque ON noticias(destaque)`);
+      db.run(`CREATE INDEX IF NOT EXISTS idx_noticias_created ON noticias(created_at)`);
+    }
+  });
+
   const startedAt = Date.now();
   // Health check estendido
   app.get('/api/health', async (req,res)=> {
