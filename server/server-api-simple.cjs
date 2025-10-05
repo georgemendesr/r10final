@@ -3400,9 +3400,9 @@ if (require.main === module) {
   const ports = extra && extra !== primary ? [primary, extra] : [primary];
   ports.forEach((p) => {
     try {
-      const server = app.listen(p, '127.0.0.1', () => {
-        console.log(`🚀 API SQLite rodando na porta ${p} (apenas localhost)`);
-        console.log(`📍 Health: http://127.0.0.1:${p}/api/health`);
+      const server = app.listen(p, '0.0.0.0', () => {
+        console.log(`🚀 API SQLite rodando na porta ${p} (todas as interfaces)`);
+        console.log(`📍 Health: http://0.0.0.0:${p}/api/health`);
       });
       server.on('error', (err) => {
         if (err && err.code === 'EADDRINUSE') {
