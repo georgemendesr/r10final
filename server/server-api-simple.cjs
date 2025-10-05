@@ -3389,6 +3389,76 @@ try {
   // ======= Social Insights (Facebook/Instagram) =======
   // (duplicado removido)
 } catch(_) { /* noop */ }
+
+  // ======= SEED: Popular banco com dados de exemplo =======
+  app.get('/api/seed', (req, res) => {
+    const secret = req.query.secret || '';
+    // Proteção simples: só executa se passar secret correto
+    if (secret !== (process.env.SEED_SECRET || 'r10seed2025')) {
+      return res.status(403).json({ error: 'Acesso negado. Use ?secret=r10seed2025' });
+    }
+
+    const noticias = [
+      {t:'Governo do Piauí anuncia investimento de R$ 500 milhões em infraestrutura',ch:'Desenvolvimento',r:'Recursos para 12 municípios',c:'<p>Investimento histórico em obras públicas.</p>',a:'João Silva',cat:'politica',p:1,d:1},
+      {t:'Piripiri recebe primeira indústria de tecnologia do interior',ch:'Economia',r:'150 empregos diretos',c:'<p>TechNorte inaugura sede no distrito industrial.</p>',a:'Maria Santos',cat:'piripiri',p:2,d:1},
+      {t:'Festival de Verão movimenta economia em 15 municípios',ch:'Cultura',r:'50 mil visitantes esperados',c:'<p>Shows e feiras gastronômicas movimentam o estado.</p>',a:'Carlos Mendes',cat:'entretenimento',p:3,d:1},
+      {t:'UESPI abre 500 vagas em cursos gratuitos',ch:'Educação',r:'Cursos técnicos e graduação',c:'<p>Inscrições abertas até dia 20 de outubro.</p>',a:'Ana Paula',cat:'geral',p:4,d:1},
+      {t:'Operação policial prende 12 suspeitos de tráfico',ch:'Segurança',r:'Drogas e armas apreendidas',c:'<p>Ação coordenada da Polícia Civil em Teresina.</p>',a:'Roberto Lima',cat:'policia',p:5,d:1},
+      {t:'Seleção piauiense de futsal conquista título nacional sub-17',ch:'Esporte',r:'Vitória sobre São Paulo por 4 a 2',c:'<p>Primeira vez que o Piauí vence a competição.</p>',a:'Fernando Costa',cat:'esporte',p:6,d:1},
+      {t:'Chuvas atingem 12 municípios do interior',ch:'Clima',r:'Defesa Civil emite alerta',c:'<p>Possíveis alagamentos nas próximas 48 horas.</p>',a:'Paula Rodrigues',cat:'geral',p:0,d:0},
+      {t:'Preço da gasolina cai 5% em postos de Teresina',ch:'Economia',r:'Redução no mercado internacional',c:'<p>Litro pode ser encontrado por R$ 5,59.</p>',a:'Marcos Oliveira',cat:'geral',p:0,d:0},
+      {t:'Hospital Regional de Picos amplia leitos de UTI',ch:'Saúde',r:'De 10 para 20 leitos',c:'<p>Investimento de R$ 5 milhões reduz fila de espera.</p>',a:'Juliana Barros',cat:'geral',p:0,d:0},
+      {t:'Feira de artesanato reúne 200 expositores em Parnaíba',ch:'Cultura',r:'Entrada gratuita no fim de semana',c:'<p>Cerâmica, tecelagem e gastronomia piauiense.</p>',a:'Ricardo Alves',cat:'entretenimento',p:0,d:0},
+      {t:'Concurso público oferece 300 vagas para professores',ch:'Emprego',r:'Salários até R$ 5 mil',c:'<p>Inscrições começam na próxima segunda-feira.</p>',a:'Beatriz Lima',cat:'geral',p:0,d:0},
+      {t:'Pedro II recebe obras de pavimentação no centro histórico',ch:'Infraestrutura',r:'Investimento de R$ 2 milhões',c:'<p>Obras devem ser concluídas em 6 meses.</p>',a:'Antônio Sousa',cat:'pedro-ii',p:0,d:0},
+      {t:'Piracuruca inaugura novo mercado público',ch:'Comércio',r:'Espaço com 80 boxes',c:'<p>Investimento de R$ 1,5 milhão moderniza comércio local.</p>',a:'Carla Mendes',cat:'piracuruca',p:0,d:0},
+      {t:'Campo Maior realiza tradicional Festa do Bode',ch:'Tradição',r:'30ª edição do evento',c:'<p>Expectativa de 10 mil visitantes no fim de semana.</p>',a:'José Carlos',cat:'campo-maior',p:0,d:0},
+      {t:'Barras investe em turismo rural com novas trilhas',ch:'Turismo',r:'Projeto atrai visitantes',c:'<p>Trilhas ecológicas passam por cachoeiras e fazendas históricas.</p>',a:'Sandra Martins',cat:'barras',p:0,d:0}
+    ];
+
+    const banners = [
+      {t:'Economix',cl:'Supermercado',l:'https://exemplo.com',pos:'topo',tp:'imagem',tam:'970x90',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:5,html:'<div style="background:#667eea;padding:20px;text-align:center;color:white"><h2>🛒 ECONOMIX - Ofertas!</h2></div>'},
+      {t:'TechPi',cl:'Informática',l:'https://exemplo.com',pos:'topo',tp:'imagem',tam:'970x90',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:4,html:'<div style="background:#f093fb;padding:20px;text-align:center;color:white"><h2>💻 TechPi</h2></div>'},
+      {t:'Farmácia',cl:'Saúde Total',l:'https://exemplo.com',pos:'sidebar',tp:'imagem',tam:'300x250',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:5,html:'<div style="background:#4facfe;padding:15px;text-align:center;color:white;height:250px;display:flex;flex-direction:column;justify-content:center"><h3>💊 Saúde Total</h3></div>'},
+      {t:'Pizzaria',cl:'Bella Massa',l:'https://exemplo.com',pos:'sidebar',tp:'imagem',tam:'300x250',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:4,html:'<div style="background:#fa709a;padding:15px;text-align:center;height:250px;display:flex;flex-direction:column;justify-content:center"><h3>🍕 Bella Massa</h3></div>'},
+      {t:'Auto Peças',cl:'Auto Peças PI',l:'https://exemplo.com',pos:'sidebar',tp:'imagem',tam:'300x250',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:3,html:'<div style="background:#30cfd0;padding:15px;text-align:center;color:white;height:250px;display:flex;flex-direction:column;justify-content:center"><h3>🚗 Auto Peças</h3></div>'},
+      {t:'Móveis',cl:'Móveis Design',l:'https://exemplo.com',pos:'meio-conteudo',tp:'imagem',tam:'728x90',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:5,html:'<div style="background:#a8edea;padding:15px;text-align:center"><h3>🛋️ Móveis Design</h3></div>'},
+      {t:'Odonto',cl:'OdontoVida',l:'https://exemplo.com',pos:'meio-conteudo',tp:'imagem',tam:'728x90',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:4,html:'<div style="background:#ffecd2;padding:15px;text-align:center"><h3>😁 OdontoVida</h3></div>'},
+      {t:'Construtora',cl:'Construtora Forte',l:'https://exemplo.com',pos:'rodape',tp:'imagem',tam:'970x90',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:5,html:'<div style="background:#ff9a9e;padding:20px;text-align:center"><h2>🏗️ Construtora Forte</h2></div>'},
+      {t:'Unifuturo',cl:'Faculdade',l:'https://exemplo.com',pos:'rodape',tp:'imagem',tam:'970x90',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:4,html:'<div style="background:#84fab0;padding:20px;text-align:center"><h2>🎓 Unifuturo</h2></div>'},
+      {t:'FitLife',cl:'Academia',l:'https://exemplo.com',pos:'entre-materias',tp:'imagem',tam:'336x280',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:5,html:'<div style="background:#ff6b6b;padding:20px;text-align:center;color:white;height:280px;display:flex;flex-direction:column;justify-content:center"><h3>💪 FitLife</h3></div>'},
+      {t:'Pet Shop',cl:'Amigo Fiel',l:'https://exemplo.com',pos:'entre-materias',tp:'imagem',tam:'336x280',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:4,html:'<div style="background:#a1c4fd;padding:20px;text-align:center;height:280px;display:flex;flex-direction:column;justify-content:center"><h3>🐶 Pet Shop</h3></div>'},
+      {t:'Advocacia',cl:'Silva Advogados',l:'https://exemplo.com',pos:'entre-materias',tp:'imagem',tam:'336x280',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:3,html:'<div style="background:#d299c2;padding:20px;text-align:center;height:280px;display:flex;flex-direction:column;justify-content:center"><h3>⚖️ Silva</h3></div>'}
+    ];
+
+    let inserted = { noticias: 0, banners: 0 };
+    
+    db.serialize(() => {
+      const stmtN = db.prepare('INSERT INTO noticias (titulo,chapeu,resumo,conteudo,autor,categoria,posicao,destaque,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,datetime("now"),datetime("now"))');
+      noticias.forEach(n => {
+        stmtN.run(n.t, n.ch, n.r, n.c, n.a, n.cat, n.p, n.d, (err) => {
+          if (!err) inserted.noticias++;
+        });
+      });
+      stmtN.finalize();
+
+      const stmtB = db.prepare('INSERT INTO banners (titulo,cliente,link,posicao,tipo,tamanho,status,data_inicio,data_fim,prioridade,conteudo_html,impressoes_atuais,cliques_atuais,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,0,0,datetime("now"),datetime("now"))');
+      banners.forEach(b => {
+        stmtB.run(b.t, b.cl, b.l, b.pos, b.tp, b.tam, b.st, b.di, b.df, b.pr, b.html, (err) => {
+          if (!err) inserted.banners++;
+        });
+      });
+      stmtB.finalize(() => {
+        res.json({
+          success: true,
+          message: 'Banco populado com sucesso! 🎉',
+          inserted: inserted,
+          next: 'Acesse a home: https://r10piaui.onrender.com'
+        });
+      });
+    });
+  });
+
   return app;
 }
 
