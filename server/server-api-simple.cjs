@@ -2291,7 +2291,9 @@ function createApp({ dbPath }) {
       } catch (_) {}
 
       if (!doPaged) {
-        const body = JSON.stringify(items);
+        const isAdminLike = String(admin || '').trim() === '1';
+        const payload = isAdminLike ? { posts: items, total: items.length } : items;
+        const body = JSON.stringify(payload);
         const etag = strongEtagFor(body);
         if (etag) res.setHeader('ETag', etag);
         return res.type('application/json').send(body);
@@ -3521,9 +3523,9 @@ try {
       {t:'Construtora',cl:'Construtora Forte',l:'https://exemplo.com',pos:'super-banner',tp:'html',tam:'970x250',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:4,html:'<div style="background:#ff9a9e;padding:30px;text-align:center;height:250px;display:flex;align-items:center;justify-content:center"><h2>🏗️ Construtora Forte</h2></div>'},
       
       // news-sidebar: Coluna direita da NewsGeneralSection
-      {t:'Farmácia',cl:'Saúde Total',l:'https://exemplo.com',pos:'news-sidebar',tp:'html',tam:'300x250',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:5,html:'<div style="background:#4facfe;padding:15px;text-align:center;color:white;height:250px;display:flex;flex-direction:column;justify-content:center"><h3>💊 Saúde Total</h3></div>'},
-      {t:'Pizzaria',cl:'Bella Massa',l:'https://exemplo.com',pos:'news-sidebar',tp:'html',tam:'300x250',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:4,html:'<div style="background:#fa709a;padding:15px;text-align:center;height:250px;display:flex;flex-direction:column;justify-content:center"><h3>🍕 Bella Massa</h3></div>'},
-      {t:'Auto Peças',cl:'Auto Peças PI',l:'https://exemplo.com',pos:'news-sidebar',tp:'html',tam:'300x250',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:3,html:'<div style="background:#30cfd0;padding:15px;text-align:center;color:white;height:250px;display:flex;flex-direction:column;justify-content:center"><h3>🚗 Auto Peças</h3></div>'},
+  {t:'Farmácia',cl:'Saúde Total',l:'https://exemplo.com',pos:'news-sidebar',tp:'html',tam:'300x250',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:5,html:'<div style="background:#4facfe;padding:15px;text-align:center;color:white;display:flex;flex-direction:column;justify-content:center;height:100%"><h3>💊 Saúde Total</h3></div>'},
+  {t:'Pizzaria',cl:'Bella Massa',l:'https://exemplo.com',pos:'news-sidebar',tp:'html',tam:'300x250',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:4,html:'<div style="background:#fa709a;padding:15px;text-align:center;display:flex;flex-direction:column;justify-content:center;height:100%"><h3>🍕 Bella Massa</h3></div>'},
+  {t:'Auto Peças',cl:'Auto Peças PI',l:'https://exemplo.com',pos:'news-sidebar',tp:'html',tam:'300x250',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:3,html:'<div style="background:#30cfd0;padding:15px;text-align:center;color:white;display:flex;flex-direction:column;justify-content:center;height:100%"><h3>🚗 Auto Peças</h3></div>'},
       
       // sidebar-article: AdBox na página de artigo
       {t:'Unifuturo',cl:'Faculdade',l:'https://exemplo.com',pos:'sidebar-article',tp:'html',tam:'300x250',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:5,html:'<div style="background:#84fab0;padding:20px;text-align:center;height:250px;display:flex;flex-direction:column;justify-content:center"><h2>🎓 Unifuturo</h2></div>'},
