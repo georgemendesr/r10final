@@ -88,6 +88,8 @@ const MunicipiosSection: React.FC = () => {
       .trim();
   };
 
+  const stripHtml = (html?: string) => (html ? html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : '');
+
   useEffect(() => {
     const fetchMunicipiosData = async () => {
       try {
@@ -228,7 +230,7 @@ const MunicipiosSection: React.FC = () => {
                           {mainPost.titulo}
                         </h4>
                         <p className="text-gray-600 text-sm leading-relaxed mb-3">
-                          {mainPost.subtitulo || mainPost.conteudo?.substring(0, 120) + '...'}
+                          {stripHtml(mainPost.subtitulo) || stripHtml(mainPost.resumo) || stripHtml(mainPost.conteudo)?.substring(0, 120) + '...'}
                         </p>
                       </Link>
                     </div>

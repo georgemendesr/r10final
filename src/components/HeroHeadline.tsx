@@ -7,6 +7,11 @@ const HeroHeadline = () => {
   const [supermanchete, setSupermanchete] = useState<Post | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const stripHtml = (html?: string) => {
+    if (!html) return '';
+    return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  };
+
   // Criar slug para URL
   const createSlug = (title: string) => {
     return title
@@ -60,6 +65,7 @@ const HeroHeadline = () => {
   }
 
   const articleUrl = `/noticia/${supermanchete.categoria || 'geral'}/${createSlug(supermanchete.titulo)}/${supermanchete.id}`;
+  const fallbackResumo = stripHtml(supermanchete.subtitulo) || stripHtml(supermanchete.resumo) || stripHtml(supermanchete.conteudo)?.substring(0, 150) + '...';
 
   return (
     <section className="bg-white py-8 font-body">
@@ -91,7 +97,7 @@ const HeroHeadline = () => {
                   <span className="block">{supermanchete.titulo}</span>
                 </h1>
                 <p className="text-white/90 drop-shadow text-lg mb-6 leading-relaxed tracking-wide">
-                  {supermanchete.subtitulo || supermanchete.conteudo?.substring(0, 150) + '...'}
+                  {fallbackResumo}
                 </p>
               </div>
             </div>

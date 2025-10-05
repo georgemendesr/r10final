@@ -3429,13 +3429,19 @@ try {
     db.serialize(() => {
       db.run('DELETE FROM noticias', (err) => {
         if (err) return res.status(500).json({ error: 'Erro ao limpar notícias' });
-        
         db.run('DELETE FROM banners', (errB) => {
           if (errB) return res.status(500).json({ error: 'Erro ao limpar banners' });
-          
-          res.json({
-            success: true,
-            message: '🗑️ Banco limpo! Agora execute /api/seed para repopular.'
+          // Resetar sequence de autoincrement (SQLite armazena em sqlite_sequence)
+          db.run("DELETE FROM sqlite_sequence WHERE name IN ('noticias','banners')", (errSeq) => {
+            if (errSeq) console.warn('⚠️ Não foi possível resetar sequence:', errSeq.message);
+            // Otimizar arquivo
+            db.run('VACUUM', (vErr) => {
+              if (vErr) console.warn('⚠️ VACUUM falhou:', vErr.message);
+              res.json({
+                success: true,
+                message: '🗑️ Banco limpo e otimizado! Execute /api/seed para repopular.'
+              });
+            });
           });
         });
       });
@@ -3505,7 +3511,9 @@ try {
     db.serialize(() => {
       const stmtN = db.prepare('INSERT INTO noticias (titulo,subtitulo,chapeu,resumo,conteudo,autor,categoria,posicao,imagem_url,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,datetime("now"),datetime("now"))');
       noticias.forEach(n => {
-        stmtN.run(n.t, '', n.ch, n.r, n.c, n.a, n.cat, n.p, n.img, (err) => {
+        // Usar r (resumo curto) como subtitulo inicial se existir
+        const subtituloSeed = n.r || '';
+        stmtN.run(n.t, subtituloSeed, n.ch, n.r, n.c, n.a, n.cat, n.p, n.img, (err) => {
           if (!err) inserted.noticias++;
         });
       });
