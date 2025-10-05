@@ -3412,16 +3412,8 @@ try {
       {t:'Concurso público oferece 300 vagas para professores',ch:'Emprego',r:'Salários até R$ 5 mil',c:'<p>Inscrições começam na próxima segunda-feira.</p>',a:'Beatriz Lima',cat:'geral',p:0,d:0},
       {t:'Pedro II recebe obras de pavimentação no centro histórico',ch:'Infraestrutura',r:'Investimento de R$ 2 milhões',c:'<p>Obras devem ser concluídas em 6 meses.</p>',a:'Antônio Sousa',cat:'pedro-ii',p:0,d:0},
       {t:'Piracuruca inaugura novo mercado público',ch:'Comércio',r:'Espaço com 80 boxes',c:'<p>Investimento de R$ 1,5 milhão moderniza comércio local.</p>',a:'Carla Mendes',cat:'piracuruca',p:0,d:0},
-      {t:'Campo Maior realiza tradicional Festa do Bode',ch:'Tradição',r:'30ª edição do evento',c:'<p>Expectativa de 10 mil visitantes no fim de semana.</p>',a:'José Carlos',cat:'campo-maior',p:0,d:0},
-      {t:'Barras investe em turismo rural com novas trilhas',ch:'Turismo',r:'Projeto atrai visitantes',c:'<p>Trilhas ecológicas passam por cachoeiras e fazendas históricas.</p>',a:'Sandra Martins',cat:'barras',p:0,d:0},
-      {t:'Esperantina comemora safra recorde de soja',ch:'Agronegócio',r:'Produção aumentou 30%',c:'<p>Município se consolida como maior produtor do estado.</p>',a:'Miguel Santos',cat:'esperantina',p:0,d:0},
-      {t:'Batalha recebe unidade móvel de mamografia',ch:'Saúde',r:'Exames gratuitos para mulheres',c:'<p>Ação da campanha Outubro Rosa na Praça da Matriz.</p>',a:'Lucia Ferreira',cat:'batalha',p:0,d:0},
-      {t:'Cocal moderniza sistema de abastecimento de água',ch:'Saneamento',r:'Obra beneficia 15 mil moradores',c:'<p>Investimento de R$ 3 milhões reduz perdas na rede.</p>',a:'Paulo Henrique',cat:'cocal',p:0,d:0},
-      {t:'Buriti dos Lopes ganha Centro de Referência da Assistência Social',ch:'Assistência',r:'Atendimento a famílias vulneráveis',c:'<p>CRAS oferece assistência social e capacitação profissional.</p>',a:'Mariana Costa',cat:'buriti-dos-lopes',p:0,d:0},
       {t:'Brasileira recebe investimento em energia solar',ch:'Sustentabilidade',r:'Painéis em prédios públicos',c:'<p>Expectativa de reduzir 40% dos gastos com energia elétrica.</p>',a:'Eduardo Silva',cat:'brasileira',p:0,d:0},
       {t:'Lagoa de São Francisco promove festival de pesca esportiva',ch:'Esporte',r:'200 pescadores de vários estados',c:'<p>5º Festival com shows e feira gastronômica para toda família.</p>',a:'Rafael Oliveira',cat:'lagoa-de-sao-francisco',p:0,d:0},
-      {t:'Morro do Chapéu investe em turismo religioso',ch:'Turismo',r:'Reformas em santuários históricos',c:'<p>Projeto busca atrair romeiros de todo o Nordeste.</p>',a:'Fernanda Silva',cat:'morro-do-chapeu',p:0,d:0},
-      {t:'Caxingó realiza campanha de vacinação contra raiva',ch:'Saúde Animal',r:'Atendimento gratuito para pets',c:'<p>Postos móveis percorrem zona rural do município.</p>',a:'André Costa',cat:'caxingo',p:0,d:0},
       {t:'São José do Divino amplia rede escolar',ch:'Educação',r:'Nova escola com 12 salas',c:'<p>Investimento estadual de R$ 2,5 milhões beneficia 600 alunos.</p>',a:'Patrícia Rocha',cat:'sao-jose-do-divino',p:0,d:0}
     ];
 
