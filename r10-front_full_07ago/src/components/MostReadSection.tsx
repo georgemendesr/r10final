@@ -13,7 +13,8 @@ const MostReadSection = memo(() => {
     async function fetchMostReadPosts() {
       try {
         console.log('📈 MostReadSection: Buscando posts mais lidos...');
-        const response = await fetch('http://localhost:3002/api/posts/most-read?limit=5');
+        const apiUrl = import.meta.env.PROD ? '/api/posts/most-read?limit=5' : 'http://localhost:3002/api/posts/most-read?limit=5';
+        const response = await fetch(apiUrl);
         
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -28,7 +29,8 @@ const MostReadSection = memo(() => {
         console.error('❌ Erro ao carregar posts mais lidos:', error);
         // Fallback: buscar posts normais se a rota específica falhar
         try {
-          const fallbackResponse = await fetch('http://localhost:3002/api/posts?limit=5');
+          const fallbackApiUrl = import.meta.env.PROD ? '/api/posts?limit=5' : 'http://localhost:3002/api/posts?limit=5';
+          const fallbackResponse = await fetch(fallbackApiUrl);
           if (fallbackResponse.ok) {
             const fallbackData = await fallbackResponse.json();
             const posts = Array.isArray(fallbackData) ? fallbackData : fallbackData.items || [];

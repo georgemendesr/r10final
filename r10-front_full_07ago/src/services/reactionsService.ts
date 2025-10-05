@@ -1,5 +1,5 @@
 // Serviço centralizado para gerenciamento de reações
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002';
+const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '' : 'http://localhost:3002');
 
 export interface ReactionCounts {
   feliz: number;

@@ -15,7 +15,8 @@ const MostRead: React.FC = memo(() => {
         setError(null);
         
         console.log('🔥 MostRead: Buscando posts mais lidos...');
-        const response = await fetch('http://localhost:3002/api/posts/most-read');
+        const apiUrl = import.meta.env.PROD ? '/api/posts/most-read' : 'http://localhost:3002/api/posts/most-read';
+        const response = await fetch(apiUrl);
         
         if (!response.ok) {
           throw new Error(`Erro ${response.status}: ${response.statusText}`);

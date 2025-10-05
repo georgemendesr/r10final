@@ -94,7 +94,8 @@ const MunicipiosSection: React.FC = () => {
         const municipiosWithData: MunicipioData[] = [];
         
         // Buscar todas as notícias de todas as posições para encontrar por município
-        const response = await fetch('http://localhost:3002/api/posts?limit=100');
+        const apiUrl = import.meta.env.PROD ? '/api/posts?limit=100' : 'http://localhost:3002/api/posts?limit=100';
+        const response = await fetch(apiUrl);
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const allPostsResponse = await response.json();
         const allPosts = Array.isArray(allPostsResponse) ? allPostsResponse : allPostsResponse.items || [];

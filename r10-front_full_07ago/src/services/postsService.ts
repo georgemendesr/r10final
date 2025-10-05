@@ -9,9 +9,8 @@ export let OFFLINE_MODE = false;
 // Função para ordenar posts por data de publicação (mais recentes primeiro)
 const sortDesc = (a:any,b:any) => new Date(b.publishedAt||0).getTime() - new Date(a.publishedAt||0).getTime();
 
-// URL da API - fixado para 127.0.0.1 para garantir consistência com proxy
-const API_HOST = '127.0.0.1'; // sempre 127.0.0.1 para funcionar com localhost e IP
-const API_BASE_URL = (import.meta as any)?.env?.VITE_API_BASE_URL || `http://${API_HOST}:3002/api`;
+// URL da API - usa variável de ambiente ou /api (relativo) em produção
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3002/api');
 console.debug('[postsService] API_BASE_URL=', API_BASE_URL);
 
 // Chave para localStorage
