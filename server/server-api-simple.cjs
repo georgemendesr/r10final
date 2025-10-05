@@ -3310,8 +3310,9 @@ function allowLoginAttempt(ip) {
 // (Re)definição segura das rotas login e register aplicando rate limit e senha forte
 try {
   if (app._router && app._router.stack) {
-    app._router.stack = app._router.stack.filter(l => !(l.route && l.route.path === '/api/auth/login' && l.route.methods.post));
-    app._router.stack = app._router.stack.filter(l => !(l.route && l.route.path === '/api/auth/register' && l.route.methods.post));
+    // ⚠️ COMENTADO: não remover as rotas originais definidas nas linhas 780-891
+    // app._router.stack = app._router.stack.filter(l => !(l.route && l.route.path === '/api/auth/login' && l.route.methods.post));
+    // app._router.stack = app._router.stack.filter(l => !(l.route && l.route.path === '/api/auth/register' && l.route.methods.post));
   }
   app.post('/api/auth/login', (req, res) => {
     const { email, password } = req.body || {};
