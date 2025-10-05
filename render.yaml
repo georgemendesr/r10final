@@ -1,20 +1,28 @@
 services:
   - type: web
-    name: r10-instagram-publisher
+    name: r10piaui
     env: node
-    plan: free
-    buildCommand: npm install
-    startCommand: node server.js
-    healthCheckPath: /
+    runtime: node
+    buildCommand: npm install && npm run build:render
+    startCommand: node server/server-api-simple.cjs
+    healthCheckPath: /api/health
     autoDeploy: true
+    disk:
+      name: r10-data
+      mountPath: /opt/render/project/src/data
+      sizeGB: 5
     envVars:
-      - key: IG_ACCESS_TOKEN
-        sync: false
-      - key: IG_BUSINESS_ID
-        sync: false
-      - key: GROQ_API_KEY
-        sync: false
-      - key: GROQ_MODEL
-        value: llama3-8b-8192
-      - key: PUBLIC_BASE_URL
-        sync: false
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: SERVE_STATIC_FRONT
+        value: "1"
+      - key: SQLITE_DB_PATH
+        value: /opt/render/project/src/data/noticias.db
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: SEED_SECRET
+        value: r10seed2025
