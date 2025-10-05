@@ -3417,6 +3417,29 @@ try {
   // (duplicado removido)
 } catch(_) { /* noop */ }
 
+  // ======= CLEAR: Limpar banco (desenvolvimento) =======
+  app.get('/api/clear', (req, res) => {
+    const secret = req.query.secret || '';
+    if (secret !== (process.env.SEED_SECRET || 'r10seed2025')) {
+      return res.status(403).json({ error: 'Acesso negado. Use ?secret=r10seed2025' });
+    }
+
+    db.serialize(() => {
+      db.run('DELETE FROM noticias', (err) => {
+        if (err) return res.status(500).json({ error: 'Erro ao limpar notícias' });
+        
+        db.run('DELETE FROM banners', (errB) => {
+          if (errB) return res.status(500).json({ error: 'Erro ao limpar banners' });
+          
+          res.json({
+            success: true,
+            message: '🗑️ Banco limpo! Agora execute /api/seed para repopular.'
+          });
+        });
+      });
+    });
+  });
+
   // ======= SEED: Popular banco com dados de exemplo =======
   app.get('/api/seed', (req, res) => {
     const secret = req.query.secret || '';
