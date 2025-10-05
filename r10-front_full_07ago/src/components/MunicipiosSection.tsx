@@ -88,6 +88,13 @@ const MunicipiosSection: React.FC = () => {
       .trim();
   };
 
+  // Função para extrair texto limpo do HTML
+  const stripHtml = (html: string) => {
+    const tmp = document.createElement('DIV');
+    tmp.innerHTML = html;
+    return tmp.textContent || tmp.innerText || '';
+  };
+
   useEffect(() => {
     const fetchMunicipiosData = async () => {
       try {
@@ -231,7 +238,7 @@ const MunicipiosSection: React.FC = () => {
                           {mainPost.titulo}
                         </h4>
                         <p className="municipios-subtitle text-gray-600 leading-relaxed mb-3">
-                          {mainPost.subtitulo || mainPost.conteudo?.substring(0, 120) + '...'}
+                          {mainPost.resumo || (mainPost.conteudo ? stripHtml(mainPost.conteudo).substring(0, 120) + '...' : '')}
                         </p>
                       </Link>
                     </div>

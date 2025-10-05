@@ -61,6 +61,13 @@ const HeroHeadline = () => {
 
   const articleUrl = `/noticia/${supermanchete.categoria || 'geral'}/${createSlug(supermanchete.titulo)}/${supermanchete.id}`;
 
+  // Função para extrair texto limpo do HTML
+  const stripHtml = (html: string) => {
+    const tmp = document.createElement('DIV');
+    tmp.innerHTML = html;
+    return tmp.textContent || tmp.innerText || '';
+  };
+
   return (
     <section className="bg-white py-8 font-body">
       <div className="container mx-auto px-4 max-w-[1250px]">
@@ -91,7 +98,7 @@ const HeroHeadline = () => {
                   <span className="block">{supermanchete.titulo}</span>
                 </h1>
                 <p className="super-manchete-subtitle text-white/90 drop-shadow mb-6">
-                  {supermanchete.subtitulo || supermanchete.conteudo?.substring(0, 150) + '...'}
+                  {supermanchete.resumo || (supermanchete.conteudo ? stripHtml(supermanchete.conteudo).substring(0, 150) + '...' : '')}
                 </p>
               </div>
             </div>
