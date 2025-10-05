@@ -2136,7 +2136,7 @@ function createApp({ dbPath }) {
     const sql = `
       SELECT * FROM noticias 
       WHERE titulo IS NOT NULL AND titulo != ''
-      ORDER BY COALESCE(views, 0) DESC, published_at DESC
+      ORDER BY COALESCE(views, 0) DESC, created_at DESC
       LIMIT ?
     `;
     
@@ -3478,26 +3478,26 @@ try {
 
     const banners = [
       // top-strip: Banner horizontal no topo
-      {t:'Economix',cl:'Supermercado',l:'https://exemplo.com',pos:'top-strip',tp:'imagem',tam:'728x90',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:5,html:'<div style="background:#667eea;padding:20px;text-align:center;color:white;height:90px;display:flex;align-items:center;justify-content:center"><h2>🛒 ECONOMIX - Ofertas!</h2></div>'},
-      {t:'TechPi',cl:'Informática',l:'https://exemplo.com',pos:'top-strip',tp:'imagem',tam:'728x90',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:4,html:'<div style="background:#f093fb;padding:20px;text-align:center;color:white;height:90px;display:flex;align-items:center;justify-content:center"><h2>💻 TechPi</h2></div>'},
+      {t:'Economix',cl:'Supermercado',l:'https://exemplo.com',pos:'top-strip',tp:'html',tam:'728x90',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:5,html:'<div style="background:#667eea;padding:20px;text-align:center;color:white;height:90px;display:flex;align-items:center;justify-content:center"><h2>🛒 ECONOMIX - Ofertas!</h2></div>'},
+      {t:'TechPi',cl:'Informática',l:'https://exemplo.com',pos:'top-strip',tp:'html',tam:'728x90',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:4,html:'<div style="background:#f093fb;padding:20px;text-align:center;color:white;height:90px;display:flex;align-items:center;justify-content:center"><h2>💻 TechPi</h2></div>'},
       
       // super-banner: Na NewsGeneralSection  
-      {t:'Móveis',cl:'Móveis Design',l:'https://exemplo.com',pos:'super-banner',tp:'imagem',tam:'970x250',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:5,html:'<div style="background:#a8edea;padding:30px;text-align:center;height:250px;display:flex;align-items:center;justify-content:center"><h2>�️ Móveis Design</h2></div>'},
-      {t:'Construtora',cl:'Construtora Forte',l:'https://exemplo.com',pos:'super-banner',tp:'imagem',tam:'970x250',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:4,html:'<div style="background:#ff9a9e;padding:30px;text-align:center;height:250px;display:flex;align-items:center;justify-content:center"><h2>�️ Construtora Forte</h2></div>'},
+      {t:'Móveis',cl:'Móveis Design',l:'https://exemplo.com',pos:'super-banner',tp:'html',tam:'970x250',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:5,html:'<div style="background:#a8edea;padding:30px;text-align:center;height:250px;display:flex;align-items:center;justify-content:center"><h2>🛋️ Móveis Design</h2></div>'},
+      {t:'Construtora',cl:'Construtora Forte',l:'https://exemplo.com',pos:'super-banner',tp:'html',tam:'970x250',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:4,html:'<div style="background:#ff9a9e;padding:30px;text-align:center;height:250px;display:flex;align-items:center;justify-content:center"><h2>🏗️ Construtora Forte</h2></div>'},
       
       // news-sidebar: Coluna direita da NewsGeneralSection
-      {t:'Farmácia',cl:'Saúde Total',l:'https://exemplo.com',pos:'news-sidebar',tp:'imagem',tam:'300x250',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:5,html:'<div style="background:#4facfe;padding:15px;text-align:center;color:white;height:250px;display:flex;flex-direction:column;justify-content:center"><h3>� Saúde Total</h3></div>'},
-      {t:'Pizzaria',cl:'Bella Massa',l:'https://exemplo.com',pos:'news-sidebar',tp:'imagem',tam:'300x250',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:4,html:'<div style="background:#fa709a;padding:15px;text-align:center;height:250px;display:flex;flex-direction:column;justify-content:center"><h3>🍕 Bella Massa</h3></div>'},
-      {t:'Auto Peças',cl:'Auto Peças PI',l:'https://exemplo.com',pos:'news-sidebar',tp:'imagem',tam:'300x250',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:3,html:'<div style="background:#30cfd0;padding:15px;text-align:center;color:white;height:250px;display:flex;flex-direction:column;justify-content:center"><h3>� Auto Peças</h3></div>'},
+      {t:'Farmácia',cl:'Saúde Total',l:'https://exemplo.com',pos:'news-sidebar',tp:'html',tam:'300x250',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:5,html:'<div style="background:#4facfe;padding:15px;text-align:center;color:white;height:250px;display:flex;flex-direction:column;justify-content:center"><h3>💊 Saúde Total</h3></div>'},
+      {t:'Pizzaria',cl:'Bella Massa',l:'https://exemplo.com',pos:'news-sidebar',tp:'html',tam:'300x250',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:4,html:'<div style="background:#fa709a;padding:15px;text-align:center;height:250px;display:flex;flex-direction:column;justify-content:center"><h3>🍕 Bella Massa</h3></div>'},
+      {t:'Auto Peças',cl:'Auto Peças PI',l:'https://exemplo.com',pos:'news-sidebar',tp:'html',tam:'300x250',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:3,html:'<div style="background:#30cfd0;padding:15px;text-align:center;color:white;height:250px;display:flex;flex-direction:column;justify-content:center"><h3>🚗 Auto Peças</h3></div>'},
       
       // sidebar-article: AdBox na página de artigo
-      {t:'Unifuturo',cl:'Faculdade',l:'https://exemplo.com',pos:'sidebar-article',tp:'imagem',tam:'300x250',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:5,html:'<div style="background:#84fab0;padding:20px;text-align:center;height:250px;display:flex;flex-direction:column;justify-content:center"><h2>� Unifuturo</h2></div>'},
-      {t:'Odonto',cl:'OdontoVida',l:'https://exemplo.com',pos:'sidebar-article',tp:'imagem',tam:'300x250',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:4,html:'<div style="background:#ffecd2;padding:15px;text-align:center;height:250px;display:flex;flex-direction:column;justify-content:center"><h3>😁 OdontoVida</h3></div>'},
+      {t:'Unifuturo',cl:'Faculdade',l:'https://exemplo.com',pos:'sidebar-article',tp:'html',tam:'300x250',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:5,html:'<div style="background:#84fab0;padding:20px;text-align:center;height:250px;display:flex;flex-direction:column;justify-content:center"><h2>🎓 Unifuturo</h2></div>'},
+      {t:'Odonto',cl:'OdontoVida',l:'https://exemplo.com',pos:'sidebar-article',tp:'html',tam:'300x250',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:4,html:'<div style="background:#ffecd2;padding:15px;text-align:center;height:250px;display:flex;flex-direction:column;justify-content:center"><h3>😁 OdontoVida</h3></div>'},
       
       // in-content: No meio do conteúdo do artigo
-      {t:'FitLife',cl:'Academia',l:'https://exemplo.com',pos:'in-content',tp:'imagem',tam:'300x250',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:5,html:'<div style="background:#ff6b6b;padding:20px;text-align:center;color:white;height:250px;display:flex;flex-direction:column;justify-content:center"><h3>💪 FitLife</h3></div>'},
-      {t:'Pet Shop',cl:'Amigo Fiel',l:'https://exemplo.com',pos:'in-content',tp:'imagem',tam:'300x250',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:4,html:'<div style="background:#a1c4fd;padding:20px;text-align:center;height:250px;display:flex;flex-direction:column;justify-content:center"><h3>🐶 Pet Shop</h3></div>'},
-      {t:'Advocacia',cl:'Silva Advogados',l:'https://exemplo.com',pos:'in-content',tp:'imagem',tam:'300x250',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:3,html:'<div style="background:#d299c2;padding:20px;text-align:center;height:250px;display:flex;flex-direction:column;justify-content:center"><h3>⚖️ Silva</h3></div>'}
+      {t:'FitLife',cl:'Academia',l:'https://exemplo.com',pos:'in-content',tp:'html',tam:'300x250',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:5,html:'<div style="background:#ff6b6b;padding:20px;text-align:center;color:white;height:250px;display:flex;flex-direction:column;justify-content:center"><h3>💪 FitLife</h3></div>'},
+      {t:'Pet Shop',cl:'Amigo Fiel',l:'https://exemplo.com',pos:'in-content',tp:'html',tam:'300x250',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:4,html:'<div style="background:#a1c4fd;padding:20px;text-align:center;height:250px;display:flex;flex-direction:column;justify-content:center"><h3>🐶 Pet Shop</h3></div>'},
+      {t:'Advocacia',cl:'Silva Advogados',l:'https://exemplo.com',pos:'in-content',tp:'html',tam:'300x250',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:3,html:'<div style="background:#d299c2;padding:20px;text-align:center;height:250px;display:flex;flex-direction:column;justify-content:center"><h3>⚖️ Silva</h3></div>'}
     ];
 
     let inserted = { noticias: 0, banners: 0 };
