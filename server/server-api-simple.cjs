@@ -555,6 +555,7 @@ function createApp({ dbPath }) {
   db.run(`CREATE TABLE IF NOT EXISTS noticias (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     titulo TEXT NOT NULL,
+    subtitulo TEXT,
     chapeu TEXT,
     resumo TEXT,
     conteudo TEXT NOT NULL,
@@ -3502,9 +3503,9 @@ try {
     let inserted = { noticias: 0, banners: 0 };
     
     db.serialize(() => {
-      const stmtN = db.prepare('INSERT INTO noticias (titulo,chapeu,resumo,conteudo,autor,categoria,posicao,imagem_url,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,datetime("now"),datetime("now"))');
+      const stmtN = db.prepare('INSERT INTO noticias (titulo,subtitulo,chapeu,resumo,conteudo,autor,categoria,posicao,imagem_url,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,datetime("now"),datetime("now"))');
       noticias.forEach(n => {
-        stmtN.run(n.t, n.ch, n.r, n.c, n.a, n.cat, n.p, n.img, (err) => {
+        stmtN.run(n.t, '', n.ch, n.r, n.c, n.a, n.cat, n.p, n.img, (err) => {
           if (!err) inserted.noticias++;
         });
       });
