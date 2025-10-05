@@ -3456,6 +3456,35 @@ try {
       return res.status(403).json({ error: 'Acesso negado. Use ?secret=r10seed2025' });
     }
 
+    // ==== Funções utilitárias para schema dinâmico de noticias ====
+    function getNoticiasColumns(cb) {
+      db.all('PRAGMA table_info(noticias)', (err, rows) => {
+        if (err) return cb(err, []);
+        cb(null, rows.map(r => r.name));
+      });
+    }
+
+    function ensureOptionalColumns(cols, done) {
+      const optional = [
+        { name: 'subtitulo', def: 'TEXT' },
+        { name: 'resumo', def: 'TEXT' },
+        { name: 'chapeu', def: 'TEXT' },
+        { name: 'imagem_url', def: 'TEXT' }
+      ];
+      const missing = optional.filter(o => !cols.includes(o.name));
+      if (!missing.length) return done();
+      let idx = 0;
+      function next() {
+        if (idx >= missing.length) return done();
+        const m = missing[idx++];
+        db.run(`ALTER TABLE noticias ADD COLUMN ${m.name} ${m.def}`, (err) => {
+          if (err) console.warn('⚠️ Falha ao adicionar coluna opcional', m.name, err.message);
+          next();
+        });
+      }
+      next();
+    }
+
     const noticias = [
       // 1 Supermanchete
       {t:'Governo do Piauí anuncia investimento de R$ 500 milhões em infraestrutura',ch:'Desenvolvimento',r:'Recursos para 12 municípios',c:'<p>Investimento histórico em obras públicas que vai transformar a infraestrutura de 12 municípios do Piauí.</p>',a:'Redação',cat:'politica',p:'supermanchete',img:'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=1200&h=600&fit=crop'},
@@ -3506,31 +3535,71 @@ try {
       {t:'Advocacia',cl:'Silva Advogados',l:'https://exemplo.com',pos:'in-content',tp:'html',tam:'300x250',st:'ativo',di:'2025-10-01',df:'2025-12-31',pr:3,html:'<div style="background:#d299c2;padding:20px;text-align:center;height:250px;display:flex;flex-direction:column;justify-content:center"><h3>⚖️ Silva</h3></div>'}
     ];
 
-    let inserted = { noticias: 0, banners: 0 };
-    
-    db.serialize(() => {
-      const stmtN = db.prepare('INSERT INTO noticias (titulo,subtitulo,chapeu,resumo,conteudo,autor,categoria,posicao,imagem_url,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,datetime("now"),datetime("now"))');
-      noticias.forEach(n => {
-        // Usar r (resumo curto) como subtitulo inicial se existir
-        const subtituloSeed = n.r || '';
-        stmtN.run(n.t, subtituloSeed, n.ch, n.r, n.c, n.a, n.cat, n.p, n.img, (err) => {
-          if (!err) inserted.noticias++;
-        });
-      });
-      stmtN.finalize();
+    let inserted = { noticias: 0, banners: 0, schema: {} };
 
-      const stmtB = db.prepare('INSERT INTO banners (titulo,cliente,link,posicao,tipo,tamanho,status,data_inicio,data_fim,prioridade,conteudo_html,impressoes_atuais,cliques_atuais,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,0,0,datetime("now"),datetime("now"))');
-      banners.forEach(b => {
-        stmtB.run(b.t, b.cl, b.l, b.pos, b.tp, b.tam, b.st, b.di, b.df, b.pr, b.html, (err) => {
-          if (!err) inserted.banners++;
-        });
-      });
-      stmtB.finalize(() => {
-        res.json({
-          success: true,
-          message: 'Banco populado com sucesso! 🎉',
-          inserted: inserted,
-          next: 'Acesse a home: https://r10piaui.onrender.com'
+    getNoticiasColumns((errCols, cols) => {
+      if (errCols) console.warn('⚠️ Não foi possível obter colunas de noticias:', errCols.message);
+      ensureOptionalColumns(cols || [], () => {
+        // Recarregar colunas após possíveis ALTER
+        getNoticiasColumns((_, cols2) => {
+          const colSet = new Set(cols2 || cols || []);
+          inserted.schema = { colunas: Array.from(colSet) };
+
+          // Determinar coluna de imagem disponível
+            const imageColumn = colSet.has('imagem_url') ? 'imagem_url' : (colSet.has('imagem_destaque') ? 'imagem_destaque' : null);
+          // Montar lista base dinâmica
+          const baseCols = ['titulo','conteudo','autor','categoria','posicao'];
+          const optionalMap = [
+            ['subtitulo','subtitulo'],
+            ['chapeu','chapeu'],
+            ['resumo','resumo']
+          ].filter(([c]) => colSet.has(c)).map(([c,a])=>c);
+          if (imageColumn) baseCols.push(imageColumn);
+          const allCols = [...optionalMap, ...baseCols];
+
+          // Adicionar timestamps se existirem
+          const hasCreated = colSet.has('created_at');
+          const hasUpdated = colSet.has('updated_at');
+          if (hasCreated) allCols.push('created_at');
+          if (hasUpdated) allCols.push('updated_at');
+
+          const placeholders = allCols.map(()=>'?').join(',');
+          const insertSql = `INSERT INTO noticias (${allCols.join(',')}) VALUES (${placeholders})`;
+
+          const now = new Date().toISOString().replace('T',' ').substring(0,19);
+
+          const stmtN = db.prepare(insertSql);
+          noticias.forEach(n => {
+            const row = {};
+            row.titulo = n.t;
+            if (colSet.has('subtitulo')) row.subtitulo = n.r || '';
+            if (colSet.has('chapeu')) row.chapeu = n.ch || '';
+            if (colSet.has('resumo')) row.resumo = n.r || '';
+            row.conteudo = n.c;
+            row.autor = n.a;
+            row.categoria = n.cat;
+            row.posicao = n.p;
+            if (imageColumn) row[imageColumn] = n.img;
+            if (hasCreated) row.created_at = now;
+            if (hasUpdated) row.updated_at = now;
+            const values = allCols.map(c => row[c] ?? '');
+            stmtN.run(values, (err) => { if (!err) inserted.noticias++; else console.warn('⚠️ Falha insert noticia', err.message); });
+          });
+          stmtN.finalize(() => {
+            const stmtB = db.prepare('INSERT INTO banners (titulo,cliente,link,posicao,tipo,tamanho,status,data_inicio,data_fim,prioridade,conteudo_html,impressoes_atuais,cliques_atuais,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,0,0,datetime("now"),datetime("now"))');
+            banners.forEach(b => {
+              stmtB.run(b.t, b.cl, b.l, b.pos, b.tp, b.tam, b.st, b.di, b.df, b.pr, b.html, (err) => { if (!err) inserted.banners++; else console.warn('⚠️ Falha insert banner', err.message); });
+            });
+            stmtB.finalize(() => {
+              res.json({
+                success: true,
+                message: 'Banco populado com sucesso! 🎉',
+                inserted,
+                note: 'Inserção adaptativa conforme colunas existentes.',
+                next: 'Acesse a home: https://r10piaui.onrender.com'
+              });
+            });
+          });
         });
       });
     });
