@@ -106,9 +106,9 @@ function mapPost(row) {
     content: row.conteudo || row.content,
     conteudo: row.conteudo || row.content,
     resumo: row.resumo || '',
-    // Considerar variações de colunas: imagem, imagemUrl, imagem_destaque
-    imagemUrl: (row.imagem && String(row.imagem).trim()) || (row.imagemUrl && String(row.imagemUrl).trim()) || (row.imagem_destaque && String(row.imagem_destaque).trim()) || '/placeholder.svg',
-    imagemDestaque: (row.imagem && String(row.imagem).trim()) || (row.imagem_destaque && String(row.imagem_destaque).trim()) || (row.imagemDestaque && String(row.imagemDestaque).trim()) || (row.imagemUrl && String(row.imagemUrl).trim()) || '/placeholder.svg',
+    // Considerar variações de colunas: imagem, imagemUrl, imagem_url, imagem_destaque
+    imagemUrl: (row.imagem_url && String(row.imagem_url).trim()) || (row.imagem && String(row.imagem).trim()) || (row.imagemUrl && String(row.imagemUrl).trim()) || (row.imagem_destaque && String(row.imagem_destaque).trim()) || '/placeholder.svg',
+    imagemDestaque: (row.imagem_url && String(row.imagem_url).trim()) || (row.imagem && String(row.imagem).trim()) || (row.imagem_destaque && String(row.imagem_destaque).trim()) || (row.imagemDestaque && String(row.imagemDestaque).trim()) || (row.imagemUrl && String(row.imagemUrl).trim()) || '/placeholder.svg',
     categoria: cat,
     chapeu: row.chapeu || '',
     posicao: pos,
