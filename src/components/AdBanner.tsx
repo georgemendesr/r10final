@@ -75,7 +75,8 @@ const AdBanner: React.FC<AdBannerProps> = ({ position, className = '' }) => {
   const getSizeClasses = (tamanho: Banner['tamanho']) => {
     // Para news-sidebar, usar o mesmo tamanho da imagem principal
     if (position === 'news-sidebar') {
-      return 'w-full h-80';
+      // Igualar às classes da imagem principal da seção geral
+      return 'w-full h-48 md:h-64 lg:h-80 rounded-xl overflow-hidden';
     }
     
     switch (tamanho) {
@@ -98,46 +99,56 @@ const AdBanner: React.FC<AdBannerProps> = ({ position, className = '' }) => {
 
   const renderBannerContent = () => {
     console.log(`🎨 AdBanner: Renderizando banner ${banner.id} do tipo ${banner.tipo}`);
-    
-    switch (banner.tipo) {
-      case 'html':
-        return (
-          <div
-            className={getSizeClasses(banner.tamanho)}
-            dangerouslySetInnerHTML={{ __html: banner.conteudoHtml || '' }}
-          />
-        );
-      
-      case 'video':
-        return (
-          <video
-            className={`${getSizeClasses(banner.tamanho)} object-cover`}
-            autoPlay
-            muted
-            loop
-            playsInline
-          >
-            <source src={banner.imagem} type="video/mp4" />
-          </video>
-        );
-      
-      case 'gif':
-      case 'imagem':
-      default:
-        return (
-          <img
-            src={banner.imagem}
-            alt={banner.titulo}
-            className={`${getSizeClasses(banner.tamanho)} object-cover`}
-            loading="lazy"
-            onError={(e) => {
-              console.log('❌ AdBanner: Erro ao carregar imagem do banner:', e);
-              setError('Erro ao carregar imagem');
-            }}
-            onLoad={() => console.log('✅ AdBanner: Banner carregado com sucesso:', banner.titulo)}
-          />
-        );
+
+    const inner = (() => {
+      switch (banner.tipo) {
+        case 'html':
+          return (
+            <div
+              className={getSizeClasses(banner.tamanho)}
+              dangerouslySetInnerHTML={{ __html: banner.conteudoHtml || '' }}
+            />
+          );
+        case 'video':
+          return (
+            <video
+              className={`${getSizeClasses(banner.tamanho)} object-cover`}
+              autoPlay
+              muted
+              loop
+              playsInline
+            >
+              <source src={banner.imagem} type="video/mp4" />
+            </video>
+          );
+        case 'gif':
+        case 'imagem':
+        default:
+          return (
+            <img
+              src={banner.imagem}
+              alt={banner.titulo}
+              className={`${getSizeClasses(banner.tamanho)} object-cover`}
+              loading="lazy"
+              onError={(e) => {
+                console.log('❌ AdBanner: Erro ao carregar imagem do banner:', e);
+                setError('Erro ao carregar imagem');
+              }}
+              onLoad={() => console.log('✅ AdBanner: Banner carregado com sucesso:', banner.titulo)}
+            />
+          );
+      }
+    })();
+
+    if (position === 'news-sidebar') {
+      return (
+        <div className="w-full h-48 md:h-64 lg:h-80 rounded-xl overflow-hidden flex items-stretch">
+          {inner}
+        </div>
+      );
     }
+
+    return inner;
   };
 
   console.log(`🎯 AdBanner: Renderizando banner final para posição ${position}:`, banner);
@@ -156,4 +167,4 @@ const AdBanner: React.FC<AdBannerProps> = ({ position, className = '' }) => {
   );
 };
 
-export default AdBanner; 
+export default AdBanner;

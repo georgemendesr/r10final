@@ -86,6 +86,7 @@ const NewsGeneralSection = () => {
                   src={mainNews.imagemUrl || "https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=500&h=320&fit=crop"}
                   alt={mainNews.titulo}
                   className="w-full h-48 md:h-64 lg:h-80 object-cover rounded-xl group-hover:scale-105 transition-transform duration-300"
+                  onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=500&h=320&fit=crop'; }}
                 />
                 <div className="absolute top-3 md:top-4 left-3 md:left-4">
                   <span className="tag text-xs md:text-sm">
@@ -127,6 +128,7 @@ const NewsGeneralSection = () => {
                       src={news.imagemUrl || "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=80&h=60&fit=crop"}
                       alt={news.titulo}
                       className="w-20 md:w-28 h-16 md:h-20 object-cover rounded-xl group-hover:scale-105 transition-transform duration-300"
+                      onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=80&h=60&fit=crop'; }}
                     />
                   </div>
                   <div className="flex-1">

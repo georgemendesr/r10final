@@ -2203,7 +2203,7 @@ function createApp({ dbPath }) {
     const posicaoParam = req.query.posicao || req.query.position || undefined;
     const categoriaParam = req.query.categoria || req.query.category || undefined;
     const q = req.query.q;
-    const admin = req.query.admin; // ignorado, mas habilita resposta paginada
+  const admin = req.query.admin; // quando presente (ex: admin=1) desabilitaremos cache para painel
 
     let limit = Math.min(100, Math.max(1, parseInt(limitParam)));
     const page = Math.max(1, parseInt(pageParam));
@@ -2277,7 +2277,8 @@ function createApp({ dbPath }) {
       
       console.log(`📊 /api/posts => ${items.length} itens (posicao=${posicaoParam || 'todas'} categoria=${categoriaParam || 'todas'} q=${q || '-'})`);
 
-      // Cache-Control e Last-Modified (60s)
+      // Cache-Control e Last-Modified
+      const isAdminLike = String(admin || '').trim() === '1';
       let lastMod = undefined;
       try {
         const dates = items
@@ -2286,16 +2287,24 @@ function createApp({ dbPath }) {
           .map(d => new Date(d).getTime())
           .filter(n => Number.isFinite(n));
         lastMod = (dates.length ? new Date(Math.max(...dates)) : new Date()).toUTCString();
-        res.setHeader('Cache-Control', 'public, max-age=60');
+        if (isAdminLike) {
+          // Painel precisa sempre de dados frescos
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
+        } else {
+          res.setHeader('Cache-Control', 'public, max-age=60');
+        }
         res.setHeader('Last-Modified', lastMod);
       } catch (_) {}
 
       if (!doPaged) {
-        const isAdminLike = String(admin || '').trim() === '1';
         const payload = isAdminLike ? { posts: items, total: items.length } : items;
         const body = JSON.stringify(payload);
-        const etag = strongEtagFor(body);
-        if (etag) res.setHeader('ETag', etag);
+        if (!isAdminLike) {
+          const etag = strongEtagFor(body);
+          if (etag) res.setHeader('ETag', etag);
+        }
         return res.type('application/json').send(body);
       }
 
@@ -2311,10 +2320,12 @@ function createApp({ dbPath }) {
           postsPerPage: limit
         };
         const body = JSON.stringify(payload);
-        const etag = strongEtagFor(body);
-        if (etag) res.setHeader('ETag', etag);
+        if (!isAdminLike) {
+          const etag = strongEtagFor(body);
+          if (etag) res.setHeader('ETag', etag);
+          if (!res.getHeader('Cache-Control')) res.setHeader('Cache-Control', 'public, max-age=60');
+        }
         if (lastMod) res.setHeader('Last-Modified', lastMod);
-        if (!res.getHeader('Cache-Control')) res.setHeader('Cache-Control', 'public, max-age=60');
         return res.type('application/json').send(body);
       });
     });

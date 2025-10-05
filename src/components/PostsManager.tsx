@@ -16,6 +16,7 @@ const PostsManager: React.FC = () => {
   const [selectedPosition, setSelectedPosition] = useState<string>('todas');
   const [selectedAuthor, setSelectedAuthor] = useState('todos');
   const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
   const { user } = useAuth();
 
   // Carregar posts
@@ -380,6 +381,30 @@ Como isso impacta nossa região?
         console.error('Erro ao excluir post:', error);
         alert('Erro ao excluir matéria');
       }
+    }
+  };
+
+  const createPost = async (payload: any) => {
+    try {
+      setCreating(true);
+      const resp = await fetch('/api/posts?_ts=' + Date.now(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        cache: 'no-store',
+        body: JSON.stringify(payload)
+      });
+      if (!resp.ok) throw new Error('Falha ao criar');
+      const data = await resp.json().catch(()=>({}));
+      console.log('✅ Post criado:', data);
+      // Recarregar lista imediatamente (bust cache)
+      await loadPosts();
+      return data;
+    } catch (e:any) {
+      console.error('Erro criação post', e);
+      throw e;
+    } finally {
+      setCreating(false);
     }
   };
 
