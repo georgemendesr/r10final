@@ -2832,19 +2832,24 @@ function createApp({ dbPath }) {
   // Criar novo post
   app.post('/api/posts', authMiddleware, requireRole('admin','editor'), (req, res) => {
     try {
+      console.log('📝 [CREATE POST] Iniciando criação de post...');
       const body = req.body || {};
       
-      console.log('📝 [CREATE POST] Recebido:', { titulo: body.titulo, categoria: body.categoria });
+      console.log('📝 [CREATE POST] Body recebido:', JSON.stringify(body).substring(0, 200));
+      console.log('📝 [CREATE POST] Dados:', { titulo: body.titulo, categoria: body.categoria });
       
       // Campos obrigatórios
       const titulo = body.titulo || body.title;
       const categoria = body.categoria || body.category || 'geral';
+      
+      console.log('📝 [CREATE POST] Validando título:', titulo);
       
       if (!titulo) {
         console.error('❌ [CREATE POST] Título vazio!');
         return res.status(400).json({ error: 'Título é obrigatório' });
       }
     
+      console.log('📝 [CREATE POST] Preparando sanitização...');
       // Campos opcionais
       const subtitulo = body.subtitulo || body.subtitle || '';
       // Sanitização de conteúdo (mesma config do PUT para consistência)
@@ -2890,22 +2895,29 @@ function createApp({ dbPath }) {
         },
         enforceHtmlBoundary: true
       };
+      console.log('📝 [CREATE POST] Sanitizando conteúdo...');
       let conteudo = body.conteudo || body.content || '';
+      console.log('📝 [CREATE POST] Conteúdo original length:', conteudo.length);
       conteudo = sanitizeHtml(String(conteudo), sanitizeOptions);
+      console.log('📝 [CREATE POST] Conteúdo sanitizado length:', conteudo.length);
       if (conteudo.length > 300 * 1024) {
         console.warn('⚠️ Conteúdo sanitizado >300KB. Truncando.');
         conteudo = conteudo.slice(0, 300 * 1024);
       }
+      console.log('📝 [CREATE POST] Extraindo campos...');
       const autor = body.autor || body.author || 'Redação R10 Piauí';
       const chapeu = body.chapeu || '';
       const posicao = body.posicao || body.position || 'geral';
       let imagemDestaque = body.imagem_destaque || body.imagemDestaque || body.imagemUrl || body.imagem || body.image || '';
       
+      console.log('📝 [CREATE POST] Normalizando posição:', posicao);
       // Normalizar posição
       const normalizedPosition = normalizePos(posicao);
+      console.log('📝 [CREATE POST] Posição normalizada:', normalizedPosition);
       
       // Data atual
       const now = new Date().toISOString();
+      console.log('📝 [CREATE POST] Preparando INSERT SQL...');
       
       // PRIMEIRO: Inserir no banco para obter o ID
       const sql = `
@@ -2913,14 +2925,17 @@ function createApp({ dbPath }) {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
       
+      console.log('📝 [CREATE POST] Executando db.run...');
+      console.log('📝 [CREATE POST] Parametros:', { titulo, subtitulo, categoria, autor, chapeu, normalizedPosition, imagemDestaque, now });
+      
       db.run(sql, [titulo, subtitulo, conteudo, categoria, autor, chapeu, normalizedPosition, imagemDestaque, now], function(err) {
         if (err) {
-          console.error('Erro ao criar post:', err);
-          return res.status(500).json({ error: 'Erro interno do servidor' });
+          console.error('❌ [CREATE POST] Erro ao criar post no banco:', err);
+          return res.status(500).json({ error: 'Erro interno do servidor', details: err.message });
         }
         
         const newId = this.lastID;
-        console.log(`✅ Novo post criado com ID: ${newId} (posição: ${normalizedPosition})`);
+        console.log(`✅ [CREATE POST] Novo post criado com ID: ${newId} (posição: ${normalizedPosition})`);
         
         // Gerar resumo automaticamente se há conteúdo
         if (conteudo && conteudo.trim().length > 50) {
@@ -2971,8 +2986,9 @@ function createApp({ dbPath }) {
         }
       });
     } catch (error) {
-      console.error('💥 [CREATE POST] Erro não capturado:', error);
-      res.status(500).json({ error: 'Erro interno ao criar post', details: error.message });
+      console.error('💥 [CREATE POST] Erro não capturado no try-catch:', error);
+      console.error('💥 [CREATE POST] Stack trace:', error.stack);
+      res.status(500).json({ error: 'Erro interno ao criar post', details: error.message, stack: error.stack });
     }
   });
 
