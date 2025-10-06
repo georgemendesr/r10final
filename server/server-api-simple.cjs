@@ -551,32 +551,56 @@ function createApp({ dbPath }) {
   app.locals.db = db; // expor conexão para testes/cleanup
   console.log('🗄️ Conectado ao banco SQLite:', resolvedDbPath);
 
-  // ======= INICIALIZAR TABELA NOTICIAS =======
-  db.run(`CREATE TABLE IF NOT EXISTS noticias (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    titulo TEXT NOT NULL,
-    subtitulo TEXT,
-    chapeu TEXT,
-    resumo TEXT,
-    conteudo TEXT NOT NULL,
-    autor TEXT NOT NULL,
-    categoria TEXT NOT NULL,
-    posicao INTEGER DEFAULT 0,
-    destaque INTEGER DEFAULT 0,
-    imagem_url TEXT,
-    views INTEGER DEFAULT 0,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-  )`, [], (err) => {
-    if (err) console.error('⚠️ Erro ao criar tabela noticias:', err);
-    else {
-      console.log('📰 Tabela de notícias pronta');
-      // Criar índices
-      db.run(`CREATE INDEX IF NOT EXISTS idx_noticias_categoria ON noticias(categoria)`);
-      db.run(`CREATE INDEX IF NOT EXISTS idx_noticias_posicao ON noticias(posicao)`);
-      db.run(`CREATE INDEX IF NOT EXISTS idx_noticias_destaque ON noticias(destaque)`);
-      db.run(`CREATE INDEX IF NOT EXISTS idx_noticias_created ON noticias(created_at)`);
-    }
+  // ======= INICIALIZAR / MIGRAR TABELA NOTICIAS =======
+  db.serialize(()=>{
+    db.run(`CREATE TABLE IF NOT EXISTS noticias (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      titulo TEXT NOT NULL,
+      subtitulo TEXT,
+      chapeu TEXT,
+      resumo TEXT,
+      conteudo TEXT NOT NULL,
+      autor TEXT NOT NULL,
+      categoria TEXT NOT NULL,
+      posicao TEXT,
+      imagem TEXT,
+      imagemUrl TEXT,
+      imagem_destaque TEXT,
+      slug TEXT,
+      published_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      views INTEGER DEFAULT 0
+    )`, (err)=>{
+      if (err) console.error('⚠️ Erro ao garantir tabela noticias:', err); else console.log('📰 Tabela noticias verificada');
+    });
+
+    // Migração incremental de colunas faltantes (idempotente)
+    db.all('PRAGMA table_info(noticias)', [], (perr, rows)=>{
+      if (perr) { console.error('Erro PRAGMA table_info noticias:', perr); return; }
+      const existing = new Set(rows.map(r=>r.name));
+      const addColumn = (name, ddl) => {
+        if (!existing.has(name)) {
+          db.run(`ALTER TABLE noticias ADD COLUMN ${name} ${ddl}`, err=>{
+            if (err) console.error(`❌ Falha ao adicionar coluna ${name}:`, err.message); else console.log(`✅ Coluna adicionada: ${name}`);
+          });
+        }
+      };
+      addColumn('subtitulo','TEXT');
+      addColumn('chapeu','TEXT');
+      addColumn('resumo','TEXT');
+      addColumn('imagem','TEXT');
+      addColumn('imagemUrl','TEXT');
+      addColumn('imagem_destaque','TEXT');
+      addColumn('slug','TEXT');
+      addColumn('published_at','DATETIME DEFAULT CURRENT_TIMESTAMP');
+      addColumn('views','INTEGER DEFAULT 0');
+    });
+
+    // Índices essenciais
+    db.run(`CREATE INDEX IF NOT EXISTS idx_noticias_categoria ON noticias(categoria)`);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_noticias_posicao ON noticias(posicao)`);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_noticias_published ON noticias(published_at)`);
   });
 
   // ======= AUTH (local) =======

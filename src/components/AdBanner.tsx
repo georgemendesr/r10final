@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { adsService, Banner } from '../services/adsService';
+import { HERO_MAIN_IMAGE_HEIGHT_CLASSES } from '../constants/layout';
 
 interface AdBannerProps {
   position: Banner['posicao'];
@@ -73,10 +74,9 @@ const AdBanner: React.FC<AdBannerProps> = ({ position, className = '' }) => {
   }
 
   const getSizeClasses = (tamanho: Banner['tamanho']) => {
-    // Para news-sidebar, usar o mesmo tamanho da imagem principal
+    // Para news-sidebar, usar EXATAMENTE as mesmas classes da imagem principal do HeroGrid
     if (position === 'news-sidebar') {
-      // Aumentado: alinhado a ~400px desktop, maior presença visual
-      return 'w-full h-60 md:h-72 lg:h-[400px] rounded-xl overflow-hidden';
+      return `${HERO_MAIN_IMAGE_HEIGHT_CLASSES} rounded-xl overflow-hidden`;
     }
     
     switch (tamanho) {
@@ -142,7 +142,7 @@ const AdBanner: React.FC<AdBannerProps> = ({ position, className = '' }) => {
 
     if (position === 'news-sidebar') {
       return (
-        <div className="w-full h-60 md:h-72 lg:h-[400px] rounded-xl overflow-hidden flex items-stretch">
+        <div className={`${HERO_MAIN_IMAGE_HEIGHT_CLASSES} rounded-xl overflow-hidden flex items-stretch`}>
           {inner}
         </div>
       );

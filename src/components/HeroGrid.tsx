@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { HERO_MAIN_IMAGE_HEIGHT_CLASSES } from '../constants/layout';
 import { Link } from 'react-router-dom';
 import WhatsAppShareButton from './WhatsAppShareButton';
 import { getPostsByPosition } from '../services/postsService';
@@ -177,7 +178,7 @@ const HeroGrid = () => {
           {/* Notícia Principal */}
           <Link to={`/noticia/${getCategory(mainArticle)}/${createSlug(getTitle(mainArticle))}/${mainArticle.id}`} className="group">
             <article>
-            <div className={`w-full h-[250px] md:h-[350px] lg:h-[400px] rounded-xl overflow-hidden mb-4 md:mb-5 tint ${getEditorialClasses(getCategory(mainArticle)).tint}`}>
+            <div className={`${HERO_MAIN_IMAGE_HEIGHT_CLASSES} rounded-xl overflow-hidden mb-4 md:mb-5 tint ${getEditorialClasses(getCategory(mainArticle)).tint}`}>
               <img
                 src={getImage(mainArticle)}
                 alt={getTitle(mainArticle)}
