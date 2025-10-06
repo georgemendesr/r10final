@@ -2848,128 +2848,128 @@ function createApp({ dbPath }) {
       // Campos opcionais
       const subtitulo = body.subtitulo || body.subtitle || '';
       // Sanitização de conteúdo (mesma config do PUT para consistência)
-    const sanitizeOptions = {
-      allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img','figure','figcaption','iframe']),
-      allowedAttributes: {
-        a: ['href','name','target','rel'],
-        img: ['src','alt','title','width','height','loading'],
-        iframe: ['src','width','height','allow','allowfullscreen','frameborder'],
-        span: ['class', 'style', 'data-highlight'], // ✅ PERMITIR data-highlight para destaques animados
-        '*': ['style', 'class']
-      },
-      allowedSchemes: ['http','https','data','mailto'],
-      transformTags: { 'b': 'strong', 'i': 'em' },
-      // ✅ PERMITIR TODOS OS ESTILOS INLINE SEGUROS (necessário para destaques animados)
-      allowedStyles: {
-        '*': {
-          'text-align': [/.*/],
-          'font-weight': [/.*/],
-          'font-style': [/.*/],
-          'font-size': [/.*/],
-          'font-family': [/.*/],
-          'line-height': [/.*/],
-          'color': [/.*/],
-          'background': [/.*/],
-          'background-color': [/.*/],
-          'background-size': [/.*/],
-          'background-position': [/.*/],
-          'background-repeat': [/.*/],
-          'padding': [/.*/],
-          'margin': [/.*/],
-          'border': [/.*/],
-          'border-radius': [/.*/],
-          'border-left': [/.*/],
-          'border-color': [/.*/],
-          'position': [/^(relative|absolute|static)$/],
-          'display': [/.*/],
-          'transition': [/.*/],
-          'animation': [/.*/],
-          '-webkit-box-decoration-break': [/.*/],
-          'box-decoration-break': [/.*/],
+      const sanitizeOptions = {
+        allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img','figure','figcaption','iframe']),
+        allowedAttributes: {
+          a: ['href','name','target','rel'],
+          img: ['src','alt','title','width','height','loading'],
+          iframe: ['src','width','height','allow','allowfullscreen','frameborder'],
+          span: ['class', 'style', 'data-highlight'], // ✅ PERMITIR data-highlight para destaques animados
+          '*': ['style', 'class']
+        },
+        allowedSchemes: ['http','https','data','mailto'],
+        transformTags: { 'b': 'strong', 'i': 'em' },
+        // ✅ PERMITIR TODOS OS ESTILOS INLINE SEGUROS (necessário para destaques animados)
+        allowedStyles: {
+          '*': {
+            'text-align': [/.*/],
+            'font-weight': [/.*/],
+            'font-style': [/.*/],
+            'font-size': [/.*/],
+            'font-family': [/.*/],
+            'line-height': [/.*/],
+            'color': [/.*/],
+            'background': [/.*/],
+            'background-color': [/.*/],
+            'background-size': [/.*/],
+            'background-position': [/.*/],
+            'background-repeat': [/.*/],
+            'padding': [/.*/],
+            'margin': [/.*/],
+            'border': [/.*/],
+            'border-radius': [/.*/],
+            'border-left': [/.*/],
+            'border-color': [/.*/],
+            'position': [/^(relative|absolute|static)$/],
+            'display': [/.*/],
+            'transition': [/.*/],
+            'animation': [/.*/],
+            '-webkit-box-decoration-break': [/.*/],
+            'box-decoration-break': [/.*/],
+          }
+        },
+        enforceHtmlBoundary: true
+      };
+      let conteudo = body.conteudo || body.content || '';
+      conteudo = sanitizeHtml(String(conteudo), sanitizeOptions);
+      if (conteudo.length > 300 * 1024) {
+        console.warn('⚠️ Conteúdo sanitizado >300KB. Truncando.');
+        conteudo = conteudo.slice(0, 300 * 1024);
+      }
+      const autor = body.autor || body.author || 'Redação R10 Piauí';
+      const chapeu = body.chapeu || '';
+      const posicao = body.posicao || body.position || 'geral';
+      let imagemDestaque = body.imagem_destaque || body.imagemDestaque || body.imagemUrl || body.imagem || body.image || '';
+      
+      // Normalizar posição
+      const normalizedPosition = normalizePos(posicao);
+      
+      // Data atual
+      const now = new Date().toISOString();
+      
+      // PRIMEIRO: Inserir no banco para obter o ID
+      const sql = `
+        INSERT INTO noticias (titulo, subtitulo, conteudo, categoria, autor, chapeu, posicao, imagem_destaque, published_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `;
+      
+      db.run(sql, [titulo, subtitulo, conteudo, categoria, autor, chapeu, normalizedPosition, imagemDestaque, now], function(err) {
+        if (err) {
+          console.error('Erro ao criar post:', err);
+          return res.status(500).json({ error: 'Erro interno do servidor' });
         }
-      },
-      enforceHtmlBoundary: true
-    };
-    let conteudo = body.conteudo || body.content || '';
-    conteudo = sanitizeHtml(String(conteudo), sanitizeOptions);
-    if (conteudo.length > 300 * 1024) {
-      console.warn('⚠️ Conteúdo sanitizado >300KB. Truncando.');
-      conteudo = conteudo.slice(0, 300 * 1024);
-    }
-    const autor = body.autor || body.author || 'Redação R10 Piauí';
-    const chapeu = body.chapeu || '';
-    const posicao = body.posicao || body.position || 'geral';
-    let imagemDestaque = body.imagem_destaque || body.imagemDestaque || body.imagemUrl || body.imagem || body.image || '';
-    
-    // Normalizar posição
-    const normalizedPosition = normalizePos(posicao);
-    
-    // Data atual
-    const now = new Date().toISOString();
-    
-    // PRIMEIRO: Inserir no banco para obter o ID
-    const sql = `
-      INSERT INTO noticias (titulo, subtitulo, conteudo, categoria, autor, chapeu, posicao, imagem_destaque, published_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
-    
-    db.run(sql, [titulo, subtitulo, conteudo, categoria, autor, chapeu, normalizedPosition, imagemDestaque, now], function(err) {
-      if (err) {
-        console.error('Erro ao criar post:', err);
-        return res.status(500).json({ error: 'Erro interno do servidor' });
-      }
-      
-      const newId = this.lastID;
-      console.log(`✅ Novo post criado com ID: ${newId} (posição: ${normalizedPosition})`);
-      
-      // Gerar resumo automaticamente se há conteúdo
-      if (conteudo && conteudo.trim().length > 50) {
-        generateSummary(conteudo).then(resumo => {
-          if (resumo) {
-            db.run('UPDATE noticias SET resumo = ? WHERE id = ?', [resumo, newId], (updateErr) => {
-              if (updateErr) {
-                console.error('Erro ao salvar resumo:', updateErr);
-              } else {
-                console.log(`📝 Resumo salvo para post ${newId}`);
+        
+        const newId = this.lastID;
+        console.log(`✅ Novo post criado com ID: ${newId} (posição: ${normalizedPosition})`);
+        
+        // Gerar resumo automaticamente se há conteúdo
+        if (conteudo && conteudo.trim().length > 50) {
+          generateSummary(conteudo).then(resumo => {
+            if (resumo) {
+              db.run('UPDATE noticias SET resumo = ? WHERE id = ?', [resumo, newId], (updateErr) => {
+                if (updateErr) {
+                  console.error('Erro ao salvar resumo:', updateErr);
+                } else {
+                  console.log(`📝 Resumo salvo para post ${newId}`);
+                }
+              });
+            }
+          }).catch(err => {
+            console.error('Erro ao gerar resumo:', err);
+          });
+        }
+        
+        // Invalida cache home
+        try { if (typeof invalidateHomeCache === 'function') invalidateHomeCache(); } catch(_) {}
+        
+        // Se a posição for supermanchete ou destaque, reorganizar hierarquia
+        const positionChanged = normalizedPosition === 'supermanchete' || normalizedPosition === 'destaque';
+        
+        if (positionChanged) {
+          console.log(`🔄 Reorganizando hierarquia para novo post ${newId} com posição ${normalizedPosition}`);
+          reorganizePositionHierarchy(db, newId, normalizedPosition, (hierarchyErr) => {
+            if (hierarchyErr) {
+              console.error('Erro na reorganização hierárquica:', hierarchyErr);
+            }
+            
+            // Retornar o post criado
+            db.get('SELECT * FROM noticias WHERE id = ?', [newId], (gerr, row) => {
+              if (gerr || !row) {
+                return res.json({ ok: true, id: newId });
               }
+              res.status(201).json(mapPost(row));
             });
-          }
-        }).catch(err => {
-          console.error('Erro ao gerar resumo:', err);
-        });
-      }
-      
-      // Invalida cache home
-      try { if (typeof invalidateHomeCache === 'function') invalidateHomeCache(); } catch(_) {}
-      
-      // Se a posição for supermanchete ou destaque, reorganizar hierarquia
-      const positionChanged = normalizedPosition === 'supermanchete' || normalizedPosition === 'destaque';
-      
-      if (positionChanged) {
-        console.log(`🔄 Reorganizando hierarquia para novo post ${newId} com posição ${normalizedPosition}`);
-        reorganizePositionHierarchy(db, newId, normalizedPosition, (hierarchyErr) => {
-          if (hierarchyErr) {
-            console.error('Erro na reorganização hierárquica:', hierarchyErr);
-          }
-          
-          // Retornar o post criado
+          });
+        } else {
+          // Retornar o post criado sem reorganização
           db.get('SELECT * FROM noticias WHERE id = ?', [newId], (gerr, row) => {
             if (gerr || !row) {
               return res.json({ ok: true, id: newId });
             }
             res.status(201).json(mapPost(row));
           });
-        });
-      } else {
-        // Retornar o post criado sem reorganização
-        db.get('SELECT * FROM noticias WHERE id = ?', [newId], (gerr, row) => {
-          if (gerr || !row) {
-            return res.json({ ok: true, id: newId });
-          }
-          res.status(201).json(mapPost(row));
-        });
-      }
-    });
+        }
+      });
     } catch (error) {
       console.error('💥 [CREATE POST] Erro não capturado:', error);
       res.status(500).json({ error: 'Erro interno ao criar post', details: error.message });
