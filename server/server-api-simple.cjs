@@ -343,9 +343,10 @@ function createApp({ dbPath }) {
         'http://localhost:5176', 'http://127.0.0.1:5176',
         'http://localhost:5177', 'http://127.0.0.1:5177',
         'http://localhost:3000', 'http://127.0.0.1:3000',
-        // Domínio de produção planejado
+        // Domínios de produção
         'https://r10piaui.com',
-        'https://www.r10piaui.com'
+        'https://www.r10piaui.com',
+        'https://r10piaui.onrender.com'
       ]);
       const lanRegex = /^http:\/\/192\.168\.[0-9]{1,3}\.[0-9]{1,3}:[0-9]{2,5}$/;
       if (!origin) return callback(null, true); // same-origin / tools
