@@ -2845,9 +2845,9 @@ function createApp({ dbPath }) {
         return res.status(400).json({ error: 'Título é obrigatório' });
       }
     
-    // Campos opcionais
-    const subtitulo = body.subtitulo || body.subtitle || '';
-    // Sanitização de conteúdo (mesma config do PUT para consistência)
+      // Campos opcionais
+      const subtitulo = body.subtitulo || body.subtitle || '';
+      // Sanitização de conteúdo (mesma config do PUT para consistência)
     const sanitizeOptions = {
       allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img','figure','figcaption','iframe']),
       allowedAttributes: {
