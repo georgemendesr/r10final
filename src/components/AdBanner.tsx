@@ -75,8 +75,8 @@ const AdBanner: React.FC<AdBannerProps> = ({ position, className = '' }) => {
   const getSizeClasses = (tamanho: Banner['tamanho']) => {
     // Para news-sidebar, usar o mesmo tamanho da imagem principal
     if (position === 'news-sidebar') {
-      // Igualar às classes da imagem principal da seção geral
-      return 'w-full h-48 md:h-64 lg:h-80 rounded-xl overflow-hidden';
+      // Aumentado: alinhado a ~400px desktop, maior presença visual
+      return 'w-full h-60 md:h-72 lg:h-[400px] rounded-xl overflow-hidden';
     }
     
     switch (tamanho) {
@@ -142,7 +142,7 @@ const AdBanner: React.FC<AdBannerProps> = ({ position, className = '' }) => {
 
     if (position === 'news-sidebar') {
       return (
-        <div className="w-full h-48 md:h-64 lg:h-80 rounded-xl overflow-hidden flex items-stretch">
+        <div className="w-full h-60 md:h-72 lg:h-[400px] rounded-xl overflow-hidden flex items-stretch">
           {inner}
         </div>
       );

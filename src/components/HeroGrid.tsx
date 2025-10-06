@@ -93,8 +93,37 @@ const HeroGrid = () => {
   
   console.log('🎯 Total posts:', posts.length);
   const getTitle = (p?: UPost) => (p?.title || p?.titulo || '') as string;
-  const getSubtitle = (p?: UPost) => (p?.subtitle || p?.subtitulo || '') as string;
-  const getImage = (p?: UPost) => (p?.imagemDestaque || p?.imagemUrl || '') as string;
+  const getSubtitle = (p?: UPost) => {
+    if (!p) return '';
+    const primary = p.subtitle || p.subtitulo;
+    if (primary && primary.trim()) return primary;
+    // Fallback: usar resumo se existir dentro do objeto
+    const anyResumo: any = (p as any).resumo;
+    if (anyResumo && typeof anyResumo === 'string' && anyResumo.trim()) {
+      return anyResumo.trim().slice(0, 180);
+    }
+    // Fallback final: extrair texto puro dos primeiros 160 caracteres do conteúdo
+    const raw = (p.conteudo || (p as any).content || '') as string;
+    if (raw) {
+      const stripped = raw.replace(/<[^>]+>/g, ' ').replace(/&[a-zA-Z]+;/g, ' ').replace(/\s+/g, ' ').trim();
+      return stripped.slice(0, 160);
+    }
+    return '';
+  };
+  const PLACEHOLDER = '/placeholder.svg';
+  const getImage = (p?: UPost) => {
+    if (!p) return PLACEHOLDER;
+    const chain = [
+      (p as any).imagemUrl,
+      (p as any).imagemDestaque,
+      (p as any).imagem,
+      (p as any).imagem_url,
+      (p as any).image,
+      (p as any).imagem_destaque
+    ].filter(Boolean) as string[];
+    const first = chain.find(src => typeof src === 'string' && src.trim().length > 6);
+    return first || PLACEHOLDER;
+  };
   const getCategory = (p?: UPost) => (p?.subcategorias?.[0] || p?.categoria || 'geral') as string;
   console.log('🎯 Main article:', mainArticle ? getTitle(mainArticle) : 'Nenhuma');
   console.log('🎯 Main article:', mainArticle);
@@ -149,11 +178,17 @@ const HeroGrid = () => {
           <Link to={`/noticia/${getCategory(mainArticle)}/${createSlug(getTitle(mainArticle))}/${mainArticle.id}`} className="group">
             <article>
             <div className={`w-full h-[250px] md:h-[350px] lg:h-[400px] rounded-xl overflow-hidden mb-4 md:mb-5 tint ${getEditorialClasses(getCategory(mainArticle)).tint}`}>
-              <img 
-                src={getImage(mainArticle) || "https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=620&h=350&fit=crop"}
+              <img
+                src={getImage(mainArticle)}
                 alt={getTitle(mainArticle)}
                 className="w-full h-full object-cover"
                 style={{ borderRadius: '12px' }}
+                onError={(e) => {
+                  const el = e.currentTarget;
+                  if (el.dataset._errored) return; // evitar loop
+                  el.dataset._errored = '1';
+                  el.src = PLACEHOLDER;
+                }}
               />
             </div>
                             <div className="flex items-start gap-3 mb-3 md:mb-4">
@@ -186,11 +221,17 @@ const HeroGrid = () => {
                 <Link to={`/noticia/${getCategory(sideArticles[0])}/${createSlug(getTitle(sideArticles[0]))}/${sideArticles[0].id}`} className="group">
                   <article className={`overflow-hidden transition-shadow duration-300`}>
                     <div className={`w-full h-32 md:h-36 rounded-xl overflow-hidden tint ${getEditorialClasses(getCategory(sideArticles[0])).tint}`}>
-                      <img 
-                        src={getImage(sideArticles[0]) || "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=300&h=160&fit=crop"}
+                      <img
+                        src={getImage(sideArticles[0])}
                         alt={getTitle(sideArticles[0])}
                         className="w-full h-full object-cover"
                         style={{ borderRadius: '12px' }}
+                        onError={(e) => {
+                          const el = e.currentTarget;
+                          if (el.dataset._errored) return;
+                          el.dataset._errored = '1';
+                          el.src = PLACEHOLDER;
+                        }}
                       />
                     </div>
                     <div className="p-3 md:p-4 flex flex-col h-full">
@@ -228,11 +269,17 @@ const HeroGrid = () => {
                 <Link to={`/noticia/${getCategory(sideArticles[1])}/${createSlug(getTitle(sideArticles[1]))}/${sideArticles[1].id}`} className="group">
                   <article className={`overflow-hidden transition-shadow duration-300`}>
                     <div className={`w-full h-32 md:h-36 rounded-xl overflow-hidden tint ${getEditorialClasses(getCategory(sideArticles[1])).tint}`}>
-                      <img 
-                        src={getImage(sideArticles[1]) || "https://images.unsplash.com/photo-1495020689067-958852a7765e?w=300&h=160&fit=crop"}
+                      <img
+                        src={getImage(sideArticles[1])}
                         alt={getTitle(sideArticles[1])}
                         className="w-full h-full object-cover"
                         style={{ borderRadius: '12px' }}
+                        onError={(e) => {
+                          const el = e.currentTarget;
+                          if (el.dataset._errored) return;
+                          el.dataset._errored = '1';
+                          el.src = PLACEHOLDER;
+                        }}
                       />
                     </div>
                     <div className="p-3 md:p-4 flex flex-col h-full">
@@ -278,11 +325,17 @@ const HeroGrid = () => {
                 <Link to={`/noticia/${getCategory(sideArticles[2])}/${createSlug(getTitle(sideArticles[2]))}/${sideArticles[2].id}`} className="group">
                   <article className={`overflow-hidden transition-shadow duration-300`}>
                     <div className={`w-full h-32 md:h-36 rounded-xl overflow-hidden tint ${getEditorialClasses(getCategory(sideArticles[2])).tint}`}>
-                      <img 
-                        src={getImage(sideArticles[2]) || "https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=300&h=160&fit=crop"}
+                      <img
+                        src={getImage(sideArticles[2])}
                         alt={getTitle(sideArticles[2])}
                         className="w-full h-full object-cover"
                         style={{ borderRadius: '12px' }}
+                        onError={(e) => {
+                          const el = e.currentTarget;
+                          if (el.dataset._errored) return;
+                          el.dataset._errored = '1';
+                          el.src = PLACEHOLDER;
+                        }}
                       />
                     </div>
                     <div className="p-3 md:p-4 flex flex-col h-full">
@@ -320,11 +373,17 @@ const HeroGrid = () => {
                   <Link to={`/noticia/${getCategory(sideArticles[3])}/${createSlug(getTitle(sideArticles[3]))}/${sideArticles[3].id}`} className="group">
                     <article className={`overflow-hidden transition-shadow duration-300`}>
                       <div className={`w-full h-32 md:h-36 rounded-xl overflow-hidden tint ${getEditorialClasses(getCategory(sideArticles[3])).tint}`}>
-                        <img 
-                          src={getImage(sideArticles[3]) || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&h=160&fit=crop"}
+                        <img
+                          src={getImage(sideArticles[3])}
                           alt={getTitle(sideArticles[3])}
                           className="w-full h-full object-cover"
                           style={{ borderRadius: '12px' }}
+                          onError={(e) => {
+                            const el = e.currentTarget;
+                            if (el.dataset._errored) return;
+                            el.dataset._errored = '1';
+                            el.src = PLACEHOLDER;
+                          }}
                         />
                       </div>
                       <div className="p-3 md:p-4 flex flex-col h-full">
