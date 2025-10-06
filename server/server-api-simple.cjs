@@ -293,6 +293,60 @@ function createApp({ dbPath }) {
     res.json(summary);
   });
 
+  // Endpoint admin para forçar migração de 'noticias'
+  app.post('/api/admin/migrate-noticias', authMiddleware, requireRole('admin'), (req,res)=>{
+    try {
+      console.log('🛠️  [MIGRATE] Iniciando migração via endpoint...');
+      db.all('PRAGMA table_info(noticias)', [], (perr, rows)=>{
+        if (perr) return res.status(500).json({ error:'PRAGMA failed', details: perr.message });
+        const existing = new Set(rows.map(r=>r.name));
+        const steps = [];
+        if (!existing.has('published_at')) steps.push("ALTER TABLE noticias ADD COLUMN published_at DATETIME DEFAULT CURRENT_TIMESTAMP");
+        if (!existing.has('created_at')) steps.push("ALTER TABLE noticias ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP");
+        if (!existing.has('updated_at')) steps.push("ALTER TABLE noticias ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP");
+        if (!existing.has('views')) steps.push("ALTER TABLE noticias ADD COLUMN views INTEGER DEFAULT 0");
+        if (!existing.has('status')) steps.push("ALTER TABLE noticias ADD COLUMN status VARCHAR(20) DEFAULT 'ativo'");
+
+        let done = 0; const total = steps.length;
+        if (total === 0) {
+          finalize();
+        } else {
+          steps.forEach(sql => {
+            db.run(sql, err=>{
+              if (err && !/duplicate column|already exists/i.test(err.message)) {
+                console.warn('⚠️  Falha ao aplicar:', sql, err.message);
+              } else {
+                console.log('✅ Migração aplicada/ignorada:', sql.split(' ')[3]);
+              }
+              if (++done === total) finalize();
+            });
+          });
+        }
+
+        function finalize(){
+          const fixes = [
+            'UPDATE noticias SET created_at = COALESCE(created_at, CURRENT_TIMESTAMP)',
+            'UPDATE noticias SET updated_at = COALESCE(updated_at, created_at, CURRENT_TIMESTAMP)',
+            'UPDATE noticias SET published_at = COALESCE(published_at, created_at, CURRENT_TIMESTAMP)',
+            'UPDATE noticias SET views = COALESCE(views,0)',
+            "UPDATE noticias SET status = COALESCE(status,'ativo')"
+          ];
+          let fdone = 0;
+          fixes.forEach(s=> db.run(s, ()=>{ if (++fdone===fixes.length) createIndex(); }));
+          function createIndex(){
+            db.run('CREATE INDEX IF NOT EXISTS idx_noticias_posicao_published ON noticias(posicao, published_at)', ()=>{
+              console.log('🏁 [MIGRATE] Finalizado');
+              res.json({ ok:true, applied: steps, normalized: true });
+            });
+          }
+        }
+      });
+    } catch(e){
+      console.error('💥 MIGRATION endpoint error', e);
+      res.status(500).json({ error:'migration failed', details: e.message });
+    }
+  });
+
   // Endpoint Prometheus simples
   app.get('/metrics', (req,res)=>{
     res.set('Content-Type','text/plain; version=0.0.4');
