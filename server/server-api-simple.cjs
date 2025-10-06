@@ -370,20 +370,8 @@ function createApp({ dbPath }) {
   console.log('📂 Servindo uploads de:', uploadsDir);
 
   // ===== CONFIGURAÇÃO MULTER PARA UPLOAD DE IMAGENS =====
-  const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-      const dest = path.join(uploadsDir, 'imagens');
-      if (!fs.existsSync(dest)) {
-        fs.mkdirSync(dest, { recursive: true });
-      }
-      cb(null, dest);
-    },
-    filename: (req, file, cb) => {
-      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-      const ext = path.extname(file.originalname);
-      cb(null, 'img-' + uniqueSuffix + ext);
-    }
-  });
+  // Usar memoryStorage para ambientes com filesystem efêmero (como Render)
+  const storage = multer.memoryStorage();
   const upload = multer({ 
     storage, 
     limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
@@ -398,7 +386,7 @@ function createApp({ dbPath }) {
       }
     }
   });
-  console.log('📤 Multer configurado para upload de imagens');
+  console.log('📤 Multer configurado para upload de imagens (memoryStorage)');
 
   // Servir frontend buildado (modo produção single-process) quando habilitado
   // Ative definindo SERVE_STATIC_FRONT=1 ao iniciar (ex: process.env.SERVE_STATIC_FRONT='1')
@@ -2805,21 +2793,34 @@ function createApp({ dbPath }) {
   });
 
   // ===== ENDPOINT DE UPLOAD DE IMAGENS =====
-  app.post('/api/upload', authMiddleware, requireRole('admin','editor'), upload.single('image'), (req, res) => {
+  app.post('/api/upload', authMiddleware, requireRole('admin','editor'), upload.single('image'), async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: 'Nenhum arquivo enviado' });
       }
       
-      // Construir URL relativa para a imagem
-      const imageUrl = `/uploads/imagens/${req.file.filename}`;
+      // Gerar nome único
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      const ext = path.extname(req.file.originalname);
+      const filename = 'img-' + uniqueSuffix + ext;
       
-      console.log('✅ Imagem uploadada:', req.file.filename);
+      // Salvar no disco
+      const destDir = path.join(uploadsDir, 'imagens');
+      if (!fs.existsSync(destDir)) {
+        fs.mkdirSync(destDir, { recursive: true });
+      }
+      const filePath = path.join(destDir, filename);
+      fs.writeFileSync(filePath, req.file.buffer);
+      
+      // Construir URL relativa
+      const imageUrl = `/uploads/imagens/${filename}`;
+      
+      console.log('✅ Imagem uploadada:', filename);
       
       res.json({
         success: true,
         imageUrl: imageUrl,
-        filename: req.file.filename,
+        filename: filename,
         size: req.file.size
       });
     } catch (error) {
