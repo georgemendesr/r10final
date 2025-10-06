@@ -37,6 +37,10 @@ logs/
 *.db-shm
 *.db-wal
 
+# Diretório de dados local (não commitar bancos locais)
+data/
+!data/.gitkeep
+
 # Upload directories com conteúdo dinâmico
 uploads/imagens/*
 uploads/editor/*

@@ -572,14 +572,31 @@ function createApp({ dbPath }) {
     }
   }
 
-  const resolvedDbPath = dbPath || process.env.SQLITE_DB_PATH || path.join(__dirname, 'noticias.db');
-  const db = new sqlite3.Database(resolvedDbPath);
+  // 🎯 CAMINHO DO BANCO: Usar disco persistente no Render
+  const DATA_DIR = process.env.RENDER ? '/opt/render/project/src/data' : path.join(__dirname, '..', 'data');
+  const DB_FILENAME = 'r10piaui.db';
+  
+  // Garantir que o diretório existe
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    console.log('✅ Diretório de dados criado:', DATA_DIR);
+  }
+  
+  const resolvedDbPath = dbPath || process.env.SQLITE_DB_PATH || path.join(DATA_DIR, DB_FILENAME);
+  const db = new sqlite3.Database(resolvedDbPath, (err) => {
+    if (err) {
+      console.error('❌ Erro ao conectar ao banco:', err);
+      process.exit(1);
+    }
+    console.log('✅ Conectado ao banco SQLite:', resolvedDbPath);
+    console.log('📁 Diretório de dados:', DATA_DIR);
+    console.log('💾 Persistente:', process.env.RENDER ? 'SIM (Render Disk)' : 'LOCAL');
+  });
   
   // Configurar SQLite para UTF-8
   db.run("PRAGMA encoding = 'UTF-8'");
   
   app.locals.db = db; // expor conexão para testes/cleanup
-  console.log('🗄️ Conectado ao banco SQLite:', resolvedDbPath);
 
   // ======= INICIALIZAR / MIGRAR TABELA NOTICIAS =======
   db.serialize(()=>{
