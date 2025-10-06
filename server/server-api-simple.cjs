@@ -3024,17 +3024,24 @@ function createApp({ dbPath }) {
       console.log('📝 [CREATE POST] Posição normalizada:', normalizedPosition);
       
       console.log('📝 [CREATE POST] Preparando INSERT SQL...');
-      
-      // PRIMEIRO: Inserir no banco para obter o ID (SEM published_at!)
+
+      // Garantir timestamps manualmente para contornar possíveis esquemas antigos sem DEFAULT correto
+      const nowIso = new Date().toISOString(); // ISO string compatível
+      // Inserimos também published_at inicialmente = now (pode ser ajustado futuramente)
       const sql = `
-        INSERT INTO noticias (titulo, subtitulo, conteudo, categoria, autor, chapeu, posicao, imagem_destaque)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO noticias (
+          titulo, subtitulo, conteudo, categoria, autor, chapeu, posicao, imagem_destaque,
+          created_at, updated_at, published_at
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?)
       `;
-      
+
       console.log('📝 [CREATE POST] Executando db.run...');
-      console.log('📝 [CREATE POST] Parametros:', { titulo, subtitulo, categoria, autor, chapeu, normalizedPosition, imagemDestaque });
-      
-      db.run(sql, [titulo, subtitulo, conteudo, categoria, autor, chapeu, normalizedPosition, imagemDestaque], function(err) {
+      console.log('📝 [CREATE POST] Parametros:', { titulo, subtitulo, categoria, autor, chapeu, normalizedPosition, imagemDestaque, created_at: nowIso });
+
+      db.run(sql, [
+        titulo, subtitulo, conteudo, categoria, autor, chapeu, normalizedPosition, imagemDestaque,
+        nowIso, nowIso, nowIso
+      ], function(err) {
         if (err) {
           console.error('❌ [CREATE POST] Erro ao criar post no banco:', err);
           return res.status(500).json({ error: 'Erro interno do servidor', details: err.message });
