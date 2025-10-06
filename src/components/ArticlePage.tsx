@@ -372,11 +372,10 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
             {/* Título Principal com Hierarquia Clara */}
             <div className="space-y-8">
               <h1 
-                className="tracking-tight"
+                className="tracking-tight text-2xl md:text-4xl lg:text-5xl"
                 style={{
                   fontFamily: 'Inter, sans-serif',
                   fontWeight: 900,
-                  fontSize: '48px',
                   lineHeight: '1.1'
                 }}
               >

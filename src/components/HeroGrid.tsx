@@ -173,9 +173,9 @@ const HeroGrid = () => {
 
   return (
     <section className="bg-gray-50 py-3 md:py-4 font-body">
-      <div className="container mx-auto px-4 max-w-[1250px]">
+      <div className="container mx-auto px-3 md:px-4 max-w-[1250px]">
         {/* Título da Seção SEO */}
-        <h2 className="titulo-principal text-gray-900 mb-6 border-l-4 border-red-600 pl-4">
+        <h2 className="titulo-principal text-gray-900 mb-4 md:mb-6 border-l-4 border-red-600 pl-3 md:pl-4 text-xl md:text-2xl">
           {getHomeSectionTitles().destaque}
         </h2>
 

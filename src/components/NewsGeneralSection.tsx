@@ -5,6 +5,7 @@ import { getPostsByPosition } from '../services/postsService';
 import { getHomeSectionTitles } from '../lib/seo';
 import TitleLink from './TitleLink';
 import type { Post } from '../types/Post';
+import { NEWS_GENERAL_MAIN_IMAGE_CLASSES } from '../constants/layout';
 
 const NewsGeneralSection = () => {
   const [geralPosts, setGeralPosts] = useState<Post[]>([]);
@@ -85,7 +86,7 @@ const NewsGeneralSection = () => {
                 <img 
                   src={mainNews.imagemUrl || "https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=500&h=320&fit=crop"}
                   alt={mainNews.titulo}
-                  className="w-full h-48 md:h-64 lg:h-80 object-cover rounded-xl group-hover:scale-105 transition-transform duration-300"
+                  className={`${NEWS_GENERAL_MAIN_IMAGE_CLASSES} object-cover rounded-xl group-hover:scale-105 transition-transform duration-300`}
                   onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=500&h=320&fit=crop'; }}
                 />
                 <div className="absolute top-3 md:top-4 left-3 md:left-4">
