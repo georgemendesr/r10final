@@ -119,7 +119,6 @@ const HeroGrid = () => {
   const PLACEHOLDER = '/placeholder.svg';
   const getImage = (p?: UPost) => {
     if (!p) return PLACEHOLDER;
-    console.log('🖼️ getImage called for post:', p.id, 'imagemUrl:', (p as any).imagemUrl);
     const chain = [
       (p as any).imagemUrl,
       (p as any).imagemDestaque,
@@ -128,9 +127,7 @@ const HeroGrid = () => {
       (p as any).image,
       (p as any).imagem_destaque
     ].filter(Boolean) as string[];
-    console.log('📸 Image chain:', chain);
     const first = chain.find(src => typeof src === 'string' && src.trim().length > 6);
-    console.log('✅ Selected image:', first || PLACEHOLDER);
     return first || PLACEHOLDER;
   };
   const getCategory = (p?: UPost) => (p?.subcategorias?.[0] || p?.categoria || 'geral') as string;
