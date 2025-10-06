@@ -414,17 +414,7 @@ function createApp({ dbPath }) {
   
   app.use(cors(corsOptions));
 
-  // ===== SERVIR ARQUIVOS ESTÁTICOS (UPLOADS) =====
-  const uploadsDir = path.join(__dirname, '..', 'uploads');
-  if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
-    console.log('📁 Criado diretório uploads:', uploadsDir);
-  }
-  app.use('/uploads', express.static(uploadsDir));
-  console.log('📂 Servindo uploads de:', uploadsDir);
-
-  // ===== REMOVIDO: antiga configuração memoryStorage =====
-  // Agora usando diskStorage no disco persistente do Render
+  // (Removido bloco antigo de uploads - agora toda lógica centralizada em UPLOADS_DIR persistente mais abaixo)
 
   // Servir frontend buildado (modo produção single-process) quando habilitado
   // Ative definindo SERVE_STATIC_FRONT=1 ao iniciar (ex: process.env.SERVE_STATIC_FRONT='1')
