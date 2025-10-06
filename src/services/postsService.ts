@@ -48,15 +48,25 @@ export async function getPostsByPosition(posicao: string, limit=5): Promise<Post
 }
 
 export async function deletePost(id: number|string) {
-  const res = await fetch(`${API_BASE}/posts/${id}`, { method: 'DELETE' });
+  const token = localStorage.getItem('token');
+  const res = await fetch(`${API_BASE}/posts/${id}`, { 
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
   if (!res.ok) throw new Error('Erro ao deletar');
   return res.json();
 }
 
 export async function createPost(postData: Partial<Post>) {
+  const token = localStorage.getItem('token');
   const res = await fetch(`${API_BASE}/posts`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
     body: JSON.stringify(postData)
   });
   if (!res.ok) throw new Error('Erro ao criar post');
@@ -65,9 +75,13 @@ export async function createPost(postData: Partial<Post>) {
 }
 
 export async function updatePost(id: string | number, postData: Partial<Post>) {
+  const token = localStorage.getItem('token');
   const res = await fetch(`${API_BASE}/posts/${id}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
     body: JSON.stringify(postData)
   });
   if (!res.ok) throw new Error('Erro ao atualizar post');
