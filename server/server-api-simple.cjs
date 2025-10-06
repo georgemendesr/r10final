@@ -2561,8 +2561,17 @@ function createApp({ dbPath }) {
       enforceHtmlBoundary: true
     };
 
+    const baseAllowedSchemesUpdate = process.env.ALLOW_DATA_IMAGES_CONTENT === '1' ? ['http','https','data','mailto'] : ['http','https','mailto'];
+    sanitizeOptions.allowedSchemes = baseAllowedSchemesUpdate;
     const rawConteudo = body.conteudo ?? body.content ?? '';
     let sanitizedConteudo = sanitizeHtml(String(rawConteudo), sanitizeOptions);
+    if (process.env.ALLOW_DATA_IMAGES_CONTENT !== '1') {
+      const beforeLenU = sanitizedConteudo.length;
+      sanitizedConteudo = sanitizedConteudo.replace(/<img[^>]+src="data:[^"]+"[^>]*>/gi,'');
+      if (beforeLenU !== sanitizedConteudo.length) {
+        console.log('🧹 [UPDATE POST] Imagens Base64 inline removidas do conteúdo');
+      }
+    }
     // Proteção extra: limitar tamanho máximo (ex: 300KB) para evitar payloads gigantes
     if (sanitizedConteudo.length > 300 * 1024) {
       console.warn(`⚠️ Conteúdo sanitizado excedeu 300KB. Truncando.`);
@@ -2955,6 +2964,7 @@ function createApp({ dbPath }) {
       // Campos opcionais
       const subtitulo = body.subtitulo || body.subtitle || '';
       // Sanitização de conteúdo (mesma config do PUT para consistência)
+      const baseAllowedSchemesCreate = process.env.ALLOW_DATA_IMAGES_CONTENT === '1' ? ['http','https','data','mailto'] : ['http','https','mailto'];
       const sanitizeOptions = {
         allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img','figure','figcaption','iframe']),
         allowedAttributes: {
@@ -2964,7 +2974,8 @@ function createApp({ dbPath }) {
           span: ['class', 'style', 'data-highlight'], // ✅ PERMITIR data-highlight para destaques animados
           '*': ['style', 'class']
         },
-        allowedSchemes: ['http','https','data','mailto'],
+        // Bloqueia 'data' scheme para imagens se ALLOW_DATA_IMAGES_CONTENT != '1'
+        allowedSchemes: baseAllowedSchemesCreate,
         transformTags: { 'b': 'strong', 'i': 'em' },
         // ✅ PERMITIR TODOS OS ESTILOS INLINE SEGUROS (necessário para destaques animados)
         allowedStyles: {
@@ -3001,6 +3012,14 @@ function createApp({ dbPath }) {
       let conteudo = body.conteudo || body.content || '';
       console.log('📝 [CREATE POST] Conteúdo original length:', conteudo.length);
       conteudo = sanitizeHtml(String(conteudo), sanitizeOptions);
+      if (process.env.ALLOW_DATA_IMAGES_CONTENT !== '1') {
+        // Remove <img src="data:..."> para evitar páginas enormes e possíveis abusos
+        const beforeLen = conteudo.length;
+        conteudo = conteudo.replace(/<img[^>]+src="data:[^"]+"[^>]*>/gi,'');
+        if (beforeLen !== conteudo.length) {
+          console.log('🧹 [CREATE POST] Imagens Base64 inline removidas do conteúdo');
+        }
+      }
       console.log('📝 [CREATE POST] Conteúdo sanitizado length:', conteudo.length);
       if (conteudo.length > 300 * 1024) {
         console.warn('⚠️ Conteúdo sanitizado >300KB. Truncando.');
