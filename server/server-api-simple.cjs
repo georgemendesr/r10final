@@ -2930,10 +2930,28 @@ function createApp({ dbPath }) {
 
   // ===== ENDPOINT DE UPLOAD DE IMAGENS =====
   // 🖼️ POST /api/upload - Upload de imagem no disco persistente
-  app.post('/api/upload', authMiddleware, requireRole('admin','editor'), upload.single('image'), async (req, res) => {
+  // Aceitar vários nomes de campo: image, file, imagem, imagemDestaque
+  const uploadAny = (req,res,next)=>{
+    const single = upload.single('image');
+    single(req,res,function(err){
+      if (err && err.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ error:'Imagem maior que 5MB' });
+      if (req.file) return next();
+      // Tentar outros campos
+      const tryFields = ['file','imagem','imagemDestaque'];
+      let idx = 0;
+      const tryNext = ()=>{
+        if (idx >= tryFields.length) return next();
+        const f = tryFields[idx++];
+        const s = upload.single(f);
+        s(req,res,function(e2){ if (!req.file && !e2) return tryNext(); next(e2); });
+      };
+      tryNext();
+    });
+  };
+  app.post('/api/upload', authMiddleware, requireRole('admin','editor'), uploadAny, async (req, res) => {
     try {
       if (!req.file) {
-        return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+        return res.status(400).json({ error: 'Nenhum arquivo enviado (campo esperado: image)' });
       }
       
       // URL da imagem (relativa ao domínio)
@@ -2951,11 +2969,12 @@ function createApp({ dbPath }) {
       
       res.json({
         success: true,
-        imageUrl: fullUrl, // URL completa
-        url: fullUrl, // Alias para compatibilidade
+        imageUrl: fullUrl,
+        url: fullUrl,
+        relative: imageUrl,
         filename: req.file.filename,
         size: req.file.size,
-        path: imageUrl // URL relativa
+        path: imageUrl
       });
     } catch (error) {
       console.error('❌ Erro no upload:', error);
