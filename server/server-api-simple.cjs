@@ -580,8 +580,33 @@ function createApp({ dbPath }) {
     }
     console.log('✅ Conectado ao banco SQLite:', resolvedDbPath);
     console.log('📁 Diretório de dados:', DATA_DIR);
-    console.log('� Diretório de uploads:', UPLOADS_DIR);
-    console.log('�💾 Persistente:', process.env.RENDER ? 'SIM (Render Disk)' : 'LOCAL');
+    console.log('📂 Diretório de uploads:', UPLOADS_DIR);
+    console.log('💾 Persistente:', process.env.RENDER ? 'SIM (Render Disk)' : 'LOCAL');
+    
+    // 🔧 CORREÇÃO URGENTE: Verificar e adicionar colunas faltantes
+    console.log('🔧 Verificando estrutura do banco...');
+    const columnsToAdd = [
+      { sql: "ALTER TABLE noticias ADD COLUMN published_at DATETIME DEFAULT CURRENT_TIMESTAMP", name: "published_at" },
+      { sql: "ALTER TABLE noticias ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP", name: "created_at" },
+      { sql: "ALTER TABLE noticias ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP", name: "updated_at" },
+      { sql: "ALTER TABLE noticias ADD COLUMN status VARCHAR(20) DEFAULT 'ativo'", name: "status" },
+      { sql: "ALTER TABLE noticias ADD COLUMN chapeu TEXT", name: "chapeu" },
+      { sql: "ALTER TABLE noticias ADD COLUMN views INTEGER DEFAULT 0", name: "views" }
+    ];
+    
+    columnsToAdd.forEach(col => {
+      db.run(col.sql, (err) => {
+        if (err) {
+          if (err.message.includes('duplicate column')) {
+            console.log(`✅ Coluna ${col.name} já existe`);
+          } else {
+            console.error(`⚠️ Erro ao adicionar coluna ${col.name}:`, err.message);
+          }
+        } else {
+          console.log(`✅ Coluna ${col.name} adicionada com sucesso`);
+        }
+      });
+    });
   });
   
   // Configurar SQLite para UTF-8
