@@ -1029,14 +1029,43 @@ const PostForm = () => {
                    type="file" 
                    className="hidden" 
                    accept="image/*"
-                   onChange={(e) => {
+                   onChange={async (e) => {
                      const file = e.target.files?.[0];
                      if (file) {
-                       const reader = new FileReader();
-                       reader.onload = (event) => {
-                         handleInputChange('imagemDestaque', event.target?.result as string);
-                       };
-                       reader.readAsDataURL(file);
+                       try {
+                         // Mostrar preview local enquanto faz upload
+                         const reader = new FileReader();
+                         reader.onload = (event) => {
+                           handleInputChange('imagemDestaque', event.target?.result as string);
+                         };
+                         reader.readAsDataURL(file);
+
+                         // Fazer upload real para o servidor
+                         const formData = new FormData();
+                         formData.append('image', file);
+                         
+                         const token = localStorage.getItem('token');
+                         const response = await fetch(`${(import.meta as any).env?.VITE_API_BASE_URL || '/api'}/upload`, {
+                           method: 'POST',
+                           headers: {
+                             'Authorization': `Bearer ${token}`
+                           },
+                           body: formData
+                         });
+                         
+                         if (!response.ok) {
+                           throw new Error('Erro ao fazer upload da imagem');
+                         }
+                         
+                         const data = await response.json();
+                         // Substituir preview por URL real do servidor
+                         handleInputChange('imagemDestaque', data.imageUrl);
+                         console.log('✅ Upload concluído:', data.imageUrl);
+                         
+                       } catch (error) {
+                         console.error('❌ Erro no upload:', error);
+                         alert('Erro ao fazer upload da imagem. Tente novamente.');
+                       }
                      }
                    }}
                  />

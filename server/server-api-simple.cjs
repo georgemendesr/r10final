@@ -9,6 +9,7 @@ const sanitizeHtml = require('sanitize-html');
 const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
+const multer = require('multer');
 
 // Configurar encoding para UTF-8
 process.env.NODE_ENV = process.env.NODE_ENV || 'development';
@@ -357,6 +358,46 @@ function createApp({ dbPath }) {
   };
   
   app.use(cors(corsOptions));
+
+  // ===== SERVIR ARQUIVOS ESTÁTICOS (UPLOADS) =====
+  const uploadsDir = path.join(__dirname, '..', 'uploads');
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+    console.log('📁 Criado diretório uploads:', uploadsDir);
+  }
+  app.use('/uploads', express.static(uploadsDir));
+  console.log('📂 Servindo uploads de:', uploadsDir);
+
+  // ===== CONFIGURAÇÃO MULTER PARA UPLOAD DE IMAGENS =====
+  const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+      const dest = path.join(uploadsDir, 'imagens');
+      if (!fs.existsSync(dest)) {
+        fs.mkdirSync(dest, { recursive: true });
+      }
+      cb(null, dest);
+    },
+    filename: (req, file, cb) => {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      const ext = path.extname(file.originalname);
+      cb(null, 'img-' + uniqueSuffix + ext);
+    }
+  });
+  const upload = multer({ 
+    storage, 
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+    fileFilter: (req, file, cb) => {
+      const allowedTypes = /jpeg|jpg|png|gif|webp/;
+      const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+      const mimetype = allowedTypes.test(file.mimetype);
+      if (mimetype && extname) {
+        return cb(null, true);
+      } else {
+        cb(new Error('Apenas imagens são permitidas (jpg, png, gif, webp)'));
+      }
+    }
+  });
+  console.log('📤 Multer configurado para upload de imagens');
 
   // Servir frontend buildado (modo produção single-process) quando habilitado
   // Ative definindo SERVE_STATIC_FRONT=1 ao iniciar (ex: process.env.SERVE_STATIC_FRONT='1')
@@ -2760,6 +2801,30 @@ function createApp({ dbPath }) {
         });
       });
     });
+  });
+
+  // ===== ENDPOINT DE UPLOAD DE IMAGENS =====
+  app.post('/api/upload', authMiddleware, requireRole('admin','editor'), upload.single('image'), (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+      }
+      
+      // Construir URL relativa para a imagem
+      const imageUrl = `/uploads/imagens/${req.file.filename}`;
+      
+      console.log('✅ Imagem uploadada:', req.file.filename);
+      
+      res.json({
+        success: true,
+        imageUrl: imageUrl,
+        filename: req.file.filename,
+        size: req.file.size
+      });
+    } catch (error) {
+      console.error('❌ Erro no upload:', error);
+      res.status(500).json({ error: 'Erro ao fazer upload da imagem' });
+    }
   });
 
   // Criar novo post
