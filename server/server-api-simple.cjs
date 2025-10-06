@@ -2831,15 +2831,19 @@ function createApp({ dbPath }) {
 
   // Criar novo post
   app.post('/api/posts', authMiddleware, requireRole('admin','editor'), (req, res) => {
-    const body = req.body || {};
-    
-    // Campos obrigatórios
-    const titulo = body.titulo || body.title;
-    const categoria = body.categoria || body.category || 'geral';
-    
-    if (!titulo) {
-      return res.status(400).json({ error: 'Título é obrigatório' });
-    }
+    try {
+      const body = req.body || {};
+      
+      console.log('📝 [CREATE POST] Recebido:', { titulo: body.titulo, categoria: body.categoria });
+      
+      // Campos obrigatórios
+      const titulo = body.titulo || body.title;
+      const categoria = body.categoria || body.category || 'geral';
+      
+      if (!titulo) {
+        console.error('❌ [CREATE POST] Título vazio!');
+        return res.status(400).json({ error: 'Título é obrigatório' });
+      }
     
     // Campos opcionais
     const subtitulo = body.subtitulo || body.subtitle || '';
@@ -2966,6 +2970,10 @@ function createApp({ dbPath }) {
         });
       }
     });
+    } catch (error) {
+      console.error('💥 [CREATE POST] Erro não capturado:', error);
+      res.status(500).json({ error: 'Erro interno ao criar post', details: error.message });
+    }
   });
 
   // Incrementar views de um post
