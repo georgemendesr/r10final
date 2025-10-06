@@ -3809,7 +3809,11 @@ try {
 
 // Iniciar servidor somente quando este arquivo é o entrypoint principal
 if (require.main === module) {
-  const app = createApp({ dbPath: process.env.SQLITE_DB_PATH || path.join(__dirname, 'noticias.db') });
+  // 🎯 Usar o mesmo caminho persistente que configuramos no createApp
+  const DATA_DIR = process.env.RENDER ? '/opt/render/project/src/data' : path.join(__dirname, '..', 'data');
+  const defaultDbPath = path.join(DATA_DIR, 'r10piaui.db');
+  
+  const app = createApp({ dbPath: process.env.SQLITE_DB_PATH || defaultDbPath });
   const primary = Number(process.env.PORT || PORT) || 3002;
   const extra = process.env.ADDITIONAL_PORT ? Number(process.env.ADDITIONAL_PORT) : null;
   const ports = extra && extra !== primary ? [primary, extra] : [primary];
