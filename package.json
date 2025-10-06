@@ -29,6 +29,7 @@
     "db:migrate:chapeu": "node scripts/migrate-add-chapeu.cjs",
     "db:check:chapeu": "node scripts/check-chapeu.cjs",
     "db:setup": "node server/setup-database.js",
+    "db:fix-images": "node server/fix-images.js",
     "build": "cd r10-front_full_07ago && npm ci && npm run build",
     "build:render": "node scripts/init-render.js && cd r10-front_full_07ago && npm install && npm run build && node server/setup-database.js",
     "serve:prod": "node server/server-production.cjs",

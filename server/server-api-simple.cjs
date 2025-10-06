@@ -369,24 +369,8 @@ function createApp({ dbPath }) {
   app.use('/uploads', express.static(uploadsDir));
   console.log('📂 Servindo uploads de:', uploadsDir);
 
-  // ===== CONFIGURAÇÃO MULTER PARA UPLOAD DE IMAGENS =====
-  // Usar memoryStorage para ambientes com filesystem efêmero (como Render)
-  const storage = multer.memoryStorage();
-  const upload = multer({ 
-    storage, 
-    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
-    fileFilter: (req, file, cb) => {
-      const allowedTypes = /jpeg|jpg|png|gif|webp/;
-      const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-      const mimetype = allowedTypes.test(file.mimetype);
-      if (mimetype && extname) {
-        return cb(null, true);
-      } else {
-        cb(new Error('Apenas imagens são permitidas (jpg, png, gif, webp)'));
-      }
-    }
-  });
-  console.log('📤 Multer configurado para upload de imagens (memoryStorage)');
+  // ===== REMOVIDO: antiga configuração memoryStorage =====
+  // Agora usando diskStorage no disco persistente do Render
 
   // Servir frontend buildado (modo produção single-process) quando habilitado
   // Ative definindo SERVE_STATIC_FRONT=1 ao iniciar (ex: process.env.SERVE_STATIC_FRONT='1')
@@ -572,14 +556,20 @@ function createApp({ dbPath }) {
     }
   }
 
-  // 🎯 CAMINHO DO BANCO: Usar disco persistente no Render
+  // 🎯 CAMINHO DO BANCO E UPLOADS: Usar disco persistente no Render
   const DATA_DIR = process.env.RENDER ? '/opt/render/project/src/data' : path.join(__dirname, '..', 'data');
   const DB_FILENAME = 'r10piaui.db';
+  const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
   
-  // Garantir que o diretório existe
+  // Garantir que os diretórios existem
   if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR, { recursive: true });
     console.log('✅ Diretório de dados criado:', DATA_DIR);
+  }
+  
+  if (!fs.existsSync(UPLOADS_DIR)) {
+    fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+    console.log('✅ Diretório de uploads criado:', UPLOADS_DIR);
   }
   
   const resolvedDbPath = dbPath || process.env.SQLITE_DB_PATH || path.join(DATA_DIR, DB_FILENAME);
@@ -590,13 +580,53 @@ function createApp({ dbPath }) {
     }
     console.log('✅ Conectado ao banco SQLite:', resolvedDbPath);
     console.log('📁 Diretório de dados:', DATA_DIR);
-    console.log('💾 Persistente:', process.env.RENDER ? 'SIM (Render Disk)' : 'LOCAL');
+    console.log('� Diretório de uploads:', UPLOADS_DIR);
+    console.log('�💾 Persistente:', process.env.RENDER ? 'SIM (Render Disk)' : 'LOCAL');
   });
   
   // Configurar SQLite para UTF-8
   db.run("PRAGMA encoding = 'UTF-8'");
   
   app.locals.db = db; // expor conexão para testes/cleanup
+  
+  // 🖼️ CONFIGURAR MULTER PARA UPLOAD DE IMAGENS
+  const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, UPLOADS_DIR);
+    },
+    filename: (req, file, cb) => {
+      // Gerar nome único: timestamp-random.ext
+      const uniqueName = `${Date.now()}-${Math.random().toString(36).substring(7)}${path.extname(file.originalname)}`;
+      cb(null, uniqueName);
+    }
+  });
+  
+  // Validar tipo e tamanho de imagem
+  const upload = multer({
+    storage: storage,
+    limits: {
+      fileSize: 5 * 1024 * 1024 // 5MB máximo
+    },
+    fileFilter: (req, file, cb) => {
+      // Aceitar apenas imagens
+      const allowedTypes = /jpeg|jpg|png|gif|webp/;
+      const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+      const mimetype = allowedTypes.test(file.mimetype);
+      
+      if (extname && mimetype) {
+        cb(null, true);
+      } else {
+        cb(new Error('Apenas imagens são permitidas (JPG, PNG, GIF, WebP)'));
+      }
+    }
+  });
+  
+  // Servir imagens estáticas do diretório de uploads
+  app.use('/uploads', express.static(UPLOADS_DIR, {
+    maxAge: '7d', // Cache de 7 dias para imagens
+    etag: true
+  }));
+  console.log('✅ Rota estática /uploads configurada');
 
   // ======= INICIALIZAR / MIGRAR TABELA NOTICIAS =======
   db.serialize(()=>{
@@ -2810,39 +2840,63 @@ function createApp({ dbPath }) {
   });
 
   // ===== ENDPOINT DE UPLOAD DE IMAGENS =====
+  // 🖼️ POST /api/upload - Upload de imagem no disco persistente
   app.post('/api/upload', authMiddleware, requireRole('admin','editor'), upload.single('image'), async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: 'Nenhum arquivo enviado' });
       }
       
-      // Gerar nome único
-      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-      const ext = path.extname(req.file.originalname);
-      const filename = 'img-' + uniqueSuffix + ext;
+      // URL da imagem (relativa ao domínio)
+      const imageUrl = `/uploads/${req.file.filename}`;
       
-      // Salvar no disco
-      const destDir = path.join(uploadsDir, 'imagens');
-      if (!fs.existsSync(destDir)) {
-        fs.mkdirSync(destDir, { recursive: true });
-      }
-      const filePath = path.join(destDir, filename);
-      fs.writeFileSync(filePath, req.file.buffer);
+      // URL completa para produção
+      const baseUrl = process.env.RENDER 
+        ? 'https://r10piaui.onrender.com'
+        : `http://localhost:${PORT}`;
+      const fullUrl = baseUrl + imageUrl;
       
-      // Construir URL relativa
-      const imageUrl = `/uploads/imagens/${filename}`;
-      
-      console.log('✅ Imagem uploadada:', filename);
+      console.log('✅ Imagem salva no disco:', req.file.filename);
+      console.log('📍 Caminho completo:', req.file.path);
+      console.log('🔗 URL:', fullUrl);
       
       res.json({
         success: true,
-        imageUrl: imageUrl,
-        filename: filename,
-        size: req.file.size
+        imageUrl: fullUrl, // URL completa
+        url: fullUrl, // Alias para compatibilidade
+        filename: req.file.filename,
+        size: req.file.size,
+        path: imageUrl // URL relativa
       });
     } catch (error) {
       console.error('❌ Erro no upload:', error);
-      res.status(500).json({ error: 'Erro ao fazer upload da imagem' });
+      res.status(500).json({ error: 'Erro ao fazer upload da imagem', details: error.message });
+    }
+  });
+  
+  // 🗑️ DELETE /api/upload/:filename - Deletar imagem (opcional)
+  app.delete('/api/upload/:filename', authMiddleware, requireRole('admin'), (req, res) => {
+    try {
+      const { filename } = req.params;
+      const filepath = path.join(UPLOADS_DIR, filename);
+      
+      // Verificar se o arquivo existe
+      if (!fs.existsSync(filepath)) {
+        return res.status(404).json({ error: 'Imagem não encontrada' });
+      }
+      
+      // Deletar arquivo
+      fs.unlinkSync(filepath);
+      console.log('🗑️ Imagem deletada:', filename);
+      
+      res.json({ 
+        success: true, 
+        message: 'Imagem deletada com sucesso',
+        filename: filename
+      });
+    } catch (error) {
+      console.error('❌ Erro ao deletar imagem:', error);
+      res.status(500).json({ error: 'Erro ao deletar imagem', details: error.message });
     }
   });
 
