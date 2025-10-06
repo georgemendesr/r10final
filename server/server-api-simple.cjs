@@ -3044,23 +3044,37 @@ function createApp({ dbPath }) {
       
       console.log('📝 [CREATE POST] Preparando INSERT SQL...');
 
-      // Garantir timestamps manualmente para contornar possíveis esquemas antigos sem DEFAULT correto
-      const nowIso = new Date().toISOString(); // ISO string compatível
-      // Inserimos também published_at inicialmente = now (pode ser ajustado futuramente)
-      const sql = `
-        INSERT INTO noticias (
-          titulo, subtitulo, conteudo, categoria, autor, chapeu, posicao, imagem_destaque,
-          created_at, updated_at, published_at
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?)
-      `;
+      const nowIso = new Date().toISOString();
 
-      console.log('📝 [CREATE POST] Executando db.run...');
-      console.log('📝 [CREATE POST] Parametros:', { titulo, subtitulo, categoria, autor, chapeu, normalizedPosition, imagemDestaque, created_at: nowIso });
+      // Descobrir colunas realmente existentes para montagem segura
+      db.all('PRAGMA table_info(noticias)', [], (perr, colsRows) => {
+        if (perr) {
+          console.error('⚠️ [CREATE POST] Falha PRAGMA, fallback minimal:', perr.message);
+        }
+        const existing = new Set((colsRows||[]).map(r=>r.name));
+        const baseCols = ['titulo','subtitulo','conteudo','categoria','autor','chapeu','posicao','imagem_destaque'];
+        const tsCols = [];
+        if (existing.has('created_at')) tsCols.push('created_at');
+        if (existing.has('updated_at')) tsCols.push('updated_at');
+        if (existing.has('published_at')) tsCols.push('published_at');
+        const allInsertCols = [...baseCols, ...tsCols];
+        const placeholders = allInsertCols.map(()=>'?').join(',');
+        const sql = `INSERT INTO noticias (${allInsertCols.join(',')}) VALUES (${placeholders})`;
 
-      db.run(sql, [
-        titulo, subtitulo, conteudo, categoria, autor, chapeu, normalizedPosition, imagemDestaque,
-        nowIso, nowIso, nowIso
-      ], function(err) {
+        const valuesMap = {
+          titulo, subtitulo, conteudo, categoria, autor, chapeu,
+          posicao: normalizedPosition,
+          imagem_destaque: imagemDestaque
+        };
+        if (tsCols.includes('created_at')) valuesMap.created_at = nowIso;
+        if (tsCols.includes('updated_at')) valuesMap.updated_at = nowIso;
+        if (tsCols.includes('published_at')) valuesMap.published_at = nowIso;
+        const values = allInsertCols.map(c=> valuesMap[c]);
+
+        console.log('📝 [CREATE POST] Executando db.run...');
+        console.log('📝 [CREATE POST] Colunas=', allInsertCols, 'ValoresPreview=', { ...valuesMap });
+
+        db.run(sql, values, function(err) {
         if (err) {
           console.error('❌ [CREATE POST] Erro ao criar post no banco:', err);
           return res.status(500).json({ error: 'Erro interno do servidor', details: err.message });
@@ -3116,7 +3130,8 @@ function createApp({ dbPath }) {
             res.status(201).json(mapPost(row));
           });
         }
-      });
+        }); // fim db.run
+      }); // fim PRAGMA table_info callback
     } catch (error) {
       console.error('💥 [CREATE POST] Erro não capturado no try-catch:', error);
       console.error('💥 [CREATE POST] Stack trace:', error.stack);
