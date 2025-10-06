@@ -2581,7 +2581,13 @@ function createApp({ dbPath }) {
     };
 
     // imagem: priorizar uma coluna existente
-    const incomingImage = body.imagemUrl || body.imagemDestaque || body.imagem || body.image;
+    let incomingImage = body.imagemUrl || body.imagemDestaque || body.imagem || body.image;
+    
+    // 🚫 IGNORAR Base64 - apenas URLs válidas
+    if (incomingImage && incomingImage.startsWith('data:')) {
+      console.log('⚠️ [UPDATE POST] Imagem Base64 detectada - IGNORANDO');
+      incomingImage = null;
+    }
 
     // Normalizar posicao se enviada e NÃO vazia; se vier vazia, não atualiza
     if (desired.posicao !== undefined && desired.posicao !== null) {
@@ -3006,25 +3012,29 @@ function createApp({ dbPath }) {
       const posicao = body.posicao || body.position || 'geral';
       let imagemDestaque = body.imagem_destaque || body.imagemDestaque || body.imagemUrl || body.imagem || body.image || '';
       
+      // 🚫 IGNORAR Base64 - apenas URLs válidas
+      if (imagemDestaque && imagemDestaque.startsWith('data:')) {
+        console.log('⚠️ [CREATE POST] Imagem Base64 detectada - IGNORANDO');
+        imagemDestaque = '';
+      }
+      
       console.log('📝 [CREATE POST] Normalizando posição:', posicao);
       // Normalizar posição
       const normalizedPosition = normalizePos(posicao);
       console.log('📝 [CREATE POST] Posição normalizada:', normalizedPosition);
       
-      // Data atual
-      const now = new Date().toISOString();
       console.log('📝 [CREATE POST] Preparando INSERT SQL...');
       
-      // PRIMEIRO: Inserir no banco para obter o ID
+      // PRIMEIRO: Inserir no banco para obter o ID (SEM published_at!)
       const sql = `
-        INSERT INTO noticias (titulo, subtitulo, conteudo, categoria, autor, chapeu, posicao, imagem_destaque, published_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO noticias (titulo, subtitulo, conteudo, categoria, autor, chapeu, posicao, imagem_destaque)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `;
       
       console.log('📝 [CREATE POST] Executando db.run...');
-      console.log('📝 [CREATE POST] Parametros:', { titulo, subtitulo, categoria, autor, chapeu, normalizedPosition, imagemDestaque, now });
+      console.log('📝 [CREATE POST] Parametros:', { titulo, subtitulo, categoria, autor, chapeu, normalizedPosition, imagemDestaque });
       
-      db.run(sql, [titulo, subtitulo, conteudo, categoria, autor, chapeu, normalizedPosition, imagemDestaque, now], function(err) {
+      db.run(sql, [titulo, subtitulo, conteudo, categoria, autor, chapeu, normalizedPosition, imagemDestaque], function(err) {
         if (err) {
           console.error('❌ [CREATE POST] Erro ao criar post no banco:', err);
           return res.status(500).json({ error: 'Erro interno do servidor', details: err.message });
