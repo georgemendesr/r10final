@@ -87,6 +87,11 @@ const HeroGrid = () => {
     };
 
     fetchPosts();
+    
+    // Polling a cada 30 segundos para detectar mudanças
+    const interval = setInterval(fetchPosts, 30000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   // Usar os dados já processados

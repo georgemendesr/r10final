@@ -53,6 +53,38 @@ export async function deletePost(id: number|string) {
   return res.json();
 }
 
+export async function createPost(postData: Partial<Post>) {
+  const res = await fetch(`${API_BASE}/posts`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(postData)
+  });
+  if (!res.ok) throw new Error('Erro ao criar post');
+  const data = await res.json();
+  return mapApi(data);
+}
+
+export async function updatePost(id: string | number, postData: Partial<Post>) {
+  const res = await fetch(`${API_BASE}/posts/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(postData)
+  });
+  if (!res.ok) throw new Error('Erro ao atualizar post');
+  const data = await res.json();
+  return mapApi(data);
+}
+
+export async function getPostById(id: string | number): Promise<Post | null> {
+  const res = await fetch(`${API_BASE}/posts/${id}`);
+  if (!res.ok) {
+    if (res.status === 404) return null;
+    throw new Error('Erro ao buscar post');
+  }
+  const data = await res.json();
+  return mapApi(data);
+}
+
 export function ensureArray<T>(val: T|T[]|undefined|null): T[] {
   if (Array.isArray(val)) return val; if (val == null) return []; return [val];
 }
