@@ -2662,10 +2662,15 @@ function createApp({ dbPath }) {
         const currentPosition = currentPost ? currentPost.posicao : null;
         console.log(`📍 [DEBUG] Posição atual: ${currentPosition} → Nova posição: ${desired.posicao}`);
 
+        // Acrescentar updated_at se a coluna existir
+        if (cols.includes('updated_at')) {
+          sets.push('updated_at = ?');
+          params.push(new Date().toISOString());
+        }
         const sql = `UPDATE noticias SET ${sets.join(', ')} WHERE id = ?`;
         console.log(`🔍 [SQL] Executando: ${sql}`);
         console.log(`📝 [SQL] Parâmetros:`, [...params, id]);
-        db.run(sql, [...params, id], function (uerr) {
+  db.run(sql, [...params, id], function (uerr) {
         if (uerr) {
           console.error('Erro ao atualizar post:', uerr);
           return res.status(500).json({ error: 'Erro interno do servidor' });
