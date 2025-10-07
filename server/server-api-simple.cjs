@@ -1,4 +1,6 @@
 console.log('[[bootstrap]] Iniciando carregamento módulos principais...');
+// Timestamp de boot para /api/version
+const BOOT_TIME = Date.now();
 const express = require('express');
 const cors = require('cors');
 let sqlite3; try { sqlite3 = require('sqlite3').verbose(); console.log('[[bootstrap]] sqlite3 carregado'); } catch(e){ console.error('[[bootstrap]] ERRO ao carregar sqlite3:', e.message); process.exit(97); }
@@ -10,6 +12,29 @@ const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const multer = require('multer');
+// Função util para obter hash do commit (Render define RENDER_GIT_COMMIT; fallback lê .git)
+function getCommitHash() {
+  try {
+    if (process.env.COMMIT_HASH) return process.env.COMMIT_HASH;
+    if (process.env.RENDER_GIT_COMMIT) return process.env.RENDER_GIT_COMMIT;
+    const headPath = path.join(process.cwd(), '.git', 'HEAD');
+    if (fs.existsSync(headPath)) {
+      const headContent = fs.readFileSync(headPath, 'utf8').trim();
+      if (headContent.startsWith('ref:')) {
+        const ref = headContent.split(' ')[1].trim();
+        const refPath = path.join(process.cwd(), '.git', ref);
+        if (fs.existsSync(refPath)) {
+          return fs.readFileSync(refPath, 'utf8').trim().slice(0, 40);
+        }
+      } else {
+        return headContent.slice(0, 40);
+      }
+    }
+  } catch(e) {
+    // silencioso
+  }
+  return null;
+}
 
 // Salvar imagem Base64 enviada como imagem de destaque (capa)
 function saveBase64ImageDestaque(dataUri, uploadsDir, baseUrl) {
@@ -300,6 +325,23 @@ function createApp({ dbPath }) {
   const globalLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 1000, standardHeaders: true, legacyHeaders: false });
   app.use(globalLimiter);
   const LOG_JSON = process.env.LOG_JSON === '1';
+  // Rota de versão/diagnóstico leve (antes das demais para ser sempre acessível)
+  app.get('/api/version', (req, res) => {
+    res.json({
+      ok: true,
+      service: 'r10-api',
+      commit: getCommitHash(),
+      bootTime: BOOT_TIME,
+      bootISO: new Date(BOOT_TIME).toISOString(),
+      uptimeSec: ((Date.now() - BOOT_TIME) / 1000).toFixed(1),
+      node: process.version,
+      env: process.env.NODE_ENV || 'development',
+      flags: {
+        ENABLE_INLINE_IMAGE_EXTRACT: process.env.ENABLE_INLINE_IMAGE_EXTRACT === '1',
+        ALLOW_DATA_IMAGES_CONTENT: process.env.ALLOW_DATA_IMAGES_CONTENT === '1'
+      }
+    });
+  });
   // ======= Observability Metrics =======
   const metrics = {
     startTime: Date.now(),

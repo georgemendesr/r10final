@@ -20,7 +20,7 @@ import instagramAutomation from '../services/instagramAutomation';
 interface PostState { categoria:string; subcategoria:string; municipio:string; titulo:string; subtitulo:string; autor:string; fonte:string; chapéu:string; resumo:string; conteudo:string; imagemDestaque:string|null; posicao:string; agendamento:string|null; tags:string[]; whatsappAuto:boolean; pushAuto:boolean; igCardAuto:boolean; audioAuto:boolean; }
 const igAutomation: any = instagramAutomation || { addToQueue:()=>{}, removeFromQueue:()=>{} };
 
-const PostForm = () => {
+const PostFormNEW = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { id } = useParams();
@@ -151,4 +151,4 @@ const PostForm = () => {
   </div>;
 };
 
-export default PostForm;
+export default PostFormNEW;
