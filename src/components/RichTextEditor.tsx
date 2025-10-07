@@ -636,21 +636,53 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
         }}
         onPaste={(e) => {
           const items = e.clipboardData?.items;
-            let handled = false;
-            if (items) {
-              for (const it of items) {
-                if (it.kind === 'file') {
-                  const f = it.getAsFile();
-                  if (f && f.type.startsWith('image/')) {
-                    e.preventDefault();
-                    handleFiles({ 0: f, length: 1, item: () => f } as any);
-                    handled = true;
-                    break;
-                  }
+          let imageHandled = false;
+          if (items) {
+            for (const it of items) {
+              if (it.kind === 'file') {
+                const f = it.getAsFile();
+                if (f && f.type.startsWith('image/')) {
+                  e.preventDefault();
+                  handleFiles({ 0: f, length: 1, item: () => f } as any);
+                  imageHandled = true;
+                  break;
                 }
               }
             }
-            if (!handled) setTimeout(handleContentChange, 0);
+          }
+          if (imageHandled) return; // já tratamos
+          // Colar somente texto puro (sem formatação)
+          const text = e.clipboardData?.getData('text/plain');
+          if (text) {
+            e.preventDefault();
+            // Inserir texto simples respeitando quebras de linha
+            const lines = text.replace(/\r\n/g, '\n').split('\n');
+            const frag = document.createDocumentFragment();
+            lines.forEach((line, idx) => {
+              if (line.trim().length > 0) {
+                const p = document.createElement('p');
+                p.textContent = line;
+                frag.appendChild(p);
+              } else {
+                // linha vazia -> quebra
+                const br = document.createElement('br');
+                frag.appendChild(br);
+              }
+            });
+            const sel = window.getSelection();
+            if (sel && sel.rangeCount > 0) {
+              const range = sel.getRangeAt(0);
+              range.deleteContents();
+              range.insertNode(frag);
+              // mover cursor ao final
+              sel.collapseToEnd();
+            } else if (editorRef.current) {
+              editorRef.current.appendChild(frag);
+            }
+            handleContentChange();
+          } else {
+            setTimeout(handleContentChange, 0);
+          }
         }}
         onDrop={(e) => {
           e.preventDefault();
