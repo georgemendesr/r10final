@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   Bold, Italic, Underline, Type, Quote, List, Palette,
   AlignLeft, AlignCenter, AlignRight, AlignJustify,
-  Image, Video, Undo2, Redo2, Sparkles, Info, Minus, Eraser
+  Image, Video, Undo2, Redo2, Sparkles, Info, Minus, Eraser, Upload
 } from 'lucide-react';
 
 interface RichTextEditorProps {
@@ -22,6 +22,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   placeholder = "Digite o conteúdo da matéria aqui..." 
 }) => {
   const editorRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [history, setHistory] = useState<HistoryState[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [isComposing, setIsComposing] = useState(false);
@@ -73,6 +74,18 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
       const url = await uploadFileReturnUrl(file);
       if (url) insertImageAtCursor(url);
     }
+  };
+
+  const triggerFileDialog = () => {
+    editorRef.current?.focus();
+    fileInputRef.current?.click();
+  };
+
+  const handleDirectUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+    await handleFiles(files);
+    event.target.value = '';
   };
 
   // Inicializar editor com conteúdo
@@ -574,10 +587,25 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
             type="button"
             onClick={insertImage}
             className="p-2 hover:bg-gray-200 rounded text-green-600 transition-colors"
-            title="Inserir Imagem"
+            title="Inserir Imagem por URL"
           >
             <Image size={16} />
           </button>
+          <button
+            type="button"
+            onClick={triggerFileDialog}
+            className="p-2 hover:bg-gray-200 rounded text-emerald-600 transition-colors"
+            title="Fazer upload de imagem"
+          >
+            <Upload size={16} />
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleDirectUpload}
+            className="hidden"
+          />
           <button
             type="button"
             onClick={insertVideo}

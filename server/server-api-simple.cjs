@@ -2749,9 +2749,15 @@ function createApp({ dbPath }) {
     let incomingImage = body.imagemUrl || body.imagemDestaque || body.imagem || body.image;
     
     // 🚫 IGNORAR Base64 - apenas URLs válidas
-    if (incomingImage && incomingImage.startsWith('data:')) {
-      console.log('⚠️ [UPDATE POST] Imagem Base64 detectada - IGNORANDO');
-      incomingImage = null;
+    if (incomingImage && typeof incomingImage === 'string' && incomingImage.startsWith('data:')) {
+      const saved = saveBase64ImageDestaque(incomingImage, UPLOADS_DIR, baseUrlConvUpdate);
+      if (saved) {
+        console.log('🖼️ [UPDATE POST] Imagem Base64 convertida ->', saved.relative);
+        incomingImage = saved.absolute;
+      } else {
+        console.warn('⚠️ [UPDATE POST] Falha ao converter imagem Base64 recebida');
+        incomingImage = null;
+      }
     }
 
     // Normalizar posicao se enviada e NÃO vazia; se vier vazia, não atualiza
