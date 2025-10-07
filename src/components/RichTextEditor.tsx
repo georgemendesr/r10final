@@ -650,39 +650,102 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
               }
             }
           }
-          if (imageHandled) return; // já tratamos
-          // Colar somente texto puro (sem formatação)
-          const text = e.clipboardData?.getData('text/plain');
-          if (text) {
-            e.preventDefault();
-            // Inserir texto simples respeitando quebras de linha
-            const lines = text.replace(/\r\n/g, '\n').split('\n');
-            const frag = document.createDocumentFragment();
-            lines.forEach((line, idx) => {
-              if (line.trim().length > 0) {
-                const p = document.createElement('p');
-                p.textContent = line;
-                frag.appendChild(p);
-              } else {
-                // linha vazia -> quebra
-                const br = document.createElement('br');
-                frag.appendChild(br);
+          if (imageHandled) return;
+
+          // Tentar obter HTML rico
+            const html = e.clipboardData?.getData('text/html');
+            const plain = e.clipboardData?.getData('text/plain');
+            if (html) {
+              e.preventDefault();
+              // Sanitizar removendo estilos de fonte/cor/tamanho, wrappers span/font
+              const temp = document.createElement('div');
+              temp.innerHTML = html;
+
+              const ALLOWED_BLOCK = new Set(['P','DIV','H1','H2','H3','H4','UL','OL','LI','BLOCKQUOTE']);
+              const ALLOWED_INLINE = new Set(['STRONG','B','EM','I','U','A','SPAN']); // span será filtrado se vazio
+
+              const cleanNode = (node: Node): Node | null => {
+                if (node.nodeType === Node.TEXT_NODE) return node;
+                if (node.nodeType === Node.ELEMENT_NODE) {
+                  const el = node as HTMLElement;
+                  const tag = el.tagName.toUpperCase();
+                  // Remover estilos proibidos
+                  if (el.hasAttribute('style')) {
+                    el.removeAttribute('style');
+                  }
+                  // Eliminar classes relacionadas a fonte/cores (simplificado)
+                  el.removeAttribute('color');
+                  el.removeAttribute('face');
+                  el.removeAttribute('size');
+                  if (/font|color|size/i.test(el.className)) el.removeAttribute('class');
+
+                  // Se for FONT => substitui por span simples
+                  if (tag === 'FONT') {
+                    const span = document.createElement('span');
+                    while (el.firstChild) span.appendChild(cleanNode(el.firstChild) as Node);
+                    return span;
+                  }
+                  // Se for SPAN sem atributos -> pode ser mantido só se contiver algo relevante
+                  if (tag === 'SPAN' && !el.attributes.length) {
+                    // flatten
+                    const frag = document.createDocumentFragment();
+                    while (el.firstChild) frag.appendChild(cleanNode(el.firstChild) as Node);
+                    return frag;
+                  }
+                  // Se tag não está nas listas permitidas de bloco ou inline -> converter em fragment
+                  if (!ALLOWED_BLOCK.has(tag) && !ALLOWED_INLINE.has(tag)) {
+                    const frag = document.createDocumentFragment();
+                    Array.from(el.childNodes).forEach(ch => {
+                      const cleaned = cleanNode(ch);
+                      if (cleaned) frag.appendChild(cleaned);
+                    });
+                    return frag;
+                  }
+                  // Recursão normal
+                  const children = Array.from(el.childNodes);
+                  children.forEach(ch => {
+                    const cleaned = cleanNode(ch);
+                    if (cleaned !== ch) {
+                      if (cleaned) el.replaceChild(cleaned, ch); else el.removeChild(ch);
+                    }
+                  });
+                  return el;
+                }
+                return null;
+              };
+
+              const nodes = Array.from(temp.childNodes).map(n => cleanNode(n)).filter(Boolean);
+              const frag = document.createDocumentFragment();
+              nodes.forEach(n => frag.appendChild(n as Node));
+
+              // Remover spans vazios residuais
+              frag.querySelectorAll?.('span').forEach((sp: any) => { if (!sp.textContent?.trim()) sp.remove(); });
+
+              const sel = window.getSelection();
+              if (sel && sel.rangeCount > 0) {
+                const range = sel.getRangeAt(0);
+                range.deleteContents();
+                range.insertNode(frag);
+                sel.collapseToEnd();
+              } else if (editorRef.current) {
+                editorRef.current.appendChild(frag);
               }
-            });
-            const sel = window.getSelection();
-            if (sel && sel.rangeCount > 0) {
-              const range = sel.getRangeAt(0);
-              range.deleteContents();
-              range.insertNode(frag);
-              // mover cursor ao final
-              sel.collapseToEnd();
-            } else if (editorRef.current) {
-              editorRef.current.appendChild(frag);
+              handleContentChange();
+            } else if (plain) {
+              e.preventDefault();
+              const lines = plain.replace(/\r\n/g,'\n').split('\n');
+              const frag = document.createDocumentFragment();
+              lines.forEach(line => {
+                if (line.trim()) { const p = document.createElement('p'); p.textContent = line; frag.appendChild(p); }
+                else frag.appendChild(document.createElement('br'));
+              });
+              const sel = window.getSelection();
+              if (sel && sel.rangeCount) { const range = sel.getRangeAt(0); range.deleteContents(); range.insertNode(frag); sel.collapseToEnd(); }
+              else editorRef.current?.appendChild(frag);
+              handleContentChange();
+            } else {
+              setTimeout(handleContentChange,0);
             }
-            handleContentChange();
-          } else {
-            setTimeout(handleContentChange, 0);
-          }
         }}
         onDrop={(e) => {
           e.preventDefault();
