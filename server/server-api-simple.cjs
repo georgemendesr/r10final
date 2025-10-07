@@ -11,6 +11,29 @@ const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const multer = require('multer');
 
+// Salvar imagem Base64 enviada como imagem de destaque (capa)
+function saveBase64ImageDestaque(dataUri, uploadsDir, baseUrl) {
+  try {
+    if (!dataUri || typeof dataUri !== 'string') return null;
+    if (!/^data:image\/(png|jpeg|jpg|webp);base64,/i.test(dataUri)) return null;
+    const [meta, b64] = dataUri.split(',',2);
+    const mime = meta.match(/data:image\/(png|jpeg|jpg|webp)/i)[1].toLowerCase();
+    const extMap = { png:'.png', jpeg:'.jpg', jpg:'.jpg', webp:'.webp' };
+    const ext = extMap[mime] || '.img';
+    const buffer = Buffer.from(b64,'base64');
+    if (buffer.length > 5*1024*1024) { console.warn('⚠️ Destaque base64 >5MB ignorado'); return null; }
+    const filename = `cover-${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
+    const filepath = path.join(uploadsDir, filename);
+    fs.writeFileSync(filepath, buffer);
+    const publicPath = '/uploads/'+filename;
+    console.log('🖼️ [COVER BASE64] salva', filename, buffer.length+'B');
+    return { relative: publicPath, absolute: baseUrl + publicPath };
+  } catch(e){
+    console.warn('Falha saveBase64ImageDestaque:', e.message);
+    return null;
+  }
+}
+
 // Helper: extrair imagens Base64 inline do HTML e salvar em disco
 function processInlineBase64Images(html, uploadsDir, baseUrl) {
   try {
@@ -3055,6 +3078,49 @@ function createApp({ dbPath }) {
     }
   });
 
+  // 📂 DEBUG: Listar arquivos de uploads (admin)
+  app.get('/api/admin/uploads/list', authMiddleware, requireRole('admin'), (req, res) => {
+    try {
+      const limit = Math.min(Number(req.query.limit) || 50, 200);
+      const files = fs.readdirSync(UPLOADS_DIR);
+      const detailed = files.map(name => {
+        try {
+          const stat = fs.statSync(path.join(UPLOADS_DIR, name));
+          return {
+            name,
+            size: stat.size,
+            mtime: stat.mtime,
+            url: (process.env.RENDER ? 'https://r10piaui.onrender.com' : `http://localhost:${PORT}`) + '/uploads/' + name
+          };
+        } catch(_) { return null; }
+      }).filter(Boolean).sort((a,b)=> b.mtime - a.mtime).slice(0, limit);
+      res.json({ total: files.length, returned: detailed.length, files: detailed });
+    } catch (e) {
+      console.error('Erro list uploads:', e);
+      res.status(500).json({ error: 'Falha ao listar uploads', details: e.message });
+    }
+  });
+
+  // 📄 DEBUG: Checar um arquivo específico (?file=)
+  app.get('/api/admin/uploads/check', authMiddleware, requireRole('admin'), (req, res) => {
+    try {
+      const file = (req.query.file || '').toString();
+      if (!file) return res.status(400).json({ error: 'Parâmetro file obrigatório' });
+      const safe = path.basename(file); // evita path traversal
+      const filepath = path.join(UPLOADS_DIR, safe);
+      if (!fs.existsSync(filepath)) return res.status(404).json({ error: 'Arquivo não encontrado' });
+      const stat = fs.statSync(filepath);
+      res.json({
+        name: safe,
+        size: stat.size,
+        mtime: stat.mtime,
+        url: (process.env.RENDER ? 'https://r10piaui.onrender.com' : `http://localhost:${PORT}`) + '/uploads/' + safe
+      });
+    } catch (e) {
+      res.status(500).json({ error: 'Falha ao checar upload', details: e.message });
+    }
+  });
+
   // Criar novo post
   app.post('/api/posts', authMiddleware, requireRole('admin','editor'), (req, res) => {
     try {
@@ -3146,11 +3212,17 @@ function createApp({ dbPath }) {
       const chapeu = body.chapeu || '';
       const posicao = body.posicao || body.position || 'geral';
       let imagemDestaque = body.imagem_destaque || body.imagemDestaque || body.imagemUrl || body.imagem || body.image || '';
-      
-      // 🚫 IGNORAR Base64 - apenas URLs válidas
-      if (imagemDestaque && imagemDestaque.startsWith('data:')) {
-        console.log('⚠️ [CREATE POST] Imagem Base64 detectada - IGNORANDO');
-        imagemDestaque = '';
+      // ✅ Converter Base64 de capa em arquivo real caso recebido
+      if (imagemDestaque && typeof imagemDestaque === 'string' && imagemDestaque.startsWith('data:')) {
+        const saved = saveBase64ImageDestaque(imagemDestaque, UPLOADS_DIR, baseUrlConvCreate);
+        if (saved) {
+          console.log('🖼️ [CREATE POST] Imagem destaque base64 convertida ->', saved.relative);
+          // Preferir URL absoluta para consistência com upload endpoint
+          imagemDestaque = saved.absolute;
+        } else {
+          console.log('⚠️ [CREATE POST] Falha ao converter imagem destaque base64');
+          imagemDestaque = '';
+        }
       }
       
       console.log('📝 [CREATE POST] Normalizando posição:', posicao);
@@ -3186,7 +3258,6 @@ function createApp({ dbPath }) {
         if (tsCols.includes('updated_at')) valuesMap.updated_at = nowIso;
         if (tsCols.includes('published_at')) valuesMap.published_at = nowIso;
         const values = allInsertCols.map(c=> valuesMap[c]);
-
         console.log('📝 [CREATE POST] Executando db.run...');
         console.log('📝 [CREATE POST] Colunas=', allInsertCols, 'ValoresPreview=', { ...valuesMap });
 
