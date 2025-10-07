@@ -20,6 +20,14 @@ import { useAuth } from '../contexts/AuthContext';
 import { generateTitles, generateSubtitles, generateChapeus } from '../services/aiService';
 import instagramAutomation from '../services/instagramAutomation';
 
+// Tipagens rápidas (light) para suprimir erros implícitos
+type PostState = {
+  categoria: string; subcategoria: string; municipio: string; titulo: string; subtitulo: string; autor: string; fonte: string; chapéu: string; resumo: string; conteudo: string; imagemDestaque: string | null; posicao: string; agendamento: string | null; tags: string[]; whatsappAuto: boolean; pushAuto: boolean; igCardAuto: boolean; audioAuto: boolean;
+};
+
+// Fallback seguro para automação Instagram (evita crash se API não exposta)
+const igAutomation: any = instagramAutomation || { addToQueue: () => {}, removeFromQueue: () => {} };
+
 const PostForm = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -30,6 +38,8 @@ const PostForm = () => {
   const [selectedCategories, setSelectedCategories] = useState(['editoriais']);
   const [selectedSubcategories, setSelectedSubcategories] = useState(['geral']);
   const [saving, setSaving] = useState(false);
+  const [uploadingCover, setUploadingCover] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -41,7 +51,7 @@ const PostForm = () => {
     chapeus: []
   });
   
-  const [post, setPost] = useState({
+  const [post, setPost] = useState<PostState>({
     categoria: 'geral',
     subcategoria: 'geral',
     municipio: '',
@@ -78,7 +88,7 @@ const PostForm = () => {
 
   // Count words
   useEffect(() => {
-    const words = post.conteudo.split(' ').filter(word => word.length > 0).length;
+    const words = post.conteudo.split(' ').filter((word: any) => word.length > 0).length;
     setWordCount(words);
   }, [post.conteudo]);
 
@@ -230,13 +240,14 @@ const PostForm = () => {
   ];
 
   const isFormValid = post.titulo && post.conteudo && post.autor && selectedSubcategories.length > 0;
+  const isBlocked = saving || uploadingCover;
 
-  const handleInputChange = (field, value) => {
-    setPost(prev => ({ ...prev, [field]: value }));
+  const handleInputChange = (field: string, value: any) => {
+    setPost((prev: PostState) => ({ ...prev, [field]: value }));
     
     // Se o Instagram foi marcado, adicionar à fila de automação
     if (field === 'igCardAuto' && value === true && post.titulo) {
-      instagramAutomation.addToQueue(
+  igAutomation.addToQueue(
         postId || `draft_${Date.now()}`, 
         post.titulo, 
         post.chapéu
@@ -245,25 +256,25 @@ const PostForm = () => {
     
     // Se o Instagram foi desmarcado, remover da fila
     if (field === 'igCardAuto' && value === false && postId) {
-      instagramAutomation.removeFromQueue(postId);
+  igAutomation.removeFromQueue(postId);
     }
   };
 
-  const generateSlug = (titulo) => {
+  const generateSlug = (titulo: string) => {
     return titulo
       .toLowerCase()
       .replace(/[^\w\s]/gi, '')
       .replace(/\s+/g, '-');
   };
 
-  const addTag = (tagText) => {
+  const addTag = (tagText: string) => {
     if (tagText && !post.tags.includes(tagText)) {
-      setPost(prev => ({ ...prev, tags: [...prev.tags, tagText] }));
+  setPost((prev: PostState) => ({ ...prev, tags: [...prev.tags, tagText] }));
     }
   };
 
-  const removeTag = (tagToRemove) => {
-    setPost(prev => ({ ...prev, tags: prev.tags.filter(tag => tag !== tagToRemove) }));
+  const removeTag = (tagToRemove: string) => {
+    setPost((prev: PostState) => ({ ...prev, tags: prev.tags.filter((tag: string) => tag !== tagToRemove) }));
   };
 
   // Salvar como rascunho
@@ -334,8 +345,36 @@ const PostForm = () => {
     }
   };
 
+  const ensureCoverUploadedIfBase64 = async () => {
+    // Se a imagem de destaque atual é um dataURL (base64) mas ainda não subimos (usuário clicou publicar rápido)
+    if (post.imagemDestaque && typeof post.imagemDestaque === 'string' && post.imagemDestaque.startsWith('data:')) {
+      try {
+        const blob = await (await fetch(post.imagemDestaque)).blob();
+        const file = new File([blob], 'capa-auto.png', { type: blob.type || 'image/png' });
+        const formData = new FormData();
+        formData.append('image', file);
+        setUploadingCover(true);
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${(import.meta as any).env?.VITE_API_BASE_URL || '/api'}/upload`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+          body: formData
+        });
+        if (response.ok) {
+          const data = await response.json();
+          handleInputChange('imagemDestaque', data.imageUrl || data.relativeUrl || data.relative || data.url);
+        }
+      } catch (e) {
+        console.warn('Falha upload automático capa base64:', e);
+      } finally {
+        setUploadingCover(false);
+      }
+    }
+  };
+
   const handlePublish = async () => {
     if (!isFormValid) return;
+    await ensureCoverUploadedIfBase64();
     
     try {
       setSaving(true);
@@ -405,20 +444,19 @@ const PostForm = () => {
     }
   };
 
-  const toggleCategory = (category) => {
-    setSelectedCategories(prev => 
+  const toggleCategory = (category: any) => {
+    setSelectedCategories((prev: any[]) => 
       prev.includes(category) 
-        ? prev.filter(c => c !== category)
+        ? prev.filter((c: any) => c !== category)
         : [...prev, category]
     );
   };
 
-  const toggleSubcategory = (subcategory, categoriaKey) => {
-    setSelectedSubcategories(prev => {
-      // Remove qualquer subcategoria da mesma categoria-mãe
-      const categoria = categoriasMaes[categoriaKey];
-      const subcategoriasDaCategoria = categoria.subcategorias.map(sc => sc.value);
-      const outrasSubcategorias = prev.filter(sc => !subcategoriasDaCategoria.includes(sc));
+  const toggleSubcategory = (subcategory: any, categoriaKey: any) => {
+    setSelectedSubcategories((prev: any[]) => {
+      const categoria: any = (categoriasMaes as any)[categoriaKey];
+      const subcategoriasDaCategoria = categoria.subcategorias.map((sc: any) => sc.value);
+      const outrasSubcategorias = prev.filter((sc: any) => !subcategoriasDaCategoria.includes(sc));
       
       // Se a subcategoria já está selecionada, remove ela
       if (prev.includes(subcategory)) {
@@ -548,9 +586,9 @@ const PostForm = () => {
 
         // Verificar se as sugestões não são genéricas
         const hasGenericSuggestions = 
-          titulosSuggestions.some(t => t.includes('Título Sugerido') || t.includes('Novo Desenvolvimento')) ||
-          subtitulosSuggestions.some(s => s.includes('Entenda os principais')) ||
-          chapeusSuggestions.some(c => c.includes('NOTÍCIAS') || c.includes('DESTAQUE'));
+          titulosSuggestions.some((t: any) => t.includes('Título Sugerido') || t.includes('Novo Desenvolvimento')) ||
+          subtitulosSuggestions.some((s: any) => s.includes('Entenda os principais')) ||
+          chapeusSuggestions.some((c: any) => c.includes('NOTÍCIAS') || c.includes('DESTAQUE'));
 
         if (hasGenericSuggestions) {
           console.warn('⚠️ Sugestões genéricas detectadas - possível problema na API');
@@ -689,7 +727,7 @@ const PostForm = () => {
               </button>
               <button 
                 onClick={handlePublish}
-                disabled={!isFormValid || saving}
+                disabled={!isFormValid || isBlocked}
                 className="bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white px-4 py-1.5 rounded flex items-center gap-1 font-medium text-sm transition-colors"
               >
                 <Send className="w-3 h-3" />
@@ -1157,7 +1195,7 @@ const PostForm = () => {
              </button>
              <button 
                onClick={handlePublish}
-               disabled={!isFormValid || saving}
+               disabled={!isFormValid || isBlocked}
                className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white py-2 px-3 rounded font-medium transition-colors flex items-center justify-center gap-2 text-sm"
              >
                <Send className="w-4 h-4" />

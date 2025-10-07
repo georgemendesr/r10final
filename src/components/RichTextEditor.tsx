@@ -25,6 +25,55 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   const [history, setHistory] = useState<HistoryState[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [isComposing, setIsComposing] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadQueue, setUploadQueue] = useState<number>(0);
+
+  const apiBase = (import.meta as any).env?.VITE_API_BASE_URL || '/api';
+
+  const uploadFileReturnUrl = async (file: File): Promise<string | null> => {
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+      setUploading(true);
+      setUploadQueue(q => q + 1);
+      const token = localStorage.getItem('token');
+      const resp = await fetch(`${apiBase}/upload`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: formData });
+      if (!resp.ok) throw new Error('Upload falhou');
+      const data = await resp.json();
+      return data.imageUrl || data.url || data.relative || data.relativeUrl || null;
+    } catch (e) {
+      console.error('Falha upload imagem editor:', e);
+      return null;
+    } finally {
+      setUploadQueue(q => q - 1);
+      setUploading(false);
+    }
+  };
+
+  const insertImageAtCursor = (url: string) => {
+    if (!editorRef.current) return;
+    const img = document.createElement('img');
+    img.src = url;
+    img.className = 'max-w-full h-auto rounded-lg my-2';
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      const range = sel.getRangeAt(0);
+      range.insertNode(img);
+    } else {
+      editorRef.current.appendChild(img);
+    }
+    handleContentChange();
+  };
+
+  const handleFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    for (const file of Array.from(files)) {
+      if (!file.type.startsWith('image/')) continue;
+      // Preview imediato opcional (dataURL) poderia ser adicionado — aqui subimos direto
+      const url = await uploadFileReturnUrl(file);
+      if (url) insertImageAtCursor(url);
+    }
+  };
 
   // Inicializar editor com conteúdo
   useEffect(() => {
@@ -586,11 +635,35 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
           handleContentChange();
         }}
         onPaste={(e) => {
-          setTimeout(handleContentChange, 0);
+          const items = e.clipboardData?.items;
+            let handled = false;
+            if (items) {
+              for (const it of items) {
+                if (it.kind === 'file') {
+                  const f = it.getAsFile();
+                  if (f && f.type.startsWith('image/')) {
+                    e.preventDefault();
+                    handleFiles({ 0: f, length: 1, item: () => f } as any);
+                    handled = true;
+                    break;
+                  }
+                }
+              }
+            }
+            if (!handled) setTimeout(handleContentChange, 0);
         }}
+        onDrop={(e) => {
+          e.preventDefault();
+          handleFiles(e.dataTransfer?.files || null);
+        }}
+        onDragOver={(e) => { e.preventDefault(); }}
         suppressContentEditableWarning={true}
         data-placeholder={placeholder}
       />
+
+      {uploading && (
+        <div className="px-4 pb-2 text-xs text-gray-500">🔄 Enviando imagem{uploadQueue>1?'s':''} ({uploadQueue})...</div>
+      )}
 
       {/* Estilos CSS */}
       <style jsx>{`
