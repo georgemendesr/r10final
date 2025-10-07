@@ -11,6 +11,52 @@ const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const multer = require('multer');
 
+// Helper: extrair imagens Base64 inline do HTML e salvar em disco
+function processInlineBase64Images(html, uploadsDir, baseUrl) {
+  try {
+    if (!html || typeof html !== 'string') return html;
+    const enable = process.env.ENABLE_INLINE_IMAGE_EXTRACT === '1';
+    if (!enable) return html; // feature gate
+    const dataImgRegex = /<img[^>]+src=["'](data:image\/(png|jpeg|jpg|gif|webp);base64,([A-Za-z0-9+/=]+))["'][^>]*>/gi;
+    let match;
+    const replacements = [];
+    while ((match = dataImgRegex.exec(html)) !== null) {
+      const full = match[0];
+      const dataUri = match[1];
+      const mime = match[2];
+      const b64 = match[3];
+      try {
+        const buffer = Buffer.from(b64, 'base64');
+        // Limite de 5MB semelhante ao upload normal
+        if (buffer.length > 5 * 1024 * 1024) {
+          console.warn('⚠️ Inline image >5MB ignorada.');
+          continue;
+        }
+        const extMap = { png:'.png', jpeg:'.jpg', jpg:'.jpg', gif:'.gif', webp:'.webp' };
+        const ext = extMap[mime] || '.img';
+        const filename = `inline-${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
+        const filepath = path.join(uploadsDir, filename);
+        fs.writeFileSync(filepath, buffer);
+        const publicPath = `/uploads/${filename}`;
+        const absolute = baseUrl + publicPath;
+        const newTag = full.replace(dataUri, absolute);
+        replacements.push({ from: full, to: newTag });
+        console.log('🖼️ [INLINE IMG] Extraída ->', filename, buffer.length+'B');
+      } catch (e) {
+        console.warn('Falha processando inline image:', e.message);
+      }
+    }
+    if (replacements.length) {
+      replacements.forEach(r => { html = html.replace(r.from, r.to); });
+      console.log(`🖼️ [INLINE IMG] ${replacements.length} imagem(ns) convertidas para arquivos`);
+    }
+    return html;
+  } catch (e) {
+    console.warn('processInlineBase64Images error:', e.message);
+    return html;
+  }
+}
+
 // Configurar encoding para UTF-8
 process.env.NODE_ENV = process.env.NODE_ENV || 'development';
 if (process.platform === 'win32') {
@@ -2609,12 +2655,13 @@ function createApp({ dbPath }) {
     sanitizeOptions.allowedSchemes = baseAllowedSchemesUpdate;
     const rawConteudo = body.conteudo ?? body.content ?? '';
     let sanitizedConteudo = sanitizeHtml(String(rawConteudo), sanitizeOptions);
-    if (process.env.ALLOW_DATA_IMAGES_CONTENT !== '1') {
+    const baseUrlConvUpdate = process.env.RENDER ? 'https://r10piaui.onrender.com' : `http://localhost:${PORT}`;
+    if (process.env.ENABLE_INLINE_IMAGE_EXTRACT === '1') {
+      sanitizedConteudo = processInlineBase64Images(sanitizedConteudo, UPLOADS_DIR, baseUrlConvUpdate);
+    } else if (process.env.ALLOW_DATA_IMAGES_CONTENT !== '1') {
       const beforeLenU = sanitizedConteudo.length;
       sanitizedConteudo = sanitizedConteudo.replace(/<img[^>]+src="data:[^"]+"[^>]*>/gi,'');
-      if (beforeLenU !== sanitizedConteudo.length) {
-        console.log('🧹 [UPDATE POST] Imagens Base64 inline removidas do conteúdo');
-      }
+      if (beforeLenU !== sanitizedConteudo.length) console.log('🧹 [UPDATE POST] Imagens Base64 inline removidas do conteúdo');
     }
     // Proteção extra: limitar tamanho máximo (ex: 300KB) para evitar payloads gigantes
     if (sanitizedConteudo.length > 300 * 1024) {
@@ -3080,13 +3127,14 @@ function createApp({ dbPath }) {
       let conteudo = body.conteudo || body.content || '';
       console.log('📝 [CREATE POST] Conteúdo original length:', conteudo.length);
       conteudo = sanitizeHtml(String(conteudo), sanitizeOptions);
-      if (process.env.ALLOW_DATA_IMAGES_CONTENT !== '1') {
-        // Remove <img src="data:..."> para evitar páginas enormes e possíveis abusos
+      // Converter inline base64 se habilitado; caso contrário remover
+      const baseUrlConvCreate = process.env.RENDER ? 'https://r10piaui.onrender.com' : `http://localhost:${PORT}`;
+      if (process.env.ENABLE_INLINE_IMAGE_EXTRACT === '1') {
+        conteudo = processInlineBase64Images(conteudo, UPLOADS_DIR, baseUrlConvCreate);
+      } else if (process.env.ALLOW_DATA_IMAGES_CONTENT !== '1') {
         const beforeLen = conteudo.length;
         conteudo = conteudo.replace(/<img[^>]+src="data:[^"]+"[^>]*>/gi,'');
-        if (beforeLen !== conteudo.length) {
-          console.log('🧹 [CREATE POST] Imagens Base64 inline removidas do conteúdo');
-        }
+        if (beforeLen !== conteudo.length) console.log('🧹 [CREATE POST] Imagens Base64 inline removidas do conteúdo');
       }
       console.log('📝 [CREATE POST] Conteúdo sanitizado length:', conteudo.length);
       if (conteudo.length > 300 * 1024) {
