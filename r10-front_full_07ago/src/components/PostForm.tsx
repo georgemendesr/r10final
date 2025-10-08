@@ -41,13 +41,14 @@ const PostForm = () => {
   const [post, setPost] = useState<PostState>({
     categoria:'geral', subcategoria:'geral', municipio:'', titulo:'', subtitulo:'', autor: user?.name||'', fonte:'', chapéu:'', resumo:'', conteudo:'', imagemDestaque:null, posicao:'geral', agendamento:null, tags:[], whatsappAuto:true, pushAuto:true, igCardAuto:false, audioAuto:false
   });
+  const [originalPosition, setOriginalPosition] = useState<string>('geral'); // 🔒 Guardar posição original
 
   useEffect(()=>{ if((post.titulo||post.conteudo)&&!id&&!loading){ setAutoSaving(true); const t=setTimeout(()=>{ setAutoSaving(false); handleSaveDraft(); },8000); return ()=>clearTimeout(t);} },[post.titulo,post.conteudo,post.subtitulo,post.resumo,id,loading]);
   useEffect(()=>{ setWordCount(post.conteudo.split(' ').filter(w=>w).length); },[post.conteudo]);
 
   const categoriasMaes:any = { 'editoriais':{ nome:'Editoriais', icon:FileText, subcategorias:[{value:'policia',label:'Polícia'},{value:'politica',label:'Política'},{value:'esporte',label:'Esporte'},{value:'entretenimento',label:'Entretenimento'},{value:'geral',label:'Geral'} ] }, 'municipios':{ nome:'Municípios', icon:MapPin, subcategorias:[{value:'piripiri',label:'Piripiri'},{value:'pedro-ii',label:'Pedro II'},{value:'brasileira',label:'Brasileira'},{value:'lagoa-de-sao-francisco',label:'Lagoa de São Francisco'},{value:'piracuruca',label:'Piracuruca'},{value:'sao-jose-do-divino',label:'São José do Divino'},{value:'domingos-mourao',label:'Domingos Mourão'},{value:'capitao-de-campos',label:'Capitão de Campos'},{value:'cocal-de-telha',label:'Cocal de Telha'},{value:'milton-brandao',label:'Milton Brandão'},{value:'teresina',label:'Teresina'},{value:'boa-hora',label:'Boa Hora'} ] }, 'especiais':{ nome:'Especiais', icon:Star, subcategorias:[{value:'investigacao',label:'Investigação'},{value:'series-especiais',label:'Séries Especiais'},{value:'entrevistas',label:'Entrevistas'},{value:'grandes-reportagens',label:'Grandes Reportagens'},{value:'documentarios',label:'Documentários'} ] } };
 
-  useEffect(()=>{ const load=async()=>{ if(!id) return; setLoading(true); try{ const existing=await getPostById(id); if(existing){ setPostId(id); setPost(p=>({...p, categoria:existing.categoria, subcategoria:existing.categoria||'geral', titulo:existing.titulo, subtitulo:existing.subtitulo||'', autor:existing.autor, chapéu:existing.chapeu||'', resumo:existing.resumo||'', conteudo:existing.conteudo, imagemDestaque:existing.imagemUrl||null, posicao:existing.posicao||'geral'})); }}catch(e){ setError('Erro ao carregar'); } finally { setLoading(false);} }; load(); },[id]);
+  useEffect(()=>{ const load=async()=>{ if(!id) return; setLoading(true); try{ const existing=await getPostById(id); if(existing){ setPostId(id); const pos=existing.posicao||'geral'; setOriginalPosition(pos); setPost(p=>({...p, categoria:existing.categoria, subcategoria:existing.categoria||'geral', titulo:existing.titulo, subtitulo:existing.subtitulo||'', autor:existing.autor, chapéu:existing.chapeu||'', resumo:existing.resumo||'', conteudo:existing.conteudo, imagemDestaque:existing.imagemUrl||null, posicao:pos})); }}catch(e){ setError('Erro ao carregar'); } finally { setLoading(false);} }; load(); },[id]);
 
   const posicoes=[{value:'supermanchete',label:'Super Manchete',icon:Star},{value:'destaque',label:'Destaque',icon:TrendingUp},{value:'geral',label:'Geral',icon:FileText},{value:'municipios',label:'Municípios',icon:MapPin}];
   const isFormValid = post.titulo && post.conteudo && post.autor && selectedSubcategories.length>0; const isBlocked = saving || uploadingCover;
@@ -59,11 +60,56 @@ const PostForm = () => {
   const basePostPayload=(categoria:string)=>({ id:postId||undefined, titulo:post.titulo, subtitulo:post.subtitulo, autor:post.autor, conteudo:post.conteudo, chapeu:post.chapéu, categoria, posicao:post.posicao as any, dataPublicacao:new Date().toISOString(), imagemUrl:post.imagemDestaque });
   const successFlash=(m:string)=>{ setSuccess(m); setTimeout(()=>setSuccess(null),2500); };
 
-  const handleSaveDraft=async()=>{ if(!post.titulo) return; try{ setSaving(true); setError(null); const cat=mapCategoria(); const data=basePostPayload(cat); const result=postId? await updatePost(postId,data): await createPost(data); if(!postId) setPostId(result.id); if(['supermanchete','destaque'].includes(post.posicao)) await reorganizePositionHierarchy(result.id, post.posicao as any); successFlash('Rascunho salvo!'); }catch(e){ setError('Erro ao salvar.'); } finally { setSaving(false);} };
+  const handleSaveDraft=async()=>{ 
+    if(!post.titulo) return; 
+    try{ 
+      setSaving(true); 
+      setError(null); 
+      const cat=mapCategoria(); 
+      const data=basePostPayload(cat); 
+      const result=postId? await updatePost(postId,data): await createPost(data); 
+      if(!postId) setPostId(result.id); 
+      // 🔒 SÓ reorganizar se a posição MUDOU
+      const positionChanged = post.posicao !== originalPosition;
+      console.log(`[PostForm] Posição mudou? ${positionChanged} (original: ${originalPosition}, atual: ${post.posicao})`);
+      if(positionChanged && ['supermanchete','destaque'].includes(post.posicao)) {
+        console.log(`[PostForm] Reorganizando hierarquia para nova posição: ${post.posicao}`);
+        await reorganizePositionHierarchy(result.id, post.posicao as any);
+      }
+      successFlash('Rascunho salvo!'); 
+    }catch(e){ 
+      setError('Erro ao salvar.'); 
+    } finally { 
+      setSaving(false);
+    } 
+  };
 
   const ensureCoverUploadedIfBase64=async()=>{ if(post.imagemDestaque&&post.imagemDestaque.startsWith('data:')){ try{ const blob=await (await fetch(post.imagemDestaque)).blob(); const file=new File([blob],'capa-auto.png',{type:blob.type||'image/png'}); const fd=new FormData(); fd.append('image',file); setUploadingCover(true); const token=getAuthToken()||localStorage.getItem('token'); const headers=token?{ Authorization:`Bearer ${token}` }:{}; const resp=await fetch(`${(import.meta as any).env?.VITE_API_BASE_URL||'/api'}/upload`,{method:'POST',headers,body:fd}); if(resp.ok){ const d=await resp.json(); handleInputChange('imagemDestaque', d.imageUrl || d.relativeUrl || d.relative || d.url); } }catch(e){ console.warn('Falha upload capa',e);} finally { setUploadingCover(false);} } };
 
-  const handlePublish=async()=>{ if(!isFormValid) return; await ensureCoverUploadedIfBase64(); try{ setSaving(true); setError(null); const cat=mapCategoria(); const data=basePostPayload(cat); const result=postId? await updatePost(postId,data): await createPost(data); if(['supermanchete','destaque'].includes(post.posicao)) await reorganizePositionHierarchy(result.id, post.posicao as any); successFlash('Publicado!'); setTimeout(()=>navigate('/admin/materias'),1200); }catch(e){ setError('Erro ao publicar.'); } finally { setSaving(false);} };
+  const handlePublish=async()=>{ 
+    if(!isFormValid) return; 
+    await ensureCoverUploadedIfBase64(); 
+    try{ 
+      setSaving(true); 
+      setError(null); 
+      const cat=mapCategoria(); 
+      const data=basePostPayload(cat); 
+      const result=postId? await updatePost(postId,data): await createPost(data); 
+      // 🔒 SÓ reorganizar se a posição MUDOU
+      const positionChanged = post.posicao !== originalPosition;
+      console.log(`[PostForm] Publish - Posição mudou? ${positionChanged} (original: ${originalPosition}, atual: ${post.posicao})`);
+      if(positionChanged && ['supermanchete','destaque'].includes(post.posicao)) {
+        console.log(`[PostForm] Reorganizando hierarquia para nova posição: ${post.posicao}`);
+        await reorganizePositionHierarchy(result.id, post.posicao as any);
+      }
+      successFlash('Publicado!'); 
+      setTimeout(()=>navigate('/admin/materias'),1200); 
+    }catch(e){ 
+      setError('Erro ao publicar.'); 
+    } finally { 
+      setSaving(false);
+    } 
+  };
 
   const toggleCategory=(c:string)=> setSelectedCategories(p=> p.includes(c)? p.filter(x=>x!==c): [...p,c]);
   const toggleSubcategory=(sub:string,categoriaKey:string)=>{ setSelectedSubcategories(prev=>{ const cat=categoriasMaes[categoriaKey]; const grupo=cat.subcategorias.map((s:any)=>s.value); const outras=prev.filter(s=>!grupo.includes(s)); return prev.includes(sub)? outras: [...outras, sub]; }); };
