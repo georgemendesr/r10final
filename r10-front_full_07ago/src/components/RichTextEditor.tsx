@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { getAuthToken } from '../services/api';
 import {
   Bold, Italic, Underline, Type, Quote, List, Palette,
   AlignLeft, AlignCenter, AlignRight, AlignJustify,
@@ -35,8 +36,9 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange, placeh
       formData.append('image', file);
       setUploading(true);
       setUploadQueue(q => q + 1);
-      const token = localStorage.getItem('token');
-      const resp = await fetch(`${apiBase}/upload`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: formData });
+  const token = getAuthToken() || localStorage.getItem('token');
+  const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+  const resp = await fetch(`${apiBase}/upload`, { method: 'POST', headers, body: formData });
       if (!resp.ok) throw new Error('Upload falhou');
       const data = await resp.json();
       return data.imageUrl || data.url || data.relative || data.relativeUrl || null;

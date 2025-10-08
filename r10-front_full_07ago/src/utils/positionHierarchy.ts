@@ -29,13 +29,18 @@ export const reorganizePositionHierarchy = async (
   try {
     // Buscar todos os posts atuais
     const result = await getPosts();
-    const allPosts = Array.isArray(result) ? result : result.posts || [];
+    const allPosts = Array.isArray(result)
+      ? result
+      : Array.isArray((result as any)?.posts)
+        ? (result as any).posts
+        : [];
     
     // Normalizar a nova posição
     const normalizedNewPosition = normalizePosition(String(newPosition));
     
     // Filtrar posts por posição (excluindo o post que está sendo atualizado)
-    const otherPosts = allPosts.filter(post => post.id !== updatedPostId);
+  const updatedId = String(updatedPostId);
+  const otherPosts = allPosts.filter(post => String(post.id) !== updatedId);
     
     const superManchetes = otherPosts.filter(post => normalizePosition(post.posicao) === 'supermanchete');
     const destaques = otherPosts.filter(post => normalizePosition(post.posicao) === 'destaque');
@@ -101,7 +106,11 @@ export const validatePositionLimits = async (
 ): Promise<{ valid: boolean; message?: string }> => {
   try {
     const result = await getPosts();
-    const allPosts = Array.isArray(result) ? result : result.posts || [];
+    const allPosts = Array.isArray(result)
+      ? result
+      : Array.isArray((result as any)?.posts)
+        ? (result as any).posts
+        : [];
     
     // Filtrar posts (excluindo o que está sendo editado, se aplicável)
     const activePosts = excludePostId 

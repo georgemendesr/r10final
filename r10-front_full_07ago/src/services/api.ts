@@ -16,6 +16,10 @@ function readAuthToken(): string | null {
 	}
 }
 
+export function getAuthToken(): string | null {
+	return readAuthToken();
+}
+
 async function tryRefresh(): Promise<boolean> {
 	try {
 		const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
