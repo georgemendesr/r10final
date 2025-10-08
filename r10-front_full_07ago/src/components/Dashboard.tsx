@@ -497,7 +497,7 @@ const Dashboard = () => {
         {/* Logo - Compacto */}
         <div className="flex items-center space-x-3 mb-6">
           <img 
-            src="/uploads/imagens/logor10.png"
+            src="/imagens/logor10.png"
             alt="R10 Piauí"
             className="h-8 w-auto"
           />

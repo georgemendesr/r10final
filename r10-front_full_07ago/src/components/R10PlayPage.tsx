@@ -81,7 +81,7 @@ const R10PlayPage = () => {
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-3">
                 <img 
-                  src="/uploads/imagens/logor10play.png" 
+                  src="/imagens/logor10play.png" 
                   alt="R10 Play - Canal Oficial" 
                   className="h-12 w-auto" 
                 />

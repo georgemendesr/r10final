@@ -45,7 +45,7 @@ const LoginPage: React.FC = () => {
           <div className="p-6 bg-gradient-to-r from-red-600 to-red-700 text-white text-center">
             <div className="flex justify-center mb-4">
               <img 
-                src="/uploads/imagens/logor10.png"
+                src="/imagens/logor10.png"
                 alt="R10 Piauí - Logo Oficial"
                 className="h-16 w-auto"
               />

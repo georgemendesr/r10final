@@ -47,7 +47,7 @@ const R10PlaySection = () => {
         <div className="text-center mb-6">
           <div className="flex items-center justify-center mb-3">
             <img 
-              src="/uploads/imagens/logor10play.png" 
+              src="/imagens/logor10play.png" 
               alt="R10 Play" 
               className="h-10 w-auto" 
             />

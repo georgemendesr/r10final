@@ -17,7 +17,7 @@ const Footer = () => {
           <div className="space-y-4">
             <div className="flex items-center gap-2 mb-4">
               <img 
-                src="/uploads/imagens/logor10.png"
+                src="/imagens/logor10.png"
                 alt="R10 Piauí - Logo Oficial"
                 className="h-6 md:h-8 w-auto"
               />

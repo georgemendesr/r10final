@@ -151,7 +151,7 @@ const getDefaultSettings = (): SiteSettings => {
   return {
     siteName: 'R10 Piauí',
     siteDescription: 'Portal de Notícias do Piauí',
-    logo: '/uploads/imagens/logor10.png',
+    logo: '/imagens/logor10.png',
     favicon: '/favicon.ico',
     primaryColor: '#E53E3E',
     secondaryColor: '#444444',

@@ -36,14 +36,14 @@ const Header = () => {
               data-e2e="logo"
             >
               <img 
-                src="/uploads/imagens/logor10.png" 
+                src="/imagens/logor10.png" 
                 alt="R10 Piauí - Qualidade em primeiro lugar" 
                 className="h-16 md:h-20 lg:h-24 w-auto" 
               />
               {/* Selo de 11 Anos - Oculto no mobile */}
               <div className="relative hidden md:flex items-center ml-2 lg:ml-3">
                 <img 
-                  src="/uploads/imagens/selo11anos.png" 
+                  src="/imagens/selo11anos.png" 
                   alt="11 anos desde 2014" 
                   className="h-8 md:h-10 lg:h-12 w-auto" 
                   onError={() => setBadgeFailed(true)}
