@@ -1,0 +1,7 @@
+# Força Git a tratar imagens como binários
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
