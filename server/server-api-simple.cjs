@@ -192,6 +192,14 @@ function mapPost(row) {
       }
     }
   } catch(_) {}
+  // Normalizar URL de imagem (pode ser URL completa, relativa ou só filename)
+  let rawImgUrl = (row.imagem_url && String(row.imagem_url).trim()) || (row.imagem && String(row.imagem).trim()) || (row.imagemUrl && String(row.imagemUrl).trim()) || (row.imagem_destaque && String(row.imagem_destaque).trim()) || '/placeholder.svg';
+  
+  // Se não começa com http/https nem com /, é só filename - adicionar /uploads/
+  if (rawImgUrl && rawImgUrl !== '/placeholder.svg' && !rawImgUrl.startsWith('http') && !rawImgUrl.startsWith('/')) {
+    rawImgUrl = `/uploads/${rawImgUrl}`;
+  }
+  
   return {
     id: row.id,
     title: row.titulo || row.title,
@@ -201,9 +209,9 @@ function mapPost(row) {
     content: row.conteudo || row.content,
     conteudo: row.conteudo || row.content,
     resumo: row.resumo || '',
-    // Considerar variações de colunas: imagem, imagemUrl, imagem_url, imagem_destaque
-    imagemUrl: (row.imagem_url && String(row.imagem_url).trim()) || (row.imagem && String(row.imagem).trim()) || (row.imagemUrl && String(row.imagemUrl).trim()) || (row.imagem_destaque && String(row.imagem_destaque).trim()) || '/placeholder.svg',
-    imagemDestaque: (row.imagem_url && String(row.imagem_url).trim()) || (row.imagem && String(row.imagem).trim()) || (row.imagem_destaque && String(row.imagem_destaque).trim()) || (row.imagemDestaque && String(row.imagemDestaque).trim()) || (row.imagemUrl && String(row.imagemUrl).trim()) || '/placeholder.svg',
+    // Normalizado: sempre /uploads/... ou URL completa
+    imagemUrl: rawImgUrl,
+    imagemDestaque: rawImgUrl,
     categoria: cat,
     chapeu: row.chapeu || '',
     posicao: pos,
