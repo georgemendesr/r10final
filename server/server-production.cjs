@@ -6,8 +6,28 @@ const { createApp } = require('./server-api-simple.cjs');
 // Respeita SQLITE_DB_PATH automaticamente via createApp
 const app = createApp({ dbPath: process.env.SQLITE_DB_PATH });
 
-// ⚠️ CRÍTICO: Servir /uploads ANTES de servir dist/ para evitar conflito com dist/uploads/
+// =========================================================================
+// 🔍 LOG DE DIAGNÓSTICO: Registra TODAS as requisições que chegam no servidor
+// =========================================================================
+app.use((req, res, next) => {
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] 📥 REQ: ${req.method} ${req.path}`);
+  next();
+});
+// =========================================================================
+
 const UPLOADS_DIR = path.join(__dirname, '..', 'data', 'uploads');
+const distDir = path.join(__dirname, '..', 'r10-front_full_07ago', 'dist');
+
+console.log(`📂 [PRODUCTION] Diretórios configurados:`);
+console.log(`   - UPLOADS: ${UPLOADS_DIR}`);
+console.log(`   - DIST: ${distDir}`);
+
+// =========================================================================
+// 🚀 ORDEM DE PRIORIDADE (CRÍTICA)
+// =========================================================================
+
+// PRIORIDADE 1: Servir arquivos de /uploads (MÁXIMA PRIORIDADE)
 app.use('/uploads', express.static(UPLOADS_DIR, {
   maxAge: 0,
   etag: false,
@@ -17,7 +37,6 @@ app.use('/uploads', express.static(UPLOADS_DIR, {
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
     
-    // Garantir Content-Type correto
     if (filepath.endsWith('.jpg') || filepath.endsWith('.jpeg')) {
       res.setHeader('Content-Type', 'image/jpeg');
     } else if (filepath.endsWith('.png')) {
@@ -27,32 +46,32 @@ app.use('/uploads', express.static(UPLOADS_DIR, {
     } else if (filepath.endsWith('.webp')) {
       res.setHeader('Content-Type', 'image/webp');
     }
+    console.log(`📤 [UPLOAD] Servindo: ${filepath}`);
   }
 }));
-console.log(`✅ [PRODUCTION] Rota /uploads configurada ANTES de dist/ → ${UPLOADS_DIR}`);
 
-// Servir estáticos do build do front (DEPOIS de /uploads)
-// 🔥 MAS: NÃO servir NADA que comece com /uploads/ daqui!
-const distDir = path.join(__dirname, '..', 'r10-front_full_07ago', 'dist');
-app.use((req, res, next) => {
-  // Se for /uploads, pular express.static(distDir) completamente
-  if (req.path.startsWith('/uploads/')) {
-    return next('route'); // Pular TODOS os middlewares desta rota
+// PRIORIDADE 2: Servir arquivos estáticos do frontend (CSS, JS, imagens do build)
+app.use(express.static(distDir, {
+  setHeaders: (res) => {
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
   }
-  // Caso contrário, servir do dist/
-  return express.static(distDir, {
-    setHeaders: (res) => {
-      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-    }
-  })(req, res, next);
-});
+}));
 
-// SPA fallback para index.html (Express 5: use regex em vez de '*')
+// PRIORIDADE 3: SPA Fallback (ÚLTIMA REGRA - só se nada acima resolveu)
 app.get(/.*/, (req, res, next) => {
-  // Não interceptar rotas de API e uploads
-  if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/')) {
+  // Não interceptar rotas de API (já tratadas pelo createApp)
+  if (req.path.startsWith('/api/')) {
     return next();
   }
+  
+  // Se for /uploads e chegou aqui, arquivo não existe - retornar 404 real
+  if (req.path.startsWith('/uploads/')) {
+    console.log(`❌ [404] Arquivo não encontrado: ${req.path}`);
+    return res.status(404).json({ error: 'Arquivo não encontrado' });
+  }
+  
+  // Qualquer outra rota: servir index.html (SPA)
+  console.log(`🌐 [SPA] Fallback para: ${req.path}`);
   return res.sendFile(path.join(distDir, 'index.html'));
 });
 
