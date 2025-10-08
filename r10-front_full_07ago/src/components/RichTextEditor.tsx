@@ -36,14 +36,27 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange, placeh
       formData.append('image', file);
       setUploading(true);
       setUploadQueue(q => q + 1);
-  const token = getAuthToken() || localStorage.getItem('token');
-  const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-  const resp = await fetch(`${apiBase}/upload`, { method: 'POST', headers, body: formData });
-      if (!resp.ok) throw new Error('Upload falhou');
+      const token = getAuthToken() || localStorage.getItem('token');
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+      console.log('[RichEditor] Iniciando upload...', file.name);
+      const resp = await fetch(`${apiBase}/upload`, { method: 'POST', headers, body: formData });
+      console.log('[RichEditor] Status:', resp.status);
+      if (!resp.ok) {
+        const errorText = await resp.text();
+        console.error('[RichEditor] Upload falhou:', resp.status, errorText);
+        throw new Error(`Upload falhou: ${resp.status}`);
+      }
       const data = await resp.json();
-      return data.imageUrl || data.url || data.relative || data.relativeUrl || null;
+      console.log('[RichEditor] Resposta:', data);
+      const url = data.imageUrl || data.url || data.relative || data.relativeUrl;
+      if (!url) {
+        console.error('[RichEditor] Nenhuma URL retornada:', data);
+        throw new Error('Nenhuma URL de imagem na resposta');
+      }
+      console.log('[RichEditor] ✅ URL obtida:', url);
+      return url;
     } catch (e) {
-      console.error('Falha upload imagem editor:', e);
+      console.error('[RichEditor] ❌ Erro upload:', e);
       return null;
     } finally {
       setUploadQueue(q => q - 1);
