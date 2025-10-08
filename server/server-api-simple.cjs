@@ -802,11 +802,31 @@ function createApp({ dbPath }) {
   });
   
   // Servir imagens estáticas do diretório de uploads
+  // ⚠️ IMPORTANTE: Cache desabilitado para evitar problemas com uploads novos
   app.use('/uploads', express.static(UPLOADS_DIR, {
-    maxAge: '7d', // Cache de 7 dias para imagens
-    etag: true
+    maxAge: 0, // ❌ SEM cache - sempre buscar imagem fresca do servidor
+    etag: false, // ❌ Desabilitar ETags que causam 304 Not Modified
+    lastModified: false, // ❌ Desabilitar Last-Modified
+    setHeaders: (res, path, stat) => {
+      // Forçar navegador a não cachear
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      res.setHeader('Surrogate-Control', 'no-store');
+      
+      // Garantir Content-Type correto baseado na extensão
+      if (path.endsWith('.jpg') || path.endsWith('.jpeg')) {
+        res.setHeader('Content-Type', 'image/jpeg');
+      } else if (path.endsWith('.png')) {
+        res.setHeader('Content-Type', 'image/png');
+      } else if (path.endsWith('.gif')) {
+        res.setHeader('Content-Type', 'image/gif');
+      } else if (path.endsWith('.webp')) {
+        res.setHeader('Content-Type', 'image/webp');
+      }
+    }
   }));
-  console.log('✅ Rota estática /uploads configurada');
+  console.log('✅ Rota estática /uploads configurada (sem cache)');
 
   // ======= INICIALIZAR / MIGRAR TABELA NOTICIAS =======
   db.serialize(()=>{
