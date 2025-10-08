@@ -6,7 +6,32 @@ const { createApp } = require('./server-api-simple.cjs');
 // Respeita SQLITE_DB_PATH automaticamente via createApp
 const app = createApp({ dbPath: process.env.SQLITE_DB_PATH });
 
-// Servir estáticos do build do front
+// ⚠️ CRÍTICO: Servir /uploads ANTES de servir dist/ para evitar conflito com dist/uploads/
+const UPLOADS_DIR = path.join(__dirname, '..', 'data', 'uploads');
+app.use('/uploads', express.static(UPLOADS_DIR, {
+  maxAge: 0,
+  etag: false,
+  lastModified: false,
+  setHeaders: (res, filepath) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
+    // Garantir Content-Type correto
+    if (filepath.endsWith('.jpg') || filepath.endsWith('.jpeg')) {
+      res.setHeader('Content-Type', 'image/jpeg');
+    } else if (filepath.endsWith('.png')) {
+      res.setHeader('Content-Type', 'image/png');
+    } else if (filepath.endsWith('.gif')) {
+      res.setHeader('Content-Type', 'image/gif');
+    } else if (filepath.endsWith('.webp')) {
+      res.setHeader('Content-Type', 'image/webp');
+    }
+  }
+}));
+console.log(`✅ [PRODUCTION] Rota /uploads configurada ANTES de dist/ → ${UPLOADS_DIR}`);
+
+// Servir estáticos do build do front (DEPOIS de /uploads)
 const distDir = path.join(__dirname, '..', 'r10-front_full_07ago', 'dist');
 app.use(express.static(distDir, {
   setHeaders: (res) => {
