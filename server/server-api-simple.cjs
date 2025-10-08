@@ -420,9 +420,9 @@ function createApp({ dbPath }) {
         if (perr) return res.status(500).json({ error:'PRAGMA failed', details: perr.message });
         const existing = new Set(rows.map(r=>r.name));
         const steps = [];
-        if (!existing.has('published_at')) steps.push("ALTER TABLE noticias ADD COLUMN published_at DATETIME DEFAULT CURRENT_TIMESTAMP");
-        if (!existing.has('created_at')) steps.push("ALTER TABLE noticias ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP");
-        if (!existing.has('updated_at')) steps.push("ALTER TABLE noticias ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP");
+        if (!existing.has('published_at')) steps.push("ALTER TABLE noticias ADD COLUMN published_at DATETIME");
+        if (!existing.has('created_at')) steps.push("ALTER TABLE noticias ADD COLUMN created_at DATETIME");
+        if (!existing.has('updated_at')) steps.push("ALTER TABLE noticias ADD COLUMN updated_at DATETIME");
         if (!existing.has('views')) steps.push("ALTER TABLE noticias ADD COLUMN views INTEGER DEFAULT 0");
         if (!existing.has('status')) steps.push("ALTER TABLE noticias ADD COLUMN status VARCHAR(20) DEFAULT 'ativo'");
 
@@ -746,12 +746,12 @@ function createApp({ dbPath }) {
     console.log('📂 Diretório de uploads:', UPLOADS_DIR);
     console.log('💾 Persistente:', process.env.RENDER ? 'SIM (Render Disk)' : 'LOCAL');
     
-    // 🔧 CORREÇÃO URGENTE: Verificar e adicionar colunas faltantes
+    // 🔧 CORREÇÃO URGENTE: Verificar e adicionar colunas faltantes (SEM DEFAULT CURRENT_TIMESTAMP)
     console.log('🔧 Verificando estrutura do banco...');
     const columnsToAdd = [
-      { sql: "ALTER TABLE noticias ADD COLUMN published_at DATETIME DEFAULT CURRENT_TIMESTAMP", name: "published_at" },
-      { sql: "ALTER TABLE noticias ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP", name: "created_at" },
-      { sql: "ALTER TABLE noticias ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP", name: "updated_at" },
+      { sql: "ALTER TABLE noticias ADD COLUMN published_at DATETIME", name: "published_at" },
+      { sql: "ALTER TABLE noticias ADD COLUMN created_at DATETIME", name: "created_at" },
+      { sql: "ALTER TABLE noticias ADD COLUMN updated_at DATETIME", name: "updated_at" },
       { sql: "ALTER TABLE noticias ADD COLUMN status VARCHAR(20) DEFAULT 'ativo'", name: "status" },
       { sql: "ALTER TABLE noticias ADD COLUMN chapeu TEXT", name: "chapeu" },
       { sql: "ALTER TABLE noticias ADD COLUMN views INTEGER DEFAULT 0", name: "views" }
@@ -878,7 +878,7 @@ function createApp({ dbPath }) {
       addColumn('imagemUrl','TEXT');
       addColumn('imagem_destaque','TEXT');
       addColumn('slug','TEXT');
-      addColumn('published_at','DATETIME DEFAULT CURRENT_TIMESTAMP');
+      addColumn('published_at','DATETIME');
       addColumn('views','INTEGER DEFAULT 0');
     });
 
