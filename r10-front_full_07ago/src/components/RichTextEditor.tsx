@@ -48,12 +48,14 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange, placeh
       }
       const data = await resp.json();
       console.log('[RichEditor] Resposta:', data);
-      const url = data.imageUrl || data.url || data.relative || data.relativeUrl;
+      let url = data.imageUrl || data.url || data.relative || data.relativeUrl;
       if (!url) {
         console.error('[RichEditor] Nenhuma URL retornada:', data);
         throw new Error('Nenhuma URL de imagem na resposta');
       }
-      console.log('[RichEditor] ✅ URL obtida:', url);
+      // Cache-busting: adiciona timestamp para forçar navegador a buscar nova versão
+      url = url.includes('?') ? `${url}&t=${Date.now()}` : `${url}?t=${Date.now()}`;
+      console.log('[RichEditor] ✅ URL obtida (com cache-busting):', url);
       return url;
     } catch (e) {
       console.error('[RichEditor] ❌ Erro upload:', e);

@@ -84,7 +84,7 @@ const PostForm = () => {
     } 
   };
 
-  const ensureCoverUploadedIfBase64=async()=>{ if(post.imagemDestaque&&post.imagemDestaque.startsWith('data:')){ try{ const blob=await (await fetch(post.imagemDestaque)).blob(); const file=new File([blob],'capa-auto.png',{type:blob.type||'image/png'}); const fd=new FormData(); fd.append('image',file); setUploadingCover(true); const token=getAuthToken()||localStorage.getItem('token'); const headers=token?{ Authorization:`Bearer ${token}` }:{}; const resp=await fetch(`${(import.meta as any).env?.VITE_API_BASE_URL||'/api'}/upload`,{method:'POST',headers,body:fd}); if(resp.ok){ const d=await resp.json(); handleInputChange('imagemDestaque', d.imageUrl || d.relativeUrl || d.relative || d.url); } }catch(e){ console.warn('Falha upload capa',e);} finally { setUploadingCover(false);} } };
+  const ensureCoverUploadedIfBase64=async()=>{ if(post.imagemDestaque&&post.imagemDestaque.startsWith('data:')){ try{ const blob=await (await fetch(post.imagemDestaque)).blob(); const file=new File([blob],'capa-auto.png',{type:blob.type||'image/png'}); const fd=new FormData(); fd.append('image',file); setUploadingCover(true); const token=getAuthToken()||localStorage.getItem('token'); const headers=token?{ Authorization:`Bearer ${token}` }:{}; const resp=await fetch(`${(import.meta as any).env?.VITE_API_BASE_URL||'/api'}/upload`,{method:'POST',headers,body:fd}); if(resp.ok){ const d=await resp.json(); let url = d.imageUrl || d.relativeUrl || d.relative || d.url; url = url.includes('?') ? `${url}&t=${Date.now()}` : `${url}?t=${Date.now()}`; handleInputChange('imagemDestaque', url); } }catch(e){ console.warn('Falha upload capa',e);} finally { setUploadingCover(false);} } };
 
   const handlePublish=async()=>{ 
     if(!isFormValid) return; 
@@ -217,7 +217,9 @@ const PostForm = () => {
               }
               if(resp.ok && d.imageUrl){ 
                 console.error('[PostForm] ✅ Upload OK! URL:', d.imageUrl);
-                handleInputChange('imagemDestaque', d.imageUrl); 
+                // Cache-busting: adiciona timestamp
+                let finalUrl = d.imageUrl.includes('?') ? `${d.imageUrl}&t=${Date.now()}` : `${d.imageUrl}?t=${Date.now()}`;
+                handleInputChange('imagemDestaque', finalUrl); 
                 successFlash('Imagem enviada!'); 
               }else{ 
                 console.error('[PostForm] ❌ Upload falhou. resp.ok=', resp.ok, 'd.imageUrl=', d.imageUrl);
