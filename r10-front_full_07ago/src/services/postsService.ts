@@ -13,6 +13,37 @@ const sortDesc = (a:any,b:any) => new Date(b.publishedAt||0).getTime() - new Dat
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3002/api');
 console.debug('[postsService] API_BASE_URL=', API_BASE_URL);
 
+const API_ORIGIN = (() => {
+  if (typeof API_BASE_URL === 'string' && /^https?:\/\//i.test(API_BASE_URL)) {
+    try {
+      const url = new URL(API_BASE_URL);
+      return url.origin;
+    } catch (_) {
+      try {
+        const url = new URL(API_BASE_URL.replace(/\/$/, ''));
+        return url.origin;
+      } catch (_) {}
+    }
+  }
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return window.location.origin;
+  }
+  return '';
+})();
+
+const resolveImageUrl = (raw?: string): string => {
+  if (!raw) return '';
+  const trimmed = String(raw).trim();
+  if (!trimmed) return '';
+  if (/^data:image\//i.test(trimmed)) return trimmed;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (trimmed.startsWith('//')) return `https:${trimmed}`;
+  if (trimmed.startsWith('/')) {
+    return API_ORIGIN ? `${API_ORIGIN}${trimmed}` : trimmed;
+  }
+  return API_ORIGIN ? `${API_ORIGIN}/${trimmed.replace(/^\/+/,'')}` : trimmed;
+};
+
 // Chave para localStorage
 const POSTS_STORAGE_KEY = 'r10_posts';
 
@@ -63,6 +94,8 @@ const mapOfflinePost = (offlineData: any): Post => {
   const autor = offlineData.autor || 'R10 Piauí';
   const categoria = offlineData.categoria || 'Geral';
 
+  const image = resolveImageUrl(offlineData.imagemUrl || offlineData.imagem || '');
+
   const mappedPost: any = {
     // Estrutura em português
     id: offlineData.id?.toString() || '',
@@ -74,7 +107,7 @@ const mapOfflinePost = (offlineData: any): Post => {
     categoria: categoria,
     autor: autor,
     dataPublicacao: publishedAt,
-    imagemUrl: offlineData.imagemUrl || '',
+    imagemUrl: image,
     visualizacoes: offlineData.visualizacoes || 0,
     
     // Compatibilidade
@@ -85,7 +118,7 @@ const mapOfflinePost = (offlineData: any): Post => {
     publishDate: publishedAt,
     createdAt: publishedAt,
     updatedAt: publishedAt,
-    imagemDestaque: offlineData.imagemUrl || '',
+  imagemDestaque: image,
     subcategorias: [categoria],
     status: 'published',
     tags: [categoria],
@@ -105,6 +138,8 @@ const mapApiResponseToPost = (apiData: any): Post => {
   const autor = apiData.autor || 'R10 Piauí';
   const categoria = apiData.categoria || 'Geral';
 
+  const image = resolveImageUrl(apiData.imagemUrl || apiData.imagemDestaque || apiData.imagem || apiData.image || '');
+
   const mappedPost: any = {
     // Nova estrutura (português) - usando campos corretos da API
     id: apiData.id.toString(),
@@ -116,7 +151,7 @@ const mapApiResponseToPost = (apiData: any): Post => {
     categoria: categoria,
     autor: autor,
     dataPublicacao: publishedAt,
-    imagemUrl: apiData.imagemUrl || apiData.imagemDestaque || '',
+  imagemUrl: image,
     visualizacoes: apiData.visualizacoes || apiData.views || 0,
     
     // Propriedades de compatibilidade (inglês) - para manter PostsManager funcionando
@@ -127,7 +162,7 @@ const mapApiResponseToPost = (apiData: any): Post => {
     publishDate: publishedAt,
     createdAt: publishedAt,
     updatedAt: publishedAt,
-    imagemDestaque: apiData.imagemUrl || apiData.imagemDestaque || '',
+  imagemDestaque: image,
     subcategorias: [categoria],
     status: 'published',
     tags: [categoria],

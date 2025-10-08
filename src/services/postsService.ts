@@ -9,7 +9,41 @@ export interface PostFilters { categoria?: string; posicao?: string; limit?: num
 
 const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || '/api';
 
+const API_ORIGIN = (() => {
+  if (typeof API_BASE === 'string' && /^https?:\/\//i.test(API_BASE)) {
+    try {
+      const url = new URL(API_BASE);
+      return url.origin;
+    } catch (_) {
+      // ignorar e tentar fallback
+    }
+    try {
+      const url = new URL(API_BASE.replace(/\/$/, ''));
+      return url.origin;
+    } catch (_) {}
+  }
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return window.location.origin;
+  }
+  return '';
+})();
+
+function resolveImageUrl(raw?: string): string {
+  if (!raw) return '';
+  const trimmed = String(raw).trim();
+  if (!trimmed) return '';
+  if (/^data:image\//i.test(trimmed)) return trimmed;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (trimmed.startsWith('//')) return `https:${trimmed}`;
+  if (trimmed.startsWith('/')) {
+    return API_ORIGIN ? `${API_ORIGIN}${trimmed}` : trimmed;
+  }
+  return API_ORIGIN ? `${API_ORIGIN}/${trimmed.replace(/^\/+/,'')}` : trimmed;
+}
+
 function mapApi(p:any): Post {
+  const rawImage = p.imagemUrl || p.imagem_url || p.imagem_destaque || p.imagem || '';
+  const normalizedImage = resolveImageUrl(rawImage);
   return {
     id: p.id,
     titulo: p.titulo || p.title,
@@ -18,7 +52,7 @@ function mapApi(p:any): Post {
     categoria: p.categoria || p.category || 'geral',
     posicao: p.posicao || p.position || 'geral',
     chapeu: p.chapeu || '',
-    imagemUrl: p.imagemUrl || p.imagem_url || p.imagem_destaque || p.imagem || '',
+    imagemUrl: normalizedImage,
     createdAt: p.createdAt || p.created_at,
     publishedAt: p.publishedAt || p.published_at,
     autor: p.autor || p.author || 'Redação',
