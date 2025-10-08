@@ -3085,7 +3085,7 @@ function createApp({ dbPath }) {
       console.log('📍 Caminho completo:', req.file.path);
       console.log('🔗 URL:', fullUrl);
       
-      res.json({
+      const response = {
         success: true,
         imageUrl: fullUrl,
         url: fullUrl,
@@ -3093,7 +3093,10 @@ function createApp({ dbPath }) {
         filename: req.file.filename,
         size: req.file.size,
         path: imageUrl
-      });
+      };
+      
+      console.log('📤 [UPLOAD] Enviando resposta JSON:', JSON.stringify(response));
+      res.json(response);
     } catch (error) {
       console.error('❌ Erro no upload:', error);
       res.status(500).json({ error: 'Erro ao fazer upload da imagem', details: error.message });

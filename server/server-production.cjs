@@ -17,7 +17,10 @@ app.use(express.static(distDir, {
 
 // SPA fallback para index.html (Express 5: use regex em vez de '*')
 app.get(/.*/, (req, res, next) => {
-  if (req.path.startsWith('/api/')) return next();
+  // Não interceptar rotas de API e uploads
+  if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/')) {
+    return next();
+  }
   return res.sendFile(path.join(distDir, 'index.html'));
 });
 
