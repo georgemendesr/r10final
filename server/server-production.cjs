@@ -32,13 +32,20 @@ app.use('/uploads', express.static(UPLOADS_DIR, {
 console.log(`✅ [PRODUCTION] Rota /uploads configurada ANTES de dist/ → ${UPLOADS_DIR}`);
 
 // Servir estáticos do build do front (DEPOIS de /uploads)
+// 🔥 MAS: NÃO servir NADA que comece com /uploads/ daqui!
 const distDir = path.join(__dirname, '..', 'r10-front_full_07ago', 'dist');
-app.use(express.static(distDir, {
-  setHeaders: (res) => {
-    // Cache agressivo para assets fingerprinted, leve para html
-    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+app.use((req, res, next) => {
+  // Se for /uploads, pular express.static(distDir) completamente
+  if (req.path.startsWith('/uploads/')) {
+    return next('route'); // Pular TODOS os middlewares desta rota
   }
-}));
+  // Caso contrário, servir do dist/
+  return express.static(distDir, {
+    setHeaders: (res) => {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    }
+  })(req, res, next);
+});
 
 // SPA fallback para index.html (Express 5: use regex em vez de '*')
 app.get(/.*/, (req, res, next) => {
