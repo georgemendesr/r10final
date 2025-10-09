@@ -316,8 +316,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange, placeh
         </div>
         {/* Mídia */}
         <div className="flex gap-1 pr-2 border-r border-gray-300">
-          <button type="button" onClick={insertImage} className="p-2 hover:bg-gray-200 rounded text-green-600" title="Inserir Imagem por URL"><Image size={16} /></button>
-          <button type="button" onClick={triggerFileDialog} className="p-2 hover:bg-gray-200 rounded text-emerald-600" title="Fazer upload de imagem (arquivo)"><Upload size={16} /></button>
+          <button type="button" onClick={triggerFileDialog} className="p-2 hover:bg-gray-200 rounded text-emerald-600" title="Fazer upload de imagem"><Upload size={16} /></button>
           <button type="button" onClick={insertVideo} className="p-2 hover:bg-gray-200 rounded text-red-600" title="Inserir Vídeo"><Video size={16} /></button>
           <input ref={fileInputRef} type="file" accept="image/*" onChange={handleDirectUpload} className="hidden" />
         </div>

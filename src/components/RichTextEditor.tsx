@@ -585,14 +585,6 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
         <div className="flex gap-1 pr-2 border-r border-gray-300">
           <button
             type="button"
-            onClick={insertImage}
-            className="p-2 hover:bg-gray-200 rounded text-green-600 transition-colors"
-            title="Inserir Imagem por URL"
-          >
-            <Image size={16} />
-          </button>
-          <button
-            type="button"
             onClick={triggerFileDialog}
             className="p-2 hover:bg-gray-200 rounded text-emerald-600 transition-colors"
             title="Fazer upload de imagem"
