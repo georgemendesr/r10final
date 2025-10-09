@@ -3746,7 +3746,11 @@ function createApp({ dbPath }) {
     const { id } = req.params;
     const { title, subtitle, content, posicao } = req.body;
 
-    console.log(`🎙️ TTS Request: Post ${id}, Posição: ${posicao}`);
+    console.log(`\n🎙️ ===== TTS REQUEST DEBUG =====`);
+    console.log(`📌 Post ID: ${id}`);
+    console.log(`📌 Posição: "${posicao}" (tipo: ${typeof posicao})`);
+    console.log(`📌 Título: ${title?.substring(0, 50)}...`);
+    console.log(`📌 Conteúdo length: ${content?.length} chars`);
 
     if (!id || isNaN(Number(id))) {
       return res.status(400).json({ ok: false, error: 'ID de post inválido' });
@@ -3775,11 +3779,15 @@ function createApp({ dbPath }) {
 
       // 2. Verificar elegibilidade para ElevenLabs
       const useElevenLabs = isEligibleForElevenLabs(posicao);
+      console.log(`🔍 Elegível para ElevenLabs? ${useElevenLabs ? '✅ SIM' : '❌ NÃO'}`);
       
       if (useElevenLabs) {
         // 3a. Gerar com ElevenLabs (se configurado)
         const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
         const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || '21m00Tcm4TlvDq8ikWAM'; // Rachel voice padrão
+
+        console.log(`🔑 ELEVENLABS_API_KEY configurada? ${ELEVENLABS_API_KEY ? '✅ SIM' : '❌ NÃO'}`);
+        console.log(`🎤 ELEVENLABS_VOICE_ID: ${ELEVENLABS_VOICE_ID}`);
 
         if (!ELEVENLABS_API_KEY) {
           console.warn('⚠️ ELEVENLABS_API_KEY não configurada, usando fallback');
@@ -3790,6 +3798,7 @@ function createApp({ dbPath }) {
         const textToSpeak = `${title}. ${subtitle ? subtitle + '. ' : ''}${content}`.substring(0, 5000);
 
         console.log(`🎤 Gerando TTS com ElevenLabs para post ${id}...`);
+        console.log(`📝 Texto length: ${textToSpeak.length} chars`);
 
         const elevenLabsResponse = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE_ID}`, {
           method: 'POST',
@@ -3810,7 +3819,11 @@ function createApp({ dbPath }) {
           })
         });
 
+        console.log(`📡 ElevenLabs response status: ${elevenLabsResponse.status} ${elevenLabsResponse.statusText}`);
+
         if (!elevenLabsResponse.ok) {
+          const errorBody = await elevenLabsResponse.text();
+          console.error(`❌ ElevenLabs API error: ${elevenLabsResponse.status}`, errorBody);
           throw new Error(`ElevenLabs API error: ${elevenLabsResponse.status}`);
         }
 
