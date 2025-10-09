@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { listBanners, selectActiveByPosition, type Banner } from '../services/bannersApi';
+import { NEWS_GENERAL_MAIN_IMAGE_CLASSES } from '../constants/layout';
 
 interface AdBannerProps {
   position: Banner['posicao'];
@@ -72,9 +73,9 @@ const AdBanner: React.FC<AdBannerProps> = ({ position, className = '' }) => {
   }
 
   const getSizeClasses = (tamanho: Banner['tamanho']) => {
-    // Para news-sidebar, usar o mesmo tamanho da imagem principal
+    // Para news-sidebar, usar o mesmo tamanho da imagem principal (responsivo)
     if (position === 'news-sidebar') {
-      return 'w-full h-80';
+      return NEWS_GENERAL_MAIN_IMAGE_CLASSES;
     }
     
     switch (tamanho) {
