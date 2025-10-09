@@ -29,11 +29,8 @@ async function uploadToCloudinary(buffer, filename) {
         folder: 'r10-piaui', // Organiza as imagens em uma pasta
         public_id: filename.replace(/\.[^.]+$/, ''), // Remove extensão
         resource_type: 'image',
-        format: 'auto', // Detecta formato automaticamente
-        transformation: [
-          { quality: 'auto:good' }, // Otimização automática de qualidade
-          { fetch_format: 'auto' } // Converte para WebP quando possível
-        ]
+        quality: 'auto:good', // Otimização automática de qualidade
+        fetch_format: 'auto' // Converte para WebP quando possível
       },
       (error, result) => {
         if (error) {
