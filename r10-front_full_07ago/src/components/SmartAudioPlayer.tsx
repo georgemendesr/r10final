@@ -43,48 +43,54 @@ const SmartAudioPlayer: React.FC<SmartAudioPlayerProps> = ({ post, content }) =>
     setIsPlayingSequence(true);
     setCurrentPhase('vinheta');
 
-    // 1. Tocar vinheta aleatória
-    const vinhetaUrl = getRandomVinheta();
-    console.log('🎵 Tocando vinheta:', vinhetaUrl);
-    
-    vinhetaRef.current = new Audio(vinhetaUrl);
-    vinhetaRef.current.volume = 0.8;
-    
-    vinhetaRef.current.onended = async () => {
-      console.log('🎵 Vinheta terminada, iniciando ElevenLabs...');
-      setCurrentPhase('tts');
+    try {
+      // 1. PRIMEIRO: Garantir que o áudio ElevenLabs está disponível
+      console.log('🎵 Gerando áudio ElevenLabs antes da vinheta...');
+      if (!elevenLabsUrl) {
+        await generateElevenLabs();
+      }
+
+      // 2. DEPOIS: Tocar vinheta aleatória
+      const vinhetaUrl = getRandomVinheta();
+      console.log('🎵 Tocando vinheta:', vinhetaUrl);
       
-      // 2. Gerar e tocar ElevenLabs
-      try {
-        if (!elevenLabsUrl) {
-          await generateElevenLabs();
+      vinhetaRef.current = new Audio(vinhetaUrl);
+      vinhetaRef.current.volume = 0.8;
+      
+      vinhetaRef.current.onended = async () => {
+        console.log('🎵 Vinheta terminada, iniciando TTS...');
+        setCurrentPhase('tts');
+        
+        // 3. Tocar ElevenLabs (já está gerado) ou fallback para Web Speech
+        if (elevenLabsUrl) {
+          console.log('✅ ElevenLabs disponível, tocando...');
+          playElevenLabsAudio(elevenLabsUrl);
+        } else {
+          console.warn('⚠️ ElevenLabs não disponível, usando Web Speech API como fallback');
+          setIsPlayingSequence(false);
+          setCurrentPhase('idle');
+          // Usar Web Speech API como fallback
+          await playWithWebSpeech();
         }
-        
-        // Aguardar um pouco para o ElevenLabs gerar
-        setTimeout(() => {
-          if (elevenLabsUrl) {
-            playElevenLabsAudio(elevenLabsUrl);
-          }
-        }, 1000);
-        
-      } catch (error) {
-        console.error('❌ Erro ElevenLabs:', error);
+      };
+      
+      vinhetaRef.current.onerror = () => {
+        console.error('❌ Erro ao carregar vinheta');
         setIsPlayingSequence(false);
         setCurrentPhase('idle');
-      }
-    };
-    
-    vinhetaRef.current.onerror = () => {
-      console.error('❌ Erro ao carregar vinheta');
+      };
+      
+      vinhetaRef.current.play().catch(error => {
+        console.error('❌ Erro ao tocar vinheta:', error);
+        setIsPlayingSequence(false);
+        setCurrentPhase('idle');
+      });
+
+    } catch (error) {
+      console.error('❌ Erro ao gerar ElevenLabs:', error);
       setIsPlayingSequence(false);
       setCurrentPhase('idle');
-    };
-    
-    vinhetaRef.current.play().catch(error => {
-      console.error('❌ Erro ao tocar vinheta:', error);
-      setIsPlayingSequence(false);
-      setCurrentPhase('idle');
-    });
+    }
   };
 
   // Tocar áudio ElevenLabs
