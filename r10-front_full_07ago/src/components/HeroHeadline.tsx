@@ -97,9 +97,6 @@ const HeroHeadline = () => {
                 <h1 className="super-manchete-title mb-4 text-white drop-shadow-lg">
                   <span className="block">{supermanchete.titulo}</span>
                 </h1>
-                <p className="super-manchete-subtitle text-white/90 drop-shadow mb-6">
-                  {supermanchete.resumo || (supermanchete.conteudo ? stripHtml(supermanchete.conteudo).substring(0, 150) + '...' : '')}
-                </p>
               </div>
             </div>
           </Link>

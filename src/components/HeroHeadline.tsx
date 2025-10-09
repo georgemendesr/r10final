@@ -96,9 +96,6 @@ const HeroHeadline = () => {
                 <h1 className="text-4xl md:text-5xl mb-4 font-black text-white drop-shadow-lg leading-tight font-rubik">
                   <span className="block">{supermanchete.titulo}</span>
                 </h1>
-                <p className="text-white/90 drop-shadow text-lg mb-6 leading-relaxed tracking-wide">
-                  {fallbackResumo}
-                </p>
               </div>
             </div>
           </Link>
