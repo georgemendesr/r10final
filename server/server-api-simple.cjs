@@ -3766,7 +3766,8 @@ function createApp({ dbPath }) {
         });
       });
 
-      if (cached) {
+      // Ignorar cache se audio_url for NULL/undefined (registro inválido)
+      if (cached && cached.audio_url) {
         console.log(`✅ TTS em cache: ${cached.audio_url}`);
         return res.json({
           ok: true,
@@ -3774,6 +3775,12 @@ function createApp({ dbPath }) {
           cached: true,
           provider: cached.provider,
           expiresAt: cached.expires_at
+        });
+      } else if (cached && !cached.audio_url) {
+        // Cache inválido (audio_url NULL), deletar e regenerar
+        console.warn(`⚠️ Cache inválido encontrado para post ${id}, deletando...`);
+        db.run('DELETE FROM tts_cache WHERE post_id = ?', [id], (err) => {
+          if (err) console.error('❌ Erro ao deletar cache inválido:', err);
         });
       }
 
