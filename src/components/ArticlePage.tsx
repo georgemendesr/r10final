@@ -133,59 +133,62 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
     return () => { alive = false; };
   }, [id]);
 
-  // 3) Efeito para animar destaques quando entrarem na viewport
+  // 3) Efeito para animar destaques APENAS quando usuário visualizar (IntersectionObserver)
   useEffect(() => {
-    const animateHighlight = (element: HTMLElement) => {
-      // Estilo de animação inline para garantir funcionamento
-      element.style.position = 'relative';
-      element.style.background = 'linear-gradient(90deg, rgb(251, 191, 36), rgb(245, 158, 11)) left center / 0% 100% no-repeat';
-      element.style.transition = 'background-size 2s cubic-bezier(0.4, 0, 0.2, 1)';
-      element.style.color = 'rgb(0, 0, 0)';
-      element.style.fontWeight = '600';
-      element.style.padding = '2px 4px';
-      element.style.borderRadius = '4px';
-      element.style.display = 'inline';
-      
-      // Animar o background-size para 100%
-      setTimeout(() => {
-        element.style.backgroundSize = '100% 100%';
-      }, 100);
-    };
-
     const observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
-          // Buscar por múltiplos seletores de destaque
-          const highlightSelectors = [
-            'span[data-highlight="animated"]',
-            'span.highlight-animated',
-            'span[class*="highlight"]',
-            '.highlight-animated'
-          ];
-          
-          highlightSelectors.forEach(selector => {
-            const highlights = entry.target.querySelectorAll(selector);
-            highlights.forEach((highlight) => {
-              const htmlHighlight = highlight as HTMLElement;
-              if (!htmlHighlight.hasAttribute('data-animated')) {
-                htmlHighlight.setAttribute('data-animated', 'true');
-                animateHighlight(htmlHighlight);
-              }
-            });
-          });
+          const element = entry.target as HTMLElement;
+          if (!element.hasAttribute('data-animated')) {
+            element.setAttribute('data-animated', 'true');
+            console.log('✨ ANIMAÇÃO ATIVADA: Destaque entrou no viewport:', element.textContent?.substring(0, 30));
+            
+            // Aplicar animação
+            element.style.backgroundSize = '100% 100%';
+            
+            // Parar de observar após animar
+            observer.unobserve(element);
+          }
         }
       });
     }, {
-      threshold: 0.1,
-      rootMargin: '0px 0px -50px 0px'
+      threshold: 0.1, // 10% do elemento visível
+      rootMargin: '0px 0px -50px 0px' // Inicia 50px antes de entrar completamente
     });
 
-    if (articleRef.current) {
-      observer.observe(articleRef.current);
-    }
+    // Observar todos os elementos de destaque
+    const highlightSelectors = [
+      'span[data-highlight="animated"]',
+      'span.highlight-animated',
+      '.highlight-animated'
+    ];
+    
+    highlightSelectors.forEach(selector => {
+      const highlights = document.querySelectorAll(selector);
+      console.log(`🔍 ANIMAÇÃO: Encontrados ${highlights.length} elementos com seletor "${selector}"`);
+      
+      highlights.forEach((highlight) => {
+        const htmlHighlight = highlight as HTMLElement;
+        
+        // Garantir estado inicial correto
+        if (!htmlHighlight.hasAttribute('data-animated')) {
+          htmlHighlight.style.position = 'relative';
+          htmlHighlight.style.background = 'linear-gradient(90deg, rgb(251, 191, 36), rgb(245, 158, 11)) left center / 0% 100% no-repeat';
+          htmlHighlight.style.transition = 'background-size 2s cubic-bezier(0.4, 0, 0.2, 1)';
+          htmlHighlight.style.color = 'rgb(0, 0, 0)';
+          htmlHighlight.style.fontWeight = '600';
+          htmlHighlight.style.padding = '2px 4px';
+          htmlHighlight.style.borderRadius = '4px';
+          htmlHighlight.style.display = 'inline';
+          
+          // Observar este elemento
+          observer.observe(htmlHighlight);
+        }
+      });
+    });
 
     return () => observer.disconnect();
-  }, []);
+  }, [article, articleData]);
 
   // Dados padrão caso não sejam fornecidos
   const defaultArticle: ArticleData = {

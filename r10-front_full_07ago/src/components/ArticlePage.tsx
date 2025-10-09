@@ -133,46 +133,36 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
     return () => { alive = false; };
   }, [id]);
 
-  // 3) Efeito para animar highlight QUANDO USUÁRIO VÊ (scroll-based)
+  // 3) Efeito para animar highlight APENAS quando usuário VÊ (IntersectionObserver)
   useEffect(() => {
-    const animateHighlights = () => {
-      const highlightElements = document.querySelectorAll('span[data-highlight="animated"]:not(.animate-in-view)');
-      
-      console.log('🔍 ANIMAÇÃO: Elementos com data-highlight encontrados:', highlightElements.length);
-      
-      highlightElements.forEach((element) => {
-        const rect = element.getBoundingClientRect();
-        const windowHeight = window.innerHeight;
-        
-        console.log('📏 Elemento:', {
-          texto: element.textContent?.substring(0, 30),
-          top: rect.top,
-          bottom: rect.bottom,
-          windowHeight,
-          visivel: rect.top < windowHeight - 50 && rect.bottom > 50
-        });
-        
-        // ✅ Só anima quando usuário REALMENTE VÊ o elemento
-        // Margem de 50px para começar animação um pouco antes
-        if (rect.top < windowHeight - 50 && rect.bottom > 50) {
-          console.log('✨ ANIMAÇÃO ATIVADA: Usuário viu o destaque:', element.textContent?.substring(0, 30));
-          (element as HTMLElement).classList.add('animate-in-view');
+    // Observer para detectar quando elemento entra no viewport
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          const element = entry.target as HTMLElement;
+          if (!element.classList.contains('animate-in-view')) {
+            console.log('✨ ANIMAÇÃO ATIVADA: Destaque entrou no viewport:', element.textContent?.substring(0, 30));
+            element.classList.add('animate-in-view');
+            // Parar de observar após animar
+            observer.unobserve(element);
+          }
         }
       });
-    };
+    }, {
+      threshold: 0.1, // 10% do elemento visível
+      rootMargin: '0px 0px -50px 0px' // Inicia animação 50px antes de entrar completamente
+    });
 
-    // Verificar elementos que já estão visíveis ao carregar
-    const checkTimer = setTimeout(() => {
-      console.log('🔍 === VERIFICAÇÃO INICIAL DE DESTAQUES ===');
-      animateHighlights();
-    }, 100);
-
-    // ✅ IMPORTANTE: Escutar scroll para animar quando usuário rolar até o elemento
-    window.addEventListener('scroll', animateHighlights, { passive: true });
+    // Observar todos os elementos com data-highlight="animated"
+    const highlightElements = document.querySelectorAll('span[data-highlight="animated"]:not(.animate-in-view)');
+    console.log('🔍 ANIMAÇÃO: Observando', highlightElements.length, 'elementos de destaque');
+    
+    highlightElements.forEach((element) => {
+      observer.observe(element);
+    });
     
     return () => {
-      clearTimeout(checkTimer);
-      window.removeEventListener('scroll', animateHighlights);
+      observer.disconnect();
     };
   }, [article, articleData]); // Executar quando conteúdo mudar
 
