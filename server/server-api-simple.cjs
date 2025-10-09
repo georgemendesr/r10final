@@ -3705,32 +3705,43 @@ function createApp({ dbPath }) {
       UNIQUE(post_id)
     )
   `, (err) => {
-    if (err) console.error('❌ Erro ao criar tabela tts_cache:', err);
-    else {
-      console.log('✅ Tabela tts_cache pronta');
-      
-      // Migração: Adicionar colunas se não existirem (para tabelas antigas)
+    if (err) {
+      console.error('❌ Erro ao criar tabela tts_cache:', err);
+      return;
+    }
+    
+    console.log('✅ Tabela tts_cache pronta');
+    
+    // Migração: Adicionar colunas se não existirem (para tabelas antigas)
+    // Usar serialize para garantir ordem de execução
+    db.serialize(() => {
       db.run(`ALTER TABLE tts_cache ADD COLUMN audio_url TEXT`, (err) => {
         if (err && !err.message.includes('duplicate column')) {
           console.error('⚠️ Erro ao adicionar coluna audio_url:', err.message);
+        } else if (!err) {
+          console.log('✅ Coluna audio_url adicionada');
         }
       });
       
       db.run(`ALTER TABLE tts_cache ADD COLUMN cloudinary_public_id TEXT`, (err) => {
         if (err && !err.message.includes('duplicate column')) {
           console.error('⚠️ Erro ao adicionar coluna cloudinary_public_id:', err.message);
+        } else if (!err) {
+          console.log('✅ Coluna cloudinary_public_id adicionada');
         }
       });
       
-      // Limpar registros inválidos (sem audio_url válida do Cloudinary)
-      db.run(`DELETE FROM tts_cache WHERE audio_url IS NULL OR audio_url LIKE '/uploads/tts-cache/%'`, function(err) {
-        if (err) {
-          console.error('❌ Erro ao limpar cache inválido:', err);
-        } else if (this.changes > 0) {
-          console.log(`🗑️ Removidos ${this.changes} registros de cache inválidos`);
-        }
-      });
-    }
+      // Aguardar as alterações e então limpar registros inválidos
+      setTimeout(() => {
+        db.run(`DELETE FROM tts_cache WHERE audio_url IS NULL OR audio_url LIKE '/uploads/tts-cache/%'`, function(err) {
+          if (err) {
+            console.error('❌ Erro ao limpar cache inválido:', err);
+          } else if (this.changes > 0) {
+            console.log(`🗑️ Removidos ${this.changes} registros de cache inválidos`);
+          }
+        });
+      }, 500); // Aguardar 500ms para garantir que ALTER TABLE foi executado
+    });
   });
 
   // Função para verificar se posição é elegível para ElevenLabs
