@@ -78,8 +78,19 @@ export function useTts(post: Post | null) {
       );
       
       
-      // Usar o backend TTS enviando dados reais
-      const response = await fetch(`http://localhost:8080/api/articles/${post.id}/tts/request`, {
+      // Detectar URL do backend automaticamente
+      const isProduction = window.location.hostname.includes('render.com') || 
+                          window.location.hostname.includes('r10piaui');
+      
+      const API_BASE = isProduction 
+        ? window.location.origin // Usa a mesma URL do frontend em produção
+        : (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002');
+      
+      const API_URL = API_BASE.replace('/api', ''); // Remover /api se existir
+      
+      console.log('🌐 TTS API URL:', `${API_URL}/api/articles/${post.id}/tts/request`);
+      
+      const response = await fetch(`${API_URL}/api/articles/${post.id}/tts/request`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
