@@ -12,6 +12,7 @@ const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const multer = require('multer');
+const { uploadToCloudinary, deleteFromCloudinary } = require('./cloudinary-config.cjs');
 // Função util para obter hash do commit (Render define RENDER_GIT_COMMIT; fallback lê .git)
 function getCommitHash() {
   try {
@@ -778,16 +779,8 @@ function createApp({ dbPath }) {
   app.locals.db = db; // expor conexão para testes/cleanup
   
   // 🖼️ CONFIGURAR MULTER PARA UPLOAD DE IMAGENS
-  const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-      cb(null, UPLOADS_DIR);
-    },
-    filename: (req, file, cb) => {
-      // Gerar nome único: timestamp-random.ext
-      const uniqueName = `${Date.now()}-${Math.random().toString(36).substring(7)}${path.extname(file.originalname)}`;
-      cb(null, uniqueName);
-    }
-  });
+  // 🔄 Usar memoryStorage para upload direto ao Cloudinary (sem salvar em disco local)
+  const storage = multer.memoryStorage();
   
   // Validar tipo e tamanho de imagem
   const upload = multer({
@@ -3100,60 +3093,76 @@ function createApp({ dbPath }) {
         return res.status(400).json({ error: 'Nenhum arquivo enviado (campo esperado: image)' });
       }
       
-      // URL da imagem (relativa ao domínio)
-      const imageUrl = `/uploads/${req.file.filename}`;
+      console.log('📤 Iniciando upload para Cloudinary:', req.file.originalname);
       
-      // URL completa para produção
-      const baseUrl = process.env.RENDER 
-        ? 'https://r10piaui.onrender.com'
-        : `http://localhost:${PORT}`;
-      const fullUrl = baseUrl + imageUrl;
+      // Fazer upload para o Cloudinary usando o buffer da memória
+      const result = await uploadToCloudinary(
+        req.file.buffer,
+        req.file.originalname
+      );
       
-      console.log('✅ Imagem salva no disco:', req.file.filename);
-      console.log('📍 Caminho completo:', req.file.path);
-      console.log('🔗 URL:', fullUrl);
+      // URL segura (HTTPS) da imagem no Cloudinary
+      const imageUrl = result.secure_url;
+      
+      console.log('✅ Upload Cloudinary bem-sucedido!');
+      console.log('🔗 URL:', imageUrl);
+      console.log('� Tamanho:', req.file.size, 'bytes');
+      console.log('🆔 Public ID:', result.public_id);
       
       const response = {
         success: true,
-        imageUrl: fullUrl,
-        url: fullUrl,
-        relative: imageUrl,
-        filename: req.file.filename,
+        imageUrl: imageUrl,
+        url: imageUrl,
+        filename: result.public_id,
         size: req.file.size,
-        path: imageUrl
+        cloudinary: {
+          public_id: result.public_id,
+          format: result.format,
+          width: result.width,
+          height: result.height,
+          bytes: result.bytes
+        }
       };
       
-      console.log('📤 [UPLOAD] Enviando resposta JSON:', JSON.stringify(response));
+      console.log('📤 [UPLOAD CLOUDINARY] Enviando resposta JSON');
       res.json(response);
     } catch (error) {
-      console.error('❌ Erro no upload:', error);
-      res.status(500).json({ error: 'Erro ao fazer upload da imagem', details: error.message });
+      console.error('❌ Erro no upload para Cloudinary:', error);
+      res.status(500).json({ 
+        error: 'Erro ao fazer upload da imagem no Cloudinary', 
+        details: error.message 
+      });
     }
   });
   
-  // 🗑️ DELETE /api/upload/:filename - Deletar imagem (opcional)
-  app.delete('/api/upload/:filename', authMiddleware, requireRole('admin'), (req, res) => {
+  // 🗑️ DELETE /api/upload/:filename - Deletar imagem do Cloudinary
+  app.delete('/api/upload/:filename', authMiddleware, requireRole('admin'), async (req, res) => {
     try {
       const { filename } = req.params;
-      const filepath = path.join(UPLOADS_DIR, filename);
       
-      // Verificar se o arquivo existe
-      if (!fs.existsSync(filepath)) {
-        return res.status(404).json({ error: 'Imagem não encontrada' });
-      }
+      // O filename no Cloudinary é o public_id (sem extensão, geralmente)
+      // Remover a pasta r10-piaui/ se vier no filename
+      const publicId = filename.replace('r10-piaui/', '').replace(/\.[^.]+$/, '');
       
-      // Deletar arquivo
-      fs.unlinkSync(filepath);
-      console.log('🗑️ Imagem deletada:', filename);
+      console.log('🗑️ Tentando deletar do Cloudinary:', publicId);
+      
+      // Deletar do Cloudinary
+      const result = await deleteFromCloudinary(publicId);
+      
+      console.log('✅ Imagem deletada do Cloudinary:', publicId);
       
       res.json({ 
         success: true, 
         message: 'Imagem deletada com sucesso',
-        filename: filename
+        filename: filename,
+        cloudinary: result
       });
     } catch (error) {
-      console.error('❌ Erro ao deletar imagem:', error);
-      res.status(500).json({ error: 'Erro ao deletar imagem', details: error.message });
+      console.error('❌ Erro ao deletar imagem do Cloudinary:', error);
+      res.status(500).json({ 
+        error: 'Erro ao deletar imagem', 
+        details: error.message 
+      });
     }
   });
 
