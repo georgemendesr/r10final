@@ -63,8 +63,57 @@ async function deleteFromCloudinary(publicId) {
   }
 }
 
+// Helper: Upload de áudio (MP3) para Cloudinary
+async function uploadAudioToCloudinary(buffer, filename) {
+  return new Promise((resolve, reject) => {
+    console.log('🎵 [CLOUDINARY] Iniciando upload de áudio...');
+    console.log('  Filename:', filename);
+    console.log('  Buffer size:', buffer.length, 'bytes');
+    
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder: 'r10-piaui/tts-audio', // Organiza os áudios em subpasta
+        public_id: filename.replace(/\.[^.]+$/, ''), // Remove extensão
+        resource_type: 'video', // 'video' suporta áudio (MP3, WAV, etc)
+        format: 'mp3'
+      },
+      (error, result) => {
+        if (error) {
+          console.error('❌ [CLOUDINARY] Erro no upload de áudio:', error);
+          console.error('  Mensagem:', error.message);
+          console.error('  HTTP Code:', error.http_code);
+          reject(error);
+        } else {
+          console.log('✅ [CLOUDINARY] Upload de áudio bem-sucedido!');
+          console.log('  URL:', result.secure_url);
+          console.log('  Public ID:', result.public_id);
+          resolve(result);
+        }
+      }
+    );
+    
+    uploadStream.end(buffer);
+  });
+}
+
+// Helper: Deletar áudio do Cloudinary
+async function deleteAudioFromCloudinary(publicId) {
+  try {
+    const result = await cloudinary.uploader.destroy(`r10-piaui/tts-audio/${publicId}`, {
+      resource_type: 'video' // Necessário para deletar áudio
+    });
+    console.log('🗑️ Áudio deletado do Cloudinary:', publicId, result);
+    return result;
+  } catch (error) {
+    console.error('❌ Erro ao deletar áudio do Cloudinary:', error);
+    throw error;
+  }
+}
+
 module.exports = {
   cloudinary,
   uploadToCloudinary,
-  deleteFromCloudinary
+  deleteFromCloudinary,
+  uploadAudioToCloudinary,
+  deleteAudioFromCloudinary
 };

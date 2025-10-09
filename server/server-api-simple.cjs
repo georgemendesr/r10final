@@ -3689,20 +3689,14 @@ function createApp({ dbPath }) {
   // ======= FIM REAÇÕES =======
 
   // ======= INÍCIO TTS (Text-to-Speech) =======
-  
-  // Criar diretório para cache de áudios TTS
-  const TTS_CACHE_DIR = path.join(__dirname, '..', 'uploads', 'tts-cache');
-  if (!fs.existsSync(TTS_CACHE_DIR)) {
-    fs.mkdirSync(TTS_CACHE_DIR, { recursive: true });
-    console.log('📁 Diretório TTS cache criado:', TTS_CACHE_DIR);
-  }
 
-  // Criar tabela para tracking de TTS gerados
+  // Criar tabela para tracking de TTS gerados (URLs do Cloudinary)
   db.run(`
     CREATE TABLE IF NOT EXISTS tts_cache (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       post_id INTEGER NOT NULL,
-      audio_filename TEXT NOT NULL,
+      audio_url TEXT NOT NULL,
+      cloudinary_public_id TEXT,
       provider TEXT NOT NULL,
       created_at TEXT NOT NULL,
       expires_at TEXT NOT NULL,
@@ -3721,20 +3715,25 @@ function createApp({ dbPath }) {
     return elegivel.includes(String(posicao).toLowerCase());
   }
 
-  // Função para limpar cache expirado
-  function cleanExpiredTTSCache() {
+  // Função para limpar cache expirado (deletar do Cloudinary)
+  async function cleanExpiredTTSCache() {
     const now = new Date().toISOString();
-    db.all('SELECT * FROM tts_cache WHERE expires_at < ?', [now], (err, expired) => {
+    db.all('SELECT * FROM tts_cache WHERE expires_at < ?', [now], async (err, expired) => {
       if (err || !expired || expired.length === 0) return;
       
-      expired.forEach(record => {
-        const filePath = path.join(TTS_CACHE_DIR, record.audio_filename);
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
-          console.log(`🗑️ Áudio TTS expirado removido: ${record.audio_filename}`);
+      const { deleteAudioFromCloudinary } = require('./cloudinary-config.cjs');
+      
+      for (const record of expired) {
+        if (record.cloudinary_public_id) {
+          try {
+            await deleteAudioFromCloudinary(record.cloudinary_public_id);
+            console.log(`🗑️ Áudio TTS expirado removido do Cloudinary: ${record.cloudinary_public_id}`);
+          } catch (error) {
+            console.error(`❌ Erro ao deletar áudio do Cloudinary:`, error);
+          }
         }
         db.run('DELETE FROM tts_cache WHERE id = ?', [record.id]);
-      });
+      }
     });
   }
 
@@ -3764,11 +3763,10 @@ function createApp({ dbPath }) {
       });
 
       if (cached) {
-        const audioUrl = `/uploads/tts-cache/${cached.audio_filename}`;
-        console.log(`✅ TTS em cache: ${audioUrl}`);
+        console.log(`✅ TTS em cache: ${cached.audio_url}`);
         return res.json({
           ok: true,
-          audioUrl,
+          audioUrl: cached.audio_url,
           cached: true,
           provider: cached.provider,
           expiresAt: cached.expires_at
@@ -3818,27 +3816,27 @@ function createApp({ dbPath }) {
 
         const audioBuffer = Buffer.from(await elevenLabsResponse.arrayBuffer());
         const filename = `post-${id}-${Date.now()}.mp3`;
-        const filePath = path.join(TTS_CACHE_DIR, filename);
         
-        fs.writeFileSync(filePath, audioBuffer);
+        // ✅ UPLOAD PARA CLOUDINARY (não mais filesystem local)
+        const { uploadAudioToCloudinary } = require('./cloudinary-config.cjs');
+        const cloudinaryResult = await uploadAudioToCloudinary(audioBuffer, filename);
         
         // Salvar no cache com validade de 30 dias
         const createdAt = new Date().toISOString();
         const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
         
         db.run(`
-          INSERT OR REPLACE INTO tts_cache (post_id, audio_filename, provider, created_at, expires_at, file_size)
-          VALUES (?, ?, ?, ?, ?, ?)
-        `, [id, filename, 'elevenlabs', createdAt, expiresAt, audioBuffer.length], (err) => {
+          INSERT OR REPLACE INTO tts_cache (post_id, audio_url, cloudinary_public_id, provider, created_at, expires_at, file_size)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `, [id, cloudinaryResult.secure_url, cloudinaryResult.public_id, 'elevenlabs', createdAt, expiresAt, audioBuffer.length], (err) => {
           if (err) console.error('❌ Erro ao salvar cache TTS:', err);
         });
 
-        const audioUrl = `/uploads/tts-cache/${filename}`;
-        console.log(`✅ TTS gerado com ElevenLabs: ${audioUrl}`);
+        console.log(`✅ TTS gerado com ElevenLabs e enviado para Cloudinary: ${cloudinaryResult.secure_url}`);
 
         return res.json({
           ok: true,
-          audioUrl,
+          audioUrl: cloudinaryResult.secure_url,
           cached: false,
           elevenLabsUsed: true,
           provider: 'elevenlabs',
