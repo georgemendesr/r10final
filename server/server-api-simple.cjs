@@ -3688,6 +3688,186 @@ function createApp({ dbPath }) {
 
   // ======= FIM REAÇÕES =======
 
+  // ======= INÍCIO TTS (Text-to-Speech) =======
+  
+  // Criar diretório para cache de áudios TTS
+  const TTS_CACHE_DIR = path.join(__dirname, '..', 'uploads', 'tts-cache');
+  if (!fs.existsSync(TTS_CACHE_DIR)) {
+    fs.mkdirSync(TTS_CACHE_DIR, { recursive: true });
+    console.log('📁 Diretório TTS cache criado:', TTS_CACHE_DIR);
+  }
+
+  // Criar tabela para tracking de TTS gerados
+  db.run(`
+    CREATE TABLE IF NOT EXISTS tts_cache (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      post_id INTEGER NOT NULL,
+      audio_filename TEXT NOT NULL,
+      provider TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      file_size INTEGER,
+      UNIQUE(post_id)
+    )
+  `, (err) => {
+    if (err) console.error('❌ Erro ao criar tabela tts_cache:', err);
+    else console.log('✅ Tabela tts_cache pronta');
+  });
+
+  // Função para verificar se posição é elegível para ElevenLabs
+  function isEligibleForElevenLabs(posicao) {
+    if (!posicao) return false;
+    const elegivel = ['supermanchete', 'super-manchete', 'manchete', 'destaque', 'destaqueprincipal', 'destaque-principal'];
+    return elegivel.includes(String(posicao).toLowerCase());
+  }
+
+  // Função para limpar cache expirado
+  function cleanExpiredTTSCache() {
+    const now = new Date().toISOString();
+    db.all('SELECT * FROM tts_cache WHERE expires_at < ?', [now], (err, expired) => {
+      if (err || !expired || expired.length === 0) return;
+      
+      expired.forEach(record => {
+        const filePath = path.join(TTS_CACHE_DIR, record.audio_filename);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+          console.log(`🗑️ Áudio TTS expirado removido: ${record.audio_filename}`);
+        }
+        db.run('DELETE FROM tts_cache WHERE id = ?', [record.id]);
+      });
+    });
+  }
+
+  // Limpar cache expirado a cada 6 horas
+  setInterval(cleanExpiredTTSCache, 6 * 60 * 60 * 1000);
+  cleanExpiredTTSCache(); // Limpar ao iniciar
+
+  // POST /api/articles/:id/tts/request - Gerar TTS para artigo
+  app.post('/api/articles/:id/tts/request', async (req, res) => {
+    const { id } = req.params;
+    const { title, subtitle, content, posicao } = req.body;
+
+    console.log(`🎙️ TTS Request: Post ${id}, Posição: ${posicao}`);
+
+    if (!id || isNaN(Number(id))) {
+      return res.status(400).json({ ok: false, error: 'ID de post inválido' });
+    }
+
+    try {
+      // 1. Verificar se já existe cache válido
+      const now = new Date().toISOString();
+      const cached = await new Promise((resolve, reject) => {
+        db.get('SELECT * FROM tts_cache WHERE post_id = ? AND expires_at > ?', [id, now], (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        });
+      });
+
+      if (cached) {
+        const audioUrl = `/uploads/tts-cache/${cached.audio_filename}`;
+        console.log(`✅ TTS em cache: ${audioUrl}`);
+        return res.json({
+          ok: true,
+          audioUrl,
+          cached: true,
+          provider: cached.provider,
+          expiresAt: cached.expires_at
+        });
+      }
+
+      // 2. Verificar elegibilidade para ElevenLabs
+      const useElevenLabs = isEligibleForElevenLabs(posicao);
+      
+      if (useElevenLabs) {
+        // 3a. Gerar com ElevenLabs (se configurado)
+        const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
+        const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || '21m00Tcm4TlvDq8ikWAM'; // Rachel voice padrão
+
+        if (!ELEVENLABS_API_KEY) {
+          console.warn('⚠️ ELEVENLABS_API_KEY não configurada, usando fallback');
+          return res.json({ ok: true, audioUrl: null, elevenLabsUsed: false });
+        }
+
+        // Preparar texto para TTS
+        const textToSpeak = `${title}. ${subtitle ? subtitle + '. ' : ''}${content}`.substring(0, 5000);
+
+        console.log(`🎤 Gerando TTS com ElevenLabs para post ${id}...`);
+
+        const elevenLabsResponse = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE_ID}`, {
+          method: 'POST',
+          headers: {
+            'Accept': 'audio/mpeg',
+            'Content-Type': 'application/json',
+            'xi-api-key': ELEVENLABS_API_KEY
+          },
+          body: JSON.stringify({
+            text: textToSpeak,
+            model_id: 'eleven_multilingual_v2',
+            voice_settings: {
+              stability: 0.5,
+              similarity_boost: 0.75,
+              style: 0.5,
+              use_speaker_boost: true
+            }
+          })
+        });
+
+        if (!elevenLabsResponse.ok) {
+          throw new Error(`ElevenLabs API error: ${elevenLabsResponse.status}`);
+        }
+
+        const audioBuffer = Buffer.from(await elevenLabsResponse.arrayBuffer());
+        const filename = `post-${id}-${Date.now()}.mp3`;
+        const filePath = path.join(TTS_CACHE_DIR, filename);
+        
+        fs.writeFileSync(filePath, audioBuffer);
+        
+        // Salvar no cache com validade de 30 dias
+        const createdAt = new Date().toISOString();
+        const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+        
+        db.run(`
+          INSERT OR REPLACE INTO tts_cache (post_id, audio_filename, provider, created_at, expires_at, file_size)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `, [id, filename, 'elevenlabs', createdAt, expiresAt, audioBuffer.length], (err) => {
+          if (err) console.error('❌ Erro ao salvar cache TTS:', err);
+        });
+
+        const audioUrl = `/uploads/tts-cache/${filename}`;
+        console.log(`✅ TTS gerado com ElevenLabs: ${audioUrl}`);
+
+        return res.json({
+          ok: true,
+          audioUrl,
+          cached: false,
+          elevenLabsUsed: true,
+          provider: 'elevenlabs',
+          expiresAt
+        });
+
+      } else {
+        // 3b. Notícias comuns - retornar null para usar Web Speech API no frontend
+        console.log(`📢 Post ${id} não elegível para ElevenLabs - usando Web Speech API`);
+        return res.json({
+          ok: true,
+          audioUrl: null,
+          elevenLabsUsed: false,
+          provider: 'web-speech-api'
+        });
+      }
+
+    } catch (error) {
+      console.error('❌ Erro ao gerar TTS:', error);
+      return res.status(500).json({
+        ok: false,
+        error: 'Erro ao gerar áudio TTS',
+        details: error.message
+      });
+    }
+  });
+
+  // ======= FIM TTS =======
+
   // Buscar por slug (quando não há coluna slug, calculamos em memória)
   app.get('/api/posts/slug/:slug', (req, res) => {
     const { slug } = req.params;

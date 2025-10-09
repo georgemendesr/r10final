@@ -167,11 +167,43 @@ const SmartAudioPlayer: React.FC<SmartAudioPlayerProps> = ({ post, content }) =>
         .replace(/\n{3,}/g, '\n\n')
         .trim();
 
+      // Buscar a melhor voz PT-BR disponível
+      const voices = speechSynthesis.getVoices();
+      let selectedVoice = null;
+
+      // Prioridade de vozes: Google > Microsoft > outras
+      const voicePriority = [
+        'Google português do Brasil',
+        'Microsoft Maria Desktop',
+        'Microsoft Daniel Desktop', 
+        'Google pt-BR',
+        'pt-BR',
+        'pt_BR'
+      ];
+
+      for (const priority of voicePriority) {
+        selectedVoice = voices.find(v => 
+          v.lang.includes('pt-BR') && v.name.includes(priority)
+        );
+        if (selectedVoice) break;
+      }
+
+      // Fallback: qualquer voz PT-BR
+      if (!selectedVoice) {
+        selectedVoice = voices.find(v => v.lang.includes('pt-BR') || v.lang.includes('pt_BR'));
+      }
+
+      console.log('🎤 Voz selecionada:', selectedVoice?.name || 'Padrão do sistema');
+
       const utterance = new SpeechSynthesisUtterance(optimizedText);
       utterance.lang = 'pt-BR';
       utterance.rate = 1.0;
       utterance.pitch = 1.0;
-      utterance.volume = 0.8;
+      utterance.volume = 0.9;
+      
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+      }
 
       setIsWebSpeechLoading(false);
       
