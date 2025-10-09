@@ -3695,7 +3695,8 @@ function createApp({ dbPath }) {
     CREATE TABLE IF NOT EXISTS tts_cache (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       post_id INTEGER NOT NULL,
-      audio_url TEXT NOT NULL,
+      audio_filename TEXT,
+      audio_url TEXT,
       cloudinary_public_id TEXT,
       provider TEXT NOT NULL,
       created_at TEXT NOT NULL,
@@ -3705,7 +3706,31 @@ function createApp({ dbPath }) {
     )
   `, (err) => {
     if (err) console.error('❌ Erro ao criar tabela tts_cache:', err);
-    else console.log('✅ Tabela tts_cache pronta');
+    else {
+      console.log('✅ Tabela tts_cache pronta');
+      
+      // Migração: Adicionar colunas se não existirem (para tabelas antigas)
+      db.run(`ALTER TABLE tts_cache ADD COLUMN audio_url TEXT`, (err) => {
+        if (err && !err.message.includes('duplicate column')) {
+          console.error('⚠️ Erro ao adicionar coluna audio_url:', err.message);
+        }
+      });
+      
+      db.run(`ALTER TABLE tts_cache ADD COLUMN cloudinary_public_id TEXT`, (err) => {
+        if (err && !err.message.includes('duplicate column')) {
+          console.error('⚠️ Erro ao adicionar coluna cloudinary_public_id:', err.message);
+        }
+      });
+      
+      // Limpar registros inválidos (sem audio_url válida do Cloudinary)
+      db.run(`DELETE FROM tts_cache WHERE audio_url IS NULL OR audio_url LIKE '/uploads/tts-cache/%'`, function(err) {
+        if (err) {
+          console.error('❌ Erro ao limpar cache inválido:', err);
+        } else if (this.changes > 0) {
+          console.log(`🗑️ Removidos ${this.changes} registros de cache inválidos`);
+        }
+      });
+    }
   });
 
   // Função para verificar se posição é elegível para ElevenLabs
