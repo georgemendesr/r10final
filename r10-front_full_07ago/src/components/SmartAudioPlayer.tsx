@@ -16,7 +16,7 @@ interface SmartAudioPlayerProps {
 
 const SmartAudioPlayer: React.FC<SmartAudioPlayerProps> = ({ post, content }) => {
   // Hook ElevenLabs TTS
-  const { enabled: elevenLabsEnabled, loading: elevenLabsLoading, url: elevenLabsUrl, onClick: generateElevenLabs } = useTts(post);
+  const { enabled: elevenLabsEnabled, loading: elevenLabsLoading, url: elevenLabsUrl, onClick: generateElevenLabs, response: ttsResponse } = useTts(post);
   
   // Estados para Web Speech API (fallback/notícias comuns)
   const [isWebSpeechPlaying, setIsWebSpeechPlaying] = useState(false);
@@ -26,7 +26,7 @@ const SmartAudioPlayer: React.FC<SmartAudioPlayerProps> = ({ post, content }) =>
   
   // Estados para sequência vinheta + ElevenLabs
   const [isPlayingSequence, setIsPlayingSequence] = useState(false);
-  const [currentPhase, setCurrentPhase] = useState<'idle' | 'vinheta' | 'tts'>('idle');
+  const [currentPhase, setCurrentPhase] = useState<'idle' | 'generating' | 'vinheta' | 'tts'>('idle');
   
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -41,55 +41,82 @@ const SmartAudioPlayer: React.FC<SmartAudioPlayerProps> = ({ post, content }) =>
   // Tocar sequência: vinheta + ElevenLabs
   const playSequence = async () => {
     setIsPlayingSequence(true);
-    setCurrentPhase('vinheta');
+    
+    // Verificar se é elegível para ElevenLabs
+    const isElegibleForElevenLabs = post?.posicao && 
+      ['supermanchete', 'super-manchete', 'manchete', 'destaque', 'destaqueprincipal', 'destaque-principal']
+        .includes(post.posicao.toLowerCase());
 
     try {
-      // 1. PRIMEIRO: Garantir que o áudio ElevenLabs está disponível
-      console.log('🎵 Gerando áudio ElevenLabs antes da vinheta...');
-      if (!elevenLabsUrl) {
-        await generateElevenLabs();
-      }
-
-      // 2. DEPOIS: Tocar vinheta aleatória
-      const vinhetaUrl = getRandomVinheta();
-      console.log('🎵 Tocando vinheta:', vinhetaUrl);
-      
-      vinhetaRef.current = new Audio(vinhetaUrl);
-      vinhetaRef.current.volume = 0.8;
-      
-      vinhetaRef.current.onended = async () => {
-        console.log('🎵 Vinheta terminada, iniciando TTS...');
-        setCurrentPhase('tts');
+      // Se for elegível para ElevenLabs, gerar/buscar do cache
+      if (isElegibleForElevenLabs) {
+        setCurrentPhase('generating');
+        console.log('🎵 Gerando/buscando áudio ElevenLabs...');
         
-        // 3. Tocar ElevenLabs (já está gerado) ou fallback para Web Speech
-        if (elevenLabsUrl) {
-          console.log('✅ ElevenLabs disponível, tocando...');
-          playElevenLabsAudio(elevenLabsUrl);
-        } else {
-          console.warn('⚠️ ElevenLabs não disponível, usando Web Speech API como fallback');
+        let audioUrl = elevenLabsUrl;
+        
+        if (!audioUrl) {
+          await generateElevenLabs();
+          // Aguardar estado atualizar
+          await new Promise(resolve => setTimeout(resolve, 200));
+          audioUrl = elevenLabsUrl;
+          console.log('🔍 URL após geração:', audioUrl);
+        }
+
+        // Tocar vinheta enquanto garante que temos o áudio
+        setCurrentPhase('vinheta');
+        const vinhetaUrl = getRandomVinheta();
+        console.log('🎵 Tocando vinheta:', vinhetaUrl);
+        
+        vinhetaRef.current = new Audio(vinhetaUrl);
+        vinhetaRef.current.volume = 0.8;
+        
+        vinhetaRef.current.onended = async () => {
+          console.log('🎵 Vinheta terminada, iniciando TTS ElevenLabs...');
+          setCurrentPhase('tts');
+          
+          // Verificar novamente a URL (atualizada durante a vinheta)
+          const finalUrl = elevenLabsUrl || audioUrl;
+          console.log('🔍 URL final para reprodução:', finalUrl);
+          
+          if (finalUrl) {
+            console.log('✅ Tocando ElevenLabs:', finalUrl);
+            playElevenLabsAudio(finalUrl);
+          } else {
+            // Se ainda não temos URL, algo deu errado - mostrar erro
+            console.error('❌ ERRO: Elegível para ElevenLabs mas sem URL de áudio!');
+            alert('Erro ao gerar áudio de alta qualidade. Tente novamente.');
+            setIsPlayingSequence(false);
+            setCurrentPhase('idle');
+          }
+        };
+        
+        vinhetaRef.current.onerror = () => {
+          console.error('❌ Erro ao carregar vinheta');
           setIsPlayingSequence(false);
           setCurrentPhase('idle');
-          // Usar Web Speech API como fallback
-          await playWithWebSpeech();
-        }
-      };
-      
-      vinhetaRef.current.onerror = () => {
-        console.error('❌ Erro ao carregar vinheta');
-        setIsPlayingSequence(false);
-        setCurrentPhase('idle');
-      };
-      
-      vinhetaRef.current.play().catch(error => {
-        console.error('❌ Erro ao tocar vinheta:', error);
-        setIsPlayingSequence(false);
-        setCurrentPhase('idle');
-      });
+        };
+        
+        vinhetaRef.current.play().catch(error => {
+          console.error('❌ Erro ao tocar vinheta:', error);
+          setIsPlayingSequence(false);
+          setCurrentPhase('idle');
+        });
+
+      } else {
+        // Notícias comuns usam Web Speech API diretamente (sem vinheta)
+        console.log('📢 Notícia comum, usando Web Speech API');
+        await playWithWebSpeech();
+      }
 
     } catch (error) {
-      console.error('❌ Erro ao gerar ElevenLabs:', error);
+      console.error('❌ Erro ao processar TTS:', error);
       setIsPlayingSequence(false);
       setCurrentPhase('idle');
+      
+      if (isElegibleForElevenLabs) {
+        alert('Erro ao gerar áudio de alta qualidade. Tente novamente.');
+      }
     }
   };
 
@@ -303,6 +330,15 @@ const SmartAudioPlayer: React.FC<SmartAudioPlayerProps> = ({ post, content }) =>
 
   const isLoading = elevenLabsLoading || isWebSpeechLoading;
   const isPlaying = isPlayingSequence || isWebSpeechPlaying;
+  
+  // Mensagem de status
+  const getStatusMessage = () => {
+    if (currentPhase === 'generating') return 'Gerando áudio de alta qualidade...';
+    if (currentPhase === 'vinheta') return 'Tocando vinheta...';
+    if (currentPhase === 'tts' || isPlaying) return 'Reproduzindo...';
+    if (isLoading) return 'Carregando...';
+    return 'Clique para ouvir';
+  };
 
   return (
     <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6" data-e2e="smart-audio-player">
@@ -326,6 +362,7 @@ const SmartAudioPlayer: React.FC<SmartAudioPlayerProps> = ({ post, content }) =>
           <div className="flex items-center justify-between text-sm text-gray-600 mb-1">
             <span className="flex items-center gap-1">
               <Volume2 className="w-3 h-3" />
+              <span className="text-xs">{getStatusMessage()}</span>
             </span>
             <span className="text-xs">
               {formatTime((progress / 100) * duration)} / {formatTime(duration)}
