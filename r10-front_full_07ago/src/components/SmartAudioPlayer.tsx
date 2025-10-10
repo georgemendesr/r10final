@@ -38,32 +38,26 @@ const SmartAudioPlayer: React.FC<SmartAudioPlayerProps> = ({ post, content }) =>
     return vinhetas[Math.floor(Math.random() * vinhetas.length)];
   };
 
-  // Tocar sequência: vinheta + ElevenLabs
+  // Tocar sequência: vinheta + Google TTS (TODAS as notícias)
   const playSequence = async () => {
     setIsPlayingSequence(true);
-    
-    // Verificar se é elegível para ElevenLabs
-    const isElegibleForElevenLabs = post?.posicao && 
-      ['supermanchete', 'super-manchete', 'manchete', 'destaque', 'destaqueprincipal', 'destaque-principal']
-        .includes(post.posicao.toLowerCase());
+    setCurrentPhase('generating');
 
     try {
-      // Se for elegível para ElevenLabs, gerar/buscar do cache
-      if (isElegibleForElevenLabs) {
-        setCurrentPhase('generating');
-        console.log('🎵 Gerando/buscando áudio ElevenLabs...');
-        
-        let audioUrl = elevenLabsUrl;
-        
-        if (!audioUrl) {
-          await generateElevenLabs();
-          // Aguardar estado atualizar
-          await new Promise(resolve => setTimeout(resolve, 200));
-          audioUrl = elevenLabsUrl;
-          console.log('🔍 URL após geração:', audioUrl);
-        }
+      console.log('🎵 Gerando/buscando áudio Google TTS...');
+      
+      let audioUrl = elevenLabsUrl;
+      
+      if (!audioUrl) {
+        await generateElevenLabs(); // Nome mantido mas agora gera com Google TTS
+        // Aguardar estado atualizar
+        await new Promise(resolve => setTimeout(resolve, 200));
+        audioUrl = elevenLabsUrl;
+        console.log('🔍 URL após geração:', audioUrl);
+      }
 
-        // Tocar vinheta enquanto garante que temos o áudio
+      // Se temos URL, tocar com vinheta
+      if (audioUrl) {
         setCurrentPhase('vinheta');
         const vinhetaUrl = getRandomVinheta();
         console.log('🎵 Tocando vinheta:', vinhetaUrl);
@@ -72,27 +66,23 @@ const SmartAudioPlayer: React.FC<SmartAudioPlayerProps> = ({ post, content }) =>
         vinhetaRef.current.volume = 0.8;
         
         vinhetaRef.current.onended = async () => {
-          console.log('🎵 Vinheta terminada, iniciando TTS ElevenLabs...');
+          console.log('🎵 Vinheta terminada, iniciando TTS...');
           setCurrentPhase('tts');
           
-          // Verificar novamente a URL (atualizada durante a vinheta)
           const finalUrl = elevenLabsUrl || audioUrl;
           console.log('🔍 URL final para reprodução:', finalUrl);
           
           if (finalUrl) {
-            console.log('✅ Tocando ElevenLabs:', finalUrl);
-            playElevenLabsAudio(finalUrl);
+            console.log('✅ Tocando Google TTS:', finalUrl);
+            playElevenLabsAudio(finalUrl); // Nome mantido mas toca Google TTS
           } else {
-            // Se ainda não temos URL, algo deu errado
-            console.error('❌ ERRO: Elegível para ElevenLabs mas sem URL de áudio!');
+            console.error('❌ ERRO: Sem URL de áudio!');
             console.error('Debug - elevenLabsUrl:', elevenLabsUrl);
             console.error('Debug - audioUrl:', audioUrl);
             console.error('Debug - ttsResponse:', ttsResponse);
             
             setIsPlayingSequence(false);
             setCurrentPhase('idle');
-            
-            // Não mostrar alert, apenas logar - usuário pode tentar de novo
             console.warn('⚠️ Erro ao gerar áudio, tente novamente');
           }
         };
@@ -110,8 +100,8 @@ const SmartAudioPlayer: React.FC<SmartAudioPlayerProps> = ({ post, content }) =>
         });
 
       } else {
-        // Notícias comuns usam Web Speech API diretamente (sem vinheta)
-        console.log('📢 Notícia comum, usando Web Speech API');
+        // Sem URL - usar Web Speech API diretamente (sem vinheta)
+        console.log('📢 Sem Google TTS, usando Web Speech API');
         await playWithWebSpeech();
       }
 
@@ -119,8 +109,6 @@ const SmartAudioPlayer: React.FC<SmartAudioPlayerProps> = ({ post, content }) =>
       console.error('❌ Erro ao processar TTS:', error);
       setIsPlayingSequence(false);
       setCurrentPhase('idle');
-      
-      // Não mostrar alert - deixar usuário tentar de novo
       console.warn('⚠️ Erro ao gerar/reproduzir áudio');
     }
   };

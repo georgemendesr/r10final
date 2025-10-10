@@ -38,13 +38,12 @@ export function useTts(post: Post | null) {
   };
 
   useEffect(() => {
-    if (!post?.id) {
+    // TODAS as notícias agora têm TTS (Google Cloud)
+    if (post?.id) {
+      setEnabled(true);
+    } else {
       setEnabled(false);
-      return;
     }
-    
-    const isEligible = checkEligibility(post.posicao);
-    setEnabled(isEligible);
   }, [post]);
 
   const onClick = async () => {

@@ -3690,6 +3690,27 @@ function createApp({ dbPath }) {
 
   // ======= INÍCIO TTS (Text-to-Speech) =======
 
+  // Importar Google Cloud TTS
+  const textToSpeech = require('@google-cloud/text-to-speech');
+  let googleTtsClient = null;
+  
+  // Configurar cliente Google TTS (se credenciais disponíveis)
+  const GOOGLE_TTS_ENABLED = process.env.GOOGLE_TTS_ENABLED === 'true';
+  const GOOGLE_CREDENTIALS_PATH = process.env.GOOGLE_APPLICATION_CREDENTIALS || './server/google-tts-key.json';
+  
+  if (GOOGLE_TTS_ENABLED && fs.existsSync(GOOGLE_CREDENTIALS_PATH)) {
+    try {
+      googleTtsClient = new textToSpeech.TextToSpeechClient({
+        keyFilename: GOOGLE_CREDENTIALS_PATH
+      });
+      console.log('✅ Google Cloud TTS configurado');
+    } catch (error) {
+      console.error('❌ Erro ao configurar Google TTS:', error.message);
+    }
+  } else {
+    console.warn('⚠️ Google TTS não configurado (credenciais ausentes)');
+  }
+
   // Criar tabela para tracking de TTS gerados (URLs do Cloudinary)
   db.run(`
     CREATE TABLE IF NOT EXISTS tts_cache (
@@ -3820,93 +3841,74 @@ function createApp({ dbPath }) {
         });
       }
 
-      // 2. Verificar elegibilidade para ElevenLabs
-      const useElevenLabs = isEligibleForElevenLabs(posicao);
-      console.log(`🔍 Elegível para ElevenLabs? ${useElevenLabs ? '✅ SIM' : '❌ NÃO'}`);
-      
-      if (useElevenLabs) {
-        // 3a. Gerar com ElevenLabs (se configurado)
-        const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
-        const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || '21m00Tcm4TlvDq8ikWAM'; // Rachel voice padrão
-
-        console.log(`🔑 ELEVENLABS_API_KEY configurada? ${ELEVENLABS_API_KEY ? '✅ SIM' : '❌ NÃO'}`);
-        console.log(`🎤 ELEVENLABS_VOICE_ID: ${ELEVENLABS_VOICE_ID}`);
-
-        if (!ELEVENLABS_API_KEY) {
-          console.warn('⚠️ ELEVENLABS_API_KEY não configurada, usando fallback');
-          return res.json({ ok: true, audioUrl: null, elevenLabsUsed: false });
-        }
-
-        // Preparar texto para TTS
+      // 2. Gerar TTS com Google Cloud (TODAS as notícias)
+      if (googleTtsClient) {
+        console.log(`🎤 Gerando TTS com Google Cloud para post ${id}...`);
+        
+        // Preparar texto para TTS (limite de 5000 chars)
         const textToSpeak = `${title}. ${subtitle ? subtitle + '. ' : ''}${content}`.substring(0, 5000);
-
-        console.log(`🎤 Gerando TTS com ElevenLabs para post ${id}...`);
         console.log(`📝 Texto length: ${textToSpeak.length} chars`);
 
-        const elevenLabsResponse = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE_ID}`, {
-          method: 'POST',
-          headers: {
-            'Accept': 'audio/mpeg',
-            'Content-Type': 'application/json',
-            'xi-api-key': ELEVENLABS_API_KEY
-          },
-          body: JSON.stringify({
-            text: textToSpeak,
-            model_id: 'eleven_multilingual_v2',
-            voice_settings: {
-              stability: 0.5,
-              similarity_boost: 0.75,
-              style: 0.5,
-              use_speaker_boost: true
+        try {
+          // Chamar API do Google Cloud TTS
+          const [response] = await googleTtsClient.synthesizeSpeech({
+            input: { text: textToSpeak },
+            voice: {
+              languageCode: 'pt-BR',
+              name: process.env.GOOGLE_TTS_VOICE || 'pt-BR-Wavenet-A', // Voz feminina natural WaveNet
+              ssmlGender: 'FEMALE'
+            },
+            audioConfig: {
+              audioEncoding: 'MP3',
+              speakingRate: 1.0,
+              pitch: 0.0,
+              volumeGainDb: 0.0
             }
-          })
-        });
+          });
 
-        console.log(`📡 ElevenLabs response status: ${elevenLabsResponse.status} ${elevenLabsResponse.statusText}`);
+          console.log(`✅ Google TTS gerou áudio com sucesso`);
 
-        if (!elevenLabsResponse.ok) {
-          const errorBody = await elevenLabsResponse.text();
-          console.error(`❌ ElevenLabs API error: ${elevenLabsResponse.status}`, errorBody);
-          throw new Error(`ElevenLabs API error: ${elevenLabsResponse.status}`);
+          // Converter para buffer
+          const audioBuffer = Buffer.from(response.audioContent, 'binary');
+          const filename = `post-${id}-${Date.now()}.mp3`;
+          
+          // Upload para Cloudinary
+          const { uploadAudioToCloudinary } = require('./cloudinary-config.cjs');
+          const cloudinaryResult = await uploadAudioToCloudinary(audioBuffer, filename);
+          
+          // Salvar no cache com validade de 30 dias
+          const createdAt = new Date().toISOString();
+          const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+          
+          db.run(`
+            INSERT OR REPLACE INTO tts_cache (post_id, audio_filename, audio_url, cloudinary_public_id, provider, created_at, expires_at, file_size)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          `, [id, filename, cloudinaryResult.secure_url, cloudinaryResult.public_id, 'google-tts', createdAt, expiresAt, audioBuffer.length], (err) => {
+            if (err) console.error('❌ Erro ao salvar cache TTS:', err);
+            else console.log('✅ Cache TTS salvo com sucesso');
+          });
+
+          console.log(`✅ TTS gerado com Google Cloud e enviado para Cloudinary: ${cloudinaryResult.secure_url}`);
+
+          return res.json({
+            ok: true,
+            audioUrl: cloudinaryResult.secure_url,
+            cached: false,
+            provider: 'google-tts',
+            expiresAt
+          });
+
+        } catch (error) {
+          console.error('❌ Erro ao gerar TTS com Google Cloud:', error);
+          throw error;
         }
 
-        const audioBuffer = Buffer.from(await elevenLabsResponse.arrayBuffer());
-        const filename = `post-${id}-${Date.now()}.mp3`;
-        
-        // ✅ UPLOAD PARA CLOUDINARY (não mais filesystem local)
-        const { uploadAudioToCloudinary } = require('./cloudinary-config.cjs');
-        const cloudinaryResult = await uploadAudioToCloudinary(audioBuffer, filename);
-        
-        // Salvar no cache com validade de 30 dias
-        const createdAt = new Date().toISOString();
-        const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-        
-        db.run(`
-          INSERT OR REPLACE INTO tts_cache (post_id, audio_filename, audio_url, cloudinary_public_id, provider, created_at, expires_at, file_size)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `, [id, filename, cloudinaryResult.secure_url, cloudinaryResult.public_id, 'elevenlabs', createdAt, expiresAt, audioBuffer.length], (err) => {
-          if (err) console.error('❌ Erro ao salvar cache TTS:', err);
-          else console.log('✅ Cache TTS salvo com sucesso');
-        });
-
-        console.log(`✅ TTS gerado com ElevenLabs e enviado para Cloudinary: ${cloudinaryResult.secure_url}`);
-
-        return res.json({
-          ok: true,
-          audioUrl: cloudinaryResult.secure_url,
-          cached: false,
-          elevenLabsUsed: true,
-          provider: 'elevenlabs',
-          expiresAt
-        });
-
       } else {
-        // 3b. Notícias comuns - retornar null para usar Web Speech API no frontend
-        console.log(`📢 Post ${id} não elegível para ElevenLabs - usando Web Speech API`);
+        // Fallback: Notícias usam Web Speech API no frontend
+        console.log(`📢 Google TTS não configurado, usando Web Speech API no frontend`);
         return res.json({
           ok: true,
           audioUrl: null,
-          elevenLabsUsed: false,
           provider: 'web-speech-api'
         });
       }
