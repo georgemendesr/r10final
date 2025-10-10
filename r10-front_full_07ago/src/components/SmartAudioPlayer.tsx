@@ -83,11 +83,17 @@ const SmartAudioPlayer: React.FC<SmartAudioPlayerProps> = ({ post, content }) =>
             console.log('✅ Tocando ElevenLabs:', finalUrl);
             playElevenLabsAudio(finalUrl);
           } else {
-            // Se ainda não temos URL, algo deu errado - mostrar erro
+            // Se ainda não temos URL, algo deu errado
             console.error('❌ ERRO: Elegível para ElevenLabs mas sem URL de áudio!');
-            alert('Erro ao gerar áudio de alta qualidade. Tente novamente.');
+            console.error('Debug - elevenLabsUrl:', elevenLabsUrl);
+            console.error('Debug - audioUrl:', audioUrl);
+            console.error('Debug - ttsResponse:', ttsResponse);
+            
             setIsPlayingSequence(false);
             setCurrentPhase('idle');
+            
+            // Não mostrar alert, apenas logar - usuário pode tentar de novo
+            console.warn('⚠️ Erro ao gerar áudio, tente novamente');
           }
         };
         
@@ -114,9 +120,8 @@ const SmartAudioPlayer: React.FC<SmartAudioPlayerProps> = ({ post, content }) =>
       setIsPlayingSequence(false);
       setCurrentPhase('idle');
       
-      if (isElegibleForElevenLabs) {
-        alert('Erro ao gerar áudio de alta qualidade. Tente novamente.');
-      }
+      // Não mostrar alert - deixar usuário tentar de novo
+      console.warn('⚠️ Erro ao gerar/reproduzir áudio');
     }
   };
 
