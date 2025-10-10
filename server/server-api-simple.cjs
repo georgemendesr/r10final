@@ -3882,10 +3882,11 @@ function createApp({ dbPath }) {
         const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
         
         db.run(`
-          INSERT OR REPLACE INTO tts_cache (post_id, audio_url, cloudinary_public_id, provider, created_at, expires_at, file_size)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
-        `, [id, cloudinaryResult.secure_url, cloudinaryResult.public_id, 'elevenlabs', createdAt, expiresAt, audioBuffer.length], (err) => {
+          INSERT OR REPLACE INTO tts_cache (post_id, audio_filename, audio_url, cloudinary_public_id, provider, created_at, expires_at, file_size)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `, [id, filename, cloudinaryResult.secure_url, cloudinaryResult.public_id, 'elevenlabs', createdAt, expiresAt, audioBuffer.length], (err) => {
           if (err) console.error('❌ Erro ao salvar cache TTS:', err);
+          else console.log('✅ Cache TTS salvo com sucesso');
         });
 
         console.log(`✅ TTS gerado com ElevenLabs e enviado para Cloudinary: ${cloudinaryResult.secure_url}`);
