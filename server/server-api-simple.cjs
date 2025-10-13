@@ -544,8 +544,32 @@ function createApp({ dbPath }) {
       if (fs.existsSync(distPath)) {
         console.log('📦 Servindo frontend estático de', distPath);
         app.use(express.static(distPath, { maxAge: '5m', index: 'index.html' }));
-        // Qualquer rota não /api/ volta index.html para permitir SPA router
-        app.get(/^(?!\/api\/).+/, (req, res) => {
+        
+        // ============================================================
+        // MÓDULO DE ARQUIVO - Integração isolada e segura
+        // ============================================================
+        console.log('🔍 [DEBUG] Iniciando carregamento do módulo arquivo...');
+        const arquivoRoutesPath = path.join(__dirname, '..', 'arquivo-routes.js');
+        console.log('🔍 [DEBUG] Caminho do módulo:', arquivoRoutesPath);
+        console.log('🔍 [DEBUG] Arquivo existe?', fs.existsSync(arquivoRoutesPath));
+        
+        if (fs.existsSync(arquivoRoutesPath)) {
+          try {
+            const arquivoRoutes = require('../arquivo-routes');
+            app.use('/arquivo', arquivoRoutes);
+            console.log('✅ [SUCCESS] Módulo arquivo carregado em /arquivo');
+            console.log('📚 Módulo de Arquivo carregado em /arquivo');
+          } catch (err) {
+            console.log('❌ [ERROR] Falha ao carregar módulo arquivo:', err.message);
+            console.log('❌ [ERROR] Stack:', err.stack);
+          }
+        } else {
+          console.log('❌ [CRITICAL] Arquivo arquivo-routes.js não encontrado em:', arquivoRoutesPath);
+        }
+        // ============================================================
+        
+        // Qualquer rota não /api/ e não /arquivo volta index.html para permitir SPA router
+        app.get(/^(?!\/api\/)(?!\/arquivo).+/, (req, res) => {
           res.sendFile(path.join(distPath, 'index.html'));
         });
       } else {
