@@ -118,6 +118,7 @@ arquivoRouter.get('/', (req, res) => {
         }
 
         res.render('index', {
+          title: 'Arquivo de Notícias - R10 Piauí',
           noticias,
           stats,
           currentPage: page,
@@ -159,6 +160,7 @@ arquivoRouter.get('/noticia/:id', (req, res) => {
         }
 
         res.render('detalhe', {
+          title: noticia.titulo + ' - Arquivo R10 Piauí',
           noticia,
           relacionadas: relacionadas || []
         });
