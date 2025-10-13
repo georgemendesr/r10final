@@ -327,6 +327,14 @@ function reorganizePositionHierarchy(db, updatedPostId, newPosition, callback) {
 // Factory para montar o app e conectar no SQLite no caminho informado
 function createApp({ dbPath }) {
   const app = express();
+  
+  // ============================================================
+  // CONFIGURAÇÃO EJS PARA MÓDULO ARQUIVO
+  // ============================================================
+  app.set('view engine', 'ejs');
+  app.set('views', path.join(__dirname, '..', 'arquivo', 'views'));
+  // ============================================================
+  
   // Segurança básica e compressão HTTP
   app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
   app.use(compression());
