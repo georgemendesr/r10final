@@ -67,6 +67,18 @@ app.get('/r10post.png', (req, res) => {
   return res.status(404).send('logo not found');
 });
 
+// ============================================================
+// MÓDULO DE ARQUIVO - Integração isolada e segura
+// ============================================================
+try {
+  const arquivoRoutes = require('./arquivo-routes');
+  app.use('/arquivo', arquivoRoutes);
+  console.log('📚 Módulo de Arquivo carregado em /arquivo');
+} catch (err) {
+  console.log('⚠️ Módulo de Arquivo não carregado:', err.message);
+}
+// ============================================================
+
 // Multer storage (salva uploads temporários em uploads/tmp)
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {

@@ -1,0 +1,10 @@
+node_modules/
+.env
+*.log
+.DS_Store
+
+# Upload progress (não precisa no repositório)
+config/upload-progress.json
+
+# Uploads locais (imagens já estão no Cloudinary)
+uploads/

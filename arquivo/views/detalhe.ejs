@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+  <style>
+    :root {
+      --primary-color: #FF6B35;
+      --secondary-color: #1a1a2e;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+      min-height: 100vh;
+      padding-bottom: 3rem;
+    }
+
+    .header-arquivo {
+      background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+      box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+      border-bottom: 3px solid var(--primary-color);
+      padding: 1rem 0;
+      margin-bottom: 2rem;
+    }
+
+    .header-arquivo .logo-r10 {
+      height: 80px;
+      width: auto;
+      transition: transform 0.3s ease;
+    }
+
+    .header-arquivo .logo-r10:hover {
+      transform: scale(1.05);
+    }
+
+    .header-arquivo h1 {
+      color: white;
+      font-weight: 700;
+      margin: 0;
+      font-size: 1.5rem;
+    }
+
+    .breadcrumb {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 0.8rem 1rem;
+      border-radius: 8px;
+      margin-top: 1rem;
+    }
+
+    .breadcrumb-item a {
+      color: rgba(255, 255, 255, 0.8);
+      text-decoration: none;
+    }
+
+    .breadcrumb-item.active {
+      color: white;
+    }
+
+    .article-container {
+      background: white;
+      border-radius: 16px;
+      padding: 3rem;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+      margin-bottom: 2rem;
+    }
+
+    .article-header {
+      border-bottom: 3px solid var(--primary-color);
+      padding-bottom: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .article-title {
+      font-size: 2.2rem;
+      font-weight: 700;
+      color: var(--secondary-color);
+      line-height: 1.3;
+      margin-bottom: 1rem;
+    }
+
+    .article-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+      color: #666;
+      font-size: 0.95rem;
+    }
+
+    .article-meta i {
+      color: var(--primary-color);
+      margin-right: 0.4rem;
+    }
+
+    .chapeu-badge {
+      background: linear-gradient(135deg, var(--primary-color) 0%, #ff8c61 100%);
+      color: white;
+      padding: 0.5rem 1.2rem;
+      border-radius: 25px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      display: inline-block;
+      box-shadow: 0 3px 10px rgba(255, 107, 53, 0.4);
+    }
+
+    .article-image {
+      width: 100%;
+      max-height: 500px;
+      object-fit: cover;
+      border-radius: 12px;
+      margin: 2rem 0;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+    }
+
+    .article-content {
+      font-size: 1.1rem;
+      line-height: 1.8;
+      color: #333;
+      text-align: justify;
+    }
+
+    .article-content p {
+      margin-bottom: 1.5rem;
+    }
+
+    .article-content br {
+      display: block;
+      margin: 0.5rem 0;
+      content: "";
+    }
+
+    .article-content img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 8px;
+      margin: 1.5rem 0;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    .article-content strong {
+      font-weight: 700;
+      color: #222;
+    }
+
+    .article-content em {
+      font-style: italic;
+    }
+
+    .article-content a {
+      color: var(--primary-color);
+      text-decoration: underline;
+    }
+
+    .article-content a:hover {
+      color: var(--secondary-color);
+    }
+
+    .btn-voltar {
+      background: var(--secondary-color);
+      color: white;
+      border: none;
+      padding: 0.8rem 2rem;
+      border-radius: 25px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      margin-top: 2rem;
+    }
+
+    .btn-voltar:hover {
+      background: var(--primary-color);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 15px rgba(196, 30, 58, 0.3);
+      color: white;
+    }
+
+    .related-section {
+      background: rgba(255, 255, 255, 0.98);
+      border-radius: 16px;
+      padding: 2rem;
+      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.15);
+    }
+
+    .related-section h3 {
+      color: var(--secondary-color);
+      font-weight: 700;
+      margin-bottom: 1.5rem;
+      padding-bottom: 0.8rem;
+      border-bottom: 2px solid var(--primary-color);
+    }
+
+    .related-card {
+      background: white;
+      border: 1px solid rgba(0, 0, 0, 0.1);
+      border-radius: 10px;
+      overflow: hidden;
+      transition: all 0.3s ease;
+      margin-bottom: 1rem;
+      text-decoration: none;
+      display: block;
+    }
+
+    .related-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 25px rgba(0, 0, 0, 0.15);
+    }
+
+    .related-card img {
+      width: 100%;
+      height: 150px;
+      object-fit: cover;
+    }
+
+    .related-card-body {
+      padding: 1rem;
+    }
+
+    .related-card-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--secondary-color);
+      margin: 0;
+      line-height: 1.4;
+    }
+
+    .related-card-date {
+      font-size: 0.8rem;
+      color: #999;
+      margin-top: 0.5rem;
+    }
+
+    @media (max-width: 768px) {
+      .article-container {
+        padding: 1.5rem;
+      }
+
+      .article-title {
+        font-size: 1.6rem;
+      }
+
+      .article-content {
+        font-size: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  
+  <!-- Header -->
+  <header class="header-arquivo">
+    <div class="container">
+      <div class="d-flex align-items-center gap-3 mb-2">
+        <img src="/images/logo-r10-piaui.png" alt="R10 Piauí" class="logo-r10">
+        <h1><i class="bi bi-archive"></i> Arquivo de Notícias</h1>
+      </div>
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-0">
+          <li class="breadcrumb-item"><a href="/"><i class="bi bi-house"></i> Início</a></li>
+          <li class="breadcrumb-item active" aria-current="page"><%= noticia.titulo.substring(0, 50) %>...</li>
+        </ol>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Conteúdo Principal -->
+  <main class="container">
+    <div class="row">
+      
+      <!-- Artigo -->
+      <div class="col-lg-8">
+        <article class="article-container">
+          
+          <header class="article-header">
+            <h1 class="article-title"><%= noticia.titulo %></h1>
+            
+            <div class="article-meta">
+              <span class="chapeu-badge"><%= noticia.categoria %></span>
+              <span>
+                <i class="bi bi-calendar3"></i>
+                <%= new Date(noticia.data_publicacao).toLocaleDateString('pt-BR', {
+                  day: '2-digit',
+                  month: 'long',
+                  year: 'numeric'
+                }) %>
+              </span>
+              <% if (noticia.autor) { %>
+              <span>
+                <i class="bi bi-person"></i>
+                <%= noticia.autor %>
+              </span>
+              <% } %>
+            </div>
+          </header>
+
+          <% if (noticia.imagem) { %>
+            <img 
+              src="<%= noticia.imagem %>" 
+              alt="<%= noticia.titulo %>" 
+              class="article-image"
+              onerror="this.style.display='none'"
+            >
+          <% } %>
+
+          <div class="article-content">
+            <%- noticia.conteudo %>
+          </div>
+
+          <a href="/" class="btn btn-voltar">
+            <i class="bi bi-arrow-left"></i> Voltar para arquivo
+          </a>
+        </article>
+      </div>
+
+      <!-- Sidebar - Notícias Relacionadas -->
+      <div class="col-lg-4">
+        <div class="related-section">
+          <h3>
+            <i class="bi bi-newspaper"></i> Notícias Relacionadas
+          </h3>
+
+          <% if (relacionadas && relacionadas.length > 0) { %>
+            <% relacionadas.forEach(rel => { %>
+              <a href="/noticia/<%= rel.id %>" class="related-card">
+                <% if (rel.imagem) { %>
+                  <img 
+                    src="<%= rel.imagem %>" 
+                    alt="<%= rel.titulo %>"
+                    onerror="this.src='https://via.placeholder.com/400x150?text=Sem+Imagem'"
+                  >
+                <% } else { %>
+                  <img src="https://via.placeholder.com/400x150?text=Sem+Imagem" alt="Placeholder">
+                <% } %>
+                
+                <div class="related-card-body">
+                  <h5 class="related-card-title">
+                    <%= rel.titulo.substring(0, 80) %><%= rel.titulo.length > 80 ? '...' : '' %>
+                  </h5>
+                  <div class="related-card-date">
+                    <i class="bi bi-calendar3"></i>
+                    <%= new Date(rel.data_publicacao).toLocaleDateString('pt-BR') %>
+                  </div>
+                </div>
+              </a>
+            <% }) %>
+          <% } else { %>
+            <p class="text-muted text-center">
+              <i class="bi bi-inbox"></i><br>
+              Nenhuma notícia relacionada
+            </p>
+          <% } %>
+
+          <a href="/" class="btn btn-primary w-100 mt-3">
+            <i class="bi bi-grid"></i> Ver todas as notícias
+          </a>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer-arquivo">
+    <div class="container">
+      <div class="row align-items-center py-4">
+        <!-- Logo e Texto -->
+        <div class="col-md-4 text-center text-md-start mb-3 mb-md-0">
+          <img src="/images/logo-r10-piaui.png" alt="R10 Piauí" style="height: 60px; filter: brightness(0) invert(1);" class="mb-2">
+          <p class="mb-0 text-white-50">
+            <strong style="color: #FF6B35; font-size: 1.1rem;">Desde 2014</strong><br>
+            <small>Arquivo de Notícias Históricas</small>
+          </p>
+        </div>
+        
+        <!-- Redes Sociais -->
+        <div class="col-md-4 text-center mb-3 mb-md-0">
+          <h6 class="text-white mb-3">Siga-nos nas Redes Sociais</h6>
+          <div class="social-links">
+            <a href="https://facebook.com/r10piaui" target="_blank" rel="noopener noreferrer" title="Facebook">
+              <i class="bi bi-facebook"></i>
+            </a>
+            <a href="https://instagram.com/r10piaui" target="_blank" rel="noopener noreferrer" title="Instagram">
+              <i class="bi bi-instagram"></i>
+            </a>
+            <a href="https://youtube.com/@r10piaui" target="_blank" rel="noopener noreferrer" title="YouTube">
+              <i class="bi bi-youtube"></i>
+            </a>
+            <a href="https://tiktok.com/@r10piaui" target="_blank" rel="noopener noreferrer" title="TikTok">
+              <i class="bi bi-tiktok"></i>
+            </a>
+          </div>
+        </div>
+        
+        <!-- Informações -->
+        <div class="col-md-4 text-center text-md-end">
+          <p class="mb-0 text-white-50">
+            <i class="bi bi-archive-fill"></i> Sistema de Arquivo<br>
+            <small>Preservando a história do jornalismo piauiense</small>
+          </p>
+        </div>
+      </div>
+      
+      <!-- Copyright -->
+      <div class="row">
+        <div class="col-12 text-center pt-3" style="border-top: 1px solid rgba(255,255,255,0.1);">
+          <small class="text-white-50">
+            © 2014-2025 R10 Piauí - Todos os direitos reservados
+          </small>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <style>
+    .footer-arquivo {
+      background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+      margin-top: 4rem;
+      padding: 2rem 0 1rem 0;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.1);
+    }
+    
+    .social-links {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    
+    .social-links a {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 45px;
+      height: 45px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 50%;
+      color: white;
+      font-size: 1.3rem;
+      transition: all 0.3s ease;
+      text-decoration: none;
+    }
+    
+    .social-links a:hover {
+      background: #FF6B35;
+      transform: translateY(-3px);
+      box-shadow: 0 5px 15px rgba(255, 107, 53, 0.4);
+    }
+  </style>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
