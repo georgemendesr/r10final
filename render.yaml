@@ -28,45 +28,15 @@ services:
         value: r10seed2025
     
     # ========================================================================
-    # REGRAS DE ROTEAMENTO (A SOLUÇÃO PARA O PROBLEMA)
+    # NOTA IMPORTANTE SOBRE ROTEAMENTO
     # ========================================================================
-    # O Render processa essas regras em ORDEM.
-    # As primeiras regras têm prioridade sobre as últimas.
-    # Isso garante que rotas específicas do servidor sejam processadas
-    # ANTES da regra genérica do React SPA.
+    # Para Web Services Node.js, as regras de rewrite são configuradas no
+    # Dashboard do Render (Redirects/Rewrites) OU tratadas pelo próprio
+    # servidor Express no server-production.cjs.
+    # 
+    # A seção 'routes' abaixo NÃO funciona para Web Services - ela é apenas
+    # para Static Sites.
+    # 
+    # SOLUÇÃO: Remova a regra genérica /* -> /index.html do Dashboard do Render.
+    # O server-production.cjs já cuida do roteamento corretamente.
     # ========================================================================
-    routes:
-      # REGRA 1: Módulo de Arquivo (Notícias Antigas)
-      # Permite que /arquivo/* passe direto para o servidor Express
-      - type: rewrite
-        source: /arquivo
-        destination: /arquivo
-      
-      - type: rewrite
-        source: /arquivo/*
-        destination: /arquivo/:splat
-      
-      # REGRA 2: Rotas da API
-      # Permite que /api/* passe direto para o servidor Express
-      - type: rewrite
-        source: /api/*
-        destination: /api/:splat
-      
-      # REGRA 3: Uploads (imagens, arquivos)
-      # Permite que /uploads/* passe direto para o servidor Express
-      - type: rewrite
-        source: /uploads/*
-        destination: /uploads/:splat
-      
-      # REGRA 4: Áudios TTS (Text-to-Speech)
-      # Permite que /tts/* passe direto para o servidor Express
-      - type: rewrite
-        source: /tts/*
-        destination: /tts/:splat
-      
-      # REGRA 5 (FINAL): React SPA Fallback
-      # Se nenhuma das regras acima corresponder, sirva o app React
-      # Esta DEVE ser a última regra!
-      - type: rewrite
-        source: /*
-        destination: /index.html
