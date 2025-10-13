@@ -4,9 +4,15 @@
 
 **Problema:** https://r10piaui.onrender.com/arquivo retorna HTML do React em vez do módulo de arquivo
 
-**Causa Raiz:** Express.js processa middlewares e rotas **NA ORDEM QUE SÃO DEFINIDAS**. A regex `app.get(/.*/)` captura TODAS as rotas, incluindo `/arquivo`, mesmo com verificações dentro dela.
+**Causa Raiz 1 (RESOLVIDA):** Express.js `app.get(/.*/)` capturava TODAS as rotas antes do `/arquivo`
+**Solução 1:** ✅ Trocado `app.get(/.*/)` por `app.use()` (commit 9a008b8)
 
-**Status:** ❌ NÃO RESOLVIDO (tentativas 1-4 falharam)
+**Causa Raiz 2 (ATUAL):** 🚨 **O MÓDULO NÃO ESTÁ SENDO CARREGADO!**
+- **Faltam logs:** `📚 Módulo de Arquivo carregado em /arquivo`
+- **Faltam logs:** `✅ Banco de dados arquivo conectado`
+- **Hipótese:** Arquivo `arquivo-routes.js` não existe no Render OU path incorreto
+
+**Status:** 🔍 INVESTIGANDO - Deploy 475ce96 com debug extensivo
 
 ---
 
@@ -108,6 +114,60 @@ Express tenta na ordem:
 
 ### ❌ Tentativa 4: Criar regras no render.yaml
 **Problema:** `routes` só funciona para Static Sites, não Web Services
+
+### ✅ Tentativa 5: Trocar app.get() por app.use()
+**Resultado:** ✅ CÓDIGO CORRIGIDO mas módulo ainda não funciona
+**Descoberta:** O módulo **NÃO está sendo carregado** no Render!
+
+---
+
+## 🚨 PROBLEMA REAL DESCOBERTO
+
+### Sintomas no Render:
+
+Nos logs do Render, **FALTAM** estas mensagens críticas:
+```
+❌ AUSENTE: 📚 Módulo de Arquivo carregado em /arquivo
+❌ AUSENTE: ✅ Banco de dados encontrado: .../arquivo/arquivo.db
+❌ AUSENTE: ✅ Banco de dados arquivo conectado
+```
+
+### Hipóteses:
+
+1. **Arquivo não existe no deploy:**
+   - `arquivo-routes.js` não foi incluído no build
+   - `.gitignore` está bloqueando o arquivo
+   - Render não fez checkout completo
+
+2. **Path incorreto:**
+   - `require('../arquivo-routes')` não funciona no ambiente Render
+   - Diferença entre ambiente local e produção
+
+3. **Erro silencioso:**
+   - O `try/catch` está capturando erro mas não logando adequadamente
+   - Module não encontrado mas log não aparece
+
+### Debug Deploy (commit 475ce96):
+
+Adicionado código extensivo de debug:
+```javascript
+// Testa múltiplos caminhos possíveis
+const possiblePaths = [
+  path.join(__dirname, '..', 'arquivo-routes.js'),
+  path.join(__dirname, '..', 'arquivo-routes'),
+  path.join(process.cwd(), 'arquivo-routes.js'),
+  './arquivo-routes.js',
+  '../arquivo-routes.js'
+];
+
+// Logs detalhados:
+// 🔍 __dirname
+// 🔍 process.cwd()
+// 🔍 Teste de cada path com fs.existsSync()
+// 🔍 Lista arquivos da pasta raiz contendo 'arquivo'
+```
+
+**Aguarde deploy ~3-5 minutos e verifique logs do Render!**
 
 ---
 
