@@ -13,13 +13,25 @@ const arquivoRouter = express.Router();
 
 // Banco de dados do arquivo
 const DB_PATH = path.join(__dirname, 'arquivo', 'arquivo.db');
-const db = new sqlite3.Database(DB_PATH);
+const db = new sqlite3.Database(DB_PATH, (err) => {
+  if (err) {
+    console.error('❌ Erro ao conectar banco arquivo:', err.message);
+  } else {
+    console.log('✅ Banco de dados arquivo conectado');
+  }
+});
 
 // Configurar EJS para o módulo arquivo
 const arquivoViewsPath = path.join(__dirname, 'arquivo', 'views');
 
 // Middleware para servir arquivos estáticos do módulo arquivo
 arquivoRouter.use('/static', express.static(path.join(__dirname, 'arquivo', 'public')));
+
+// Middleware para configurar views path em cada request
+arquivoRouter.use((req, res, next) => {
+  req.app.set('views', arquivoViewsPath);
+  next();
+});
 
 // Rota principal - Listagem de notícias
 arquivoRouter.get('/', (req, res) => {
@@ -81,7 +93,7 @@ arquivoRouter.get('/', (req, res) => {
           return res.status(500).send('Erro ao buscar notícias');
         }
 
-        res.render(path.join(arquivoViewsPath, 'index.ejs'), {
+        res.render('index', {
           noticias,
           stats,
           currentPage: page,
@@ -105,7 +117,8 @@ arquivoRouter.get('/noticia/:id', (req, res) => {
     }
 
     if (!noticia) {
-      return res.status(404).render(path.join(arquivoViewsPath, '404.ejs'));
+    if (!noticia) {
+      return res.status(404).render('404');
     }
 
     // Buscar notícias relacionadas (mesma categoria)
@@ -122,7 +135,7 @@ arquivoRouter.get('/noticia/:id', (req, res) => {
           relacionadas = [];
         }
 
-        res.render(path.join(arquivoViewsPath, 'detalhe.ejs'), {
+        res.render('detalhe', {
           noticia,
           relacionadas: relacionadas || []
         });
