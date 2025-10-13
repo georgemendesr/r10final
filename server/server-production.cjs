@@ -70,7 +70,11 @@ try {
 // ============================================================
 
 // PRIORIDADE 3: SPA Fallback (ÚLTIMA REGRA - só se nada acima resolveu)
-app.get(/.*/, (req, res, next) => {
+// IMPORTANTE: Usar app.use() em vez de app.get() para respeitar ordem de middlewares
+app.use((req, res, next) => {
+  // Se já foi respondido, não fazer nada
+  if (res.headersSent) return;
+  
   // Não interceptar rotas de API (já tratadas pelo createApp)
   if (req.path.startsWith('/api/')) {
     return next();
