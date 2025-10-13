@@ -57,6 +57,18 @@ app.use(express.static(distDir, {
   }
 }));
 
+// ============================================================
+// MÓDULO DE ARQUIVO - Integração isolada e segura
+// ============================================================
+try {
+  const arquivoRoutes = require('../arquivo-routes');
+  app.use('/arquivo', arquivoRoutes);
+  console.log('📚 Módulo de Arquivo carregado em /arquivo');
+} catch (err) {
+  console.log('⚠️ Módulo de Arquivo não carregado:', err.message);
+}
+// ============================================================
+
 // PRIORIDADE 3: SPA Fallback (ÚLTIMA REGRA - só se nada acima resolveu)
 app.get(/.*/, (req, res, next) => {
   // Não interceptar rotas de API (já tratadas pelo createApp)
