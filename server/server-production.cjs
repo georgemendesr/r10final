@@ -60,12 +60,61 @@ app.use(express.static(distDir, {
 // ============================================================
 // MÓDULO DE ARQUIVO - Integração isolada e segura
 // ============================================================
-try {
-  const arquivoRoutes = require('../arquivo-routes');
-  app.use('/arquivo', arquivoRoutes);
-  console.log('📚 Módulo de Arquivo carregado em /arquivo');
-} catch (err) {
-  console.log('⚠️ Módulo de Arquivo não carregado:', err.message);
+console.log('🔍 [DEBUG] Iniciando carregamento do módulo arquivo...');
+console.log('🔍 [DEBUG] __dirname:', __dirname);
+console.log('🔍 [DEBUG] process.cwd():', process.cwd());
+
+const fs = require('fs');
+
+// Tentar múltiplos caminhos possíveis
+const possiblePaths = [
+  path.join(__dirname, '..', 'arquivo-routes.js'),
+  path.join(__dirname, '..', 'arquivo-routes'),
+  path.join(process.cwd(), 'arquivo-routes.js'),
+  './arquivo-routes.js',
+  '../arquivo-routes.js'
+];
+
+console.log('🔍 [DEBUG] Testando caminhos possíveis:');
+let arquivoLoaded = false;
+let lastError = null;
+
+for (const testPath of possiblePaths) {
+  console.log(`   - Tentando: ${testPath}`);
+  const exists = fs.existsSync(testPath);
+  console.log(`     Existe? ${exists ? '✅ SIM' : '❌ NÃO'}`);
+  
+  if (exists) {
+    try {
+      const arquivoRoutes = require(testPath);
+      app.use('/arquivo', arquivoRoutes);
+      console.log(`✅ [SUCCESS] Módulo arquivo carregado de: ${testPath}`);
+      console.log('📚 Módulo de Arquivo carregado em /arquivo');
+      arquivoLoaded = true;
+      break;
+    } catch (err) {
+      console.log(`❌ [ERROR] Falha ao carregar de ${testPath}:`, err.message);
+      lastError = err;
+    }
+  }
+}
+
+if (!arquivoLoaded) {
+  console.log('❌ [CRITICAL] MÓDULO ARQUIVO NÃO ENCONTRADO EM NENHUM PATH!');
+  if (lastError) {
+    console.log('❌ [CRITICAL] Último erro:', lastError.message);
+    console.log('❌ [CRITICAL] Stack:', lastError.stack);
+  }
+  
+  // Listar conteúdo do diretório raiz
+  const rootPath = path.join(__dirname, '..');
+  console.log(`🔍 [DEBUG] Listando conteúdo de: ${rootPath}`);
+  try {
+    const files = fs.readdirSync(rootPath);
+    console.log('🔍 [DEBUG] Arquivos encontrados:', files.filter(f => f.includes('arquivo')));
+  } catch (e) {
+    console.log('❌ [DEBUG] Erro ao listar diretório:', e.message);
+  }
 }
 // ============================================================
 
