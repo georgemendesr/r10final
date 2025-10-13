@@ -8,21 +8,45 @@
 const express = require('express');
 const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
+const fs = require('fs');
 
 const arquivoRouter = express.Router();
 
 // Banco de dados do arquivo
 const DB_PATH = path.join(__dirname, 'arquivo', 'arquivo.db');
+
+// Verificar se banco existe antes de conectar
+if (!fs.existsSync(DB_PATH)) {
+  console.error('❌ Banco de dados não encontrado:', DB_PATH);
+  console.error('❌ Diretório atual:', __dirname);
+  console.error('❌ Arquivos na pasta arquivo:', fs.existsSync(path.join(__dirname, 'arquivo')) ? fs.readdirSync(path.join(__dirname, 'arquivo')) : 'Pasta não existe');
+} else {
+  console.log('✅ Banco de dados encontrado:', DB_PATH);
+}
+
 const db = new sqlite3.Database(DB_PATH, (err) => {
   if (err) {
     console.error('❌ Erro ao conectar banco arquivo:', err.message);
   } else {
-    console.log('✅ Banco de dados arquivo conectado');
+    console.log('✅ Banco de dados arquivo conectado com sucesso');
   }
 });
 
 // Configurar EJS para o módulo arquivo
 const arquivoViewsPath = path.join(__dirname, 'arquivo', 'views');
+console.log('📁 Views path:', arquivoViewsPath);
+
+// Rota de teste/debug
+arquivoRouter.get('/test', (req, res) => {
+  res.json({
+    status: 'ok',
+    message: 'Módulo arquivo funcionando!',
+    dbPath: DB_PATH,
+    dbExists: fs.existsSync(DB_PATH),
+    viewsPath: arquivoViewsPath,
+    viewsExists: fs.existsSync(arquivoViewsPath)
+  });
+});
 
 // Middleware para servir arquivos estáticos do módulo arquivo
 arquivoRouter.use('/static', express.static(path.join(__dirname, 'arquivo', 'public')));
