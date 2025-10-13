@@ -76,6 +76,11 @@ app.get(/.*/, (req, res, next) => {
     return next();
   }
   
+  // NÃO interceptar rotas do módulo de arquivo
+  if (req.path.startsWith('/arquivo')) {
+    return next();
+  }
+  
   // Se for /uploads e chegou aqui, arquivo não existe - retornar 404 real
   if (req.path.startsWith('/uploads/')) {
     console.log(`❌ [404] Arquivo não encontrado: ${req.path}`);
