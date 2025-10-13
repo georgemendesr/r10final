@@ -117,7 +117,6 @@ arquivoRouter.get('/noticia/:id', (req, res) => {
     }
 
     if (!noticia) {
-    if (!noticia) {
       return res.status(404).render('404');
     }
 
