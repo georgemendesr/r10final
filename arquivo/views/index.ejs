@@ -177,7 +177,7 @@
     <div class="container">
       <div class="d-flex align-items-center justify-content-between">
         <div class="d-flex align-items-center gap-3">
-          <img src="/images/logo-r10-piaui.png" alt="R10 Piauí" class="logo-r10">
+          <img src="https://res.cloudinary.com/dlogsw1hy/image/upload/v1744569420/logo-r10-piaui_ylwqfo.png" alt="R10 Piauí" class="logo-r10">
           <div>
             <h1><i class="bi bi-archive"></i> Arquivo de Notícias</h1>
             <div class="subtitle">Notícias Históricas</div>
@@ -284,8 +284,8 @@
         <% noticias.forEach(noticia => { %>
           <div class="col-md-6 col-lg-4">
             <div class="card-noticia">
-              <% if (noticia.imagem) { %>
-                <img src="<%= noticia.imagem %>" alt="<%= noticia.titulo %>" 
+              <% if (noticia.imagem_cloudinary) { %>
+                <img src="<%= noticia.imagem_cloudinary %>" alt="<%= noticia.titulo %>" 
                      onerror="this.src='https://via.placeholder.com/400x200?text=Sem+Imagem'">
               <% } else { %>
                 <img src="https://via.placeholder.com/400x200?text=Sem+Imagem" alt="Placeholder">
@@ -309,7 +309,7 @@
                   <%= new Date(noticia.data_publicacao).toLocaleDateString('pt-BR') %>
                 </div>
                 
-                <a href="/noticia/<%= noticia.id %>" class="btn btn-primary btn-sm w-100">
+                <a href="/arquivo/noticia/<%= noticia.id %>" class="btn btn-primary btn-sm w-100">
                   Ler notícia completa <i class="bi bi-arrow-right"></i>
                 </a>
               </div>

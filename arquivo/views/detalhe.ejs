@@ -254,12 +254,13 @@
   <header class="header-arquivo">
     <div class="container">
       <div class="d-flex align-items-center gap-3 mb-2">
-        <img src="/images/logo-r10-piaui.png" alt="R10 Piauí" class="logo-r10">
+        <img src="https://res.cloudinary.com/dlogsw1hy/image/upload/v1744569420/logo-r10-piaui_ylwqfo.png" alt="R10 Piauí" class="logo-r10">
         <h1><i class="bi bi-archive"></i> Arquivo de Notícias</h1>
       </div>
       <nav aria-label="breadcrumb">
         <ol class="breadcrumb mb-0">
           <li class="breadcrumb-item"><a href="/"><i class="bi bi-house"></i> Início</a></li>
+          <li class="breadcrumb-item"><a href="/arquivo"><i class="bi bi-archive"></i> Arquivo</a></li>
           <li class="breadcrumb-item active" aria-current="page"><%= noticia.titulo.substring(0, 50) %>...</li>
         </ol>
       </nav>
@@ -296,9 +297,9 @@
             </div>
           </header>
 
-          <% if (noticia.imagem) { %>
+          <% if (noticia.imagem_cloudinary) { %>
             <img 
-              src="<%= noticia.imagem %>" 
+              src="<%= noticia.imagem_cloudinary %>" 
               alt="<%= noticia.titulo %>" 
               class="article-image"
               onerror="this.style.display='none'"
@@ -309,7 +310,7 @@
             <%- noticia.conteudo %>
           </div>
 
-          <a href="/" class="btn btn-voltar">
+          <a href="/arquivo" class="btn btn-voltar">
             <i class="bi bi-arrow-left"></i> Voltar para arquivo
           </a>
         </article>
@@ -324,10 +325,10 @@
 
           <% if (relacionadas && relacionadas.length > 0) { %>
             <% relacionadas.forEach(rel => { %>
-              <a href="/noticia/<%= rel.id %>" class="related-card">
-                <% if (rel.imagem) { %>
+              <a href="/arquivo/noticia/<%= rel.id %>" class="related-card">
+                <% if (rel.imagem_cloudinary) { %>
                   <img 
-                    src="<%= rel.imagem %>" 
+                    src="<%= rel.imagem_cloudinary %>" 
                     alt="<%= rel.titulo %>"
                     onerror="this.src='https://via.placeholder.com/400x150?text=Sem+Imagem'"
                   >
