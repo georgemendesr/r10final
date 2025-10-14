@@ -172,6 +172,41 @@ arquivoRouter.get('/admin/diagnostic', (req, res) => {
   });
 });
 
+// Rota: listar recursos do Cloudinary (requer credenciais configuradas)
+arquivoRouter.get('/admin/cloudinary-list', async (req, res) => {
+  try {
+    const cloudinary = require('cloudinary').v2;
+    
+    // Tentar buscar recursos
+    const result = await cloudinary.api.resources({
+      type: 'upload',
+      prefix: 'arquivo/uploads',
+      max_results: 500
+    });
+    
+    const lista = result.resources.map(r => ({
+      public_id: r.public_id,
+      url: r.secure_url,
+      filename: r.public_id.split('/').pop(),
+      format: r.format
+    }));
+    
+    res.json({
+      success: true,
+      total: lista.length,
+      recursos: lista.slice(0, 50), // Primeiros 50
+      next_cursor: result.next_cursor
+    });
+    
+  } catch (error) {
+    res.json({
+      success: false,
+      error: error.message,
+      message: 'Cloudinary API não configurada ou sem permissão'
+    });
+  }
+});
+
 // Rota administrativa: sincronizar URLs Cloudinary usando verificação HEAD
 arquivoRouter.get('/admin/sync', async (req, res) => {
   try {
