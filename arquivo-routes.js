@@ -250,10 +250,16 @@ arquivoRouter.get('/', (req, res) => {
         }
 
         // Enriquecer com URL do Cloudinary gerada dinamicamente
-        const noticiasComImagem = (noticias || []).map(n => ({
-          ...n,
-          imagem_cloudinary: getPrimaryCloudinaryUrl(n.imagem)
-        }));
+        const noticiasComImagem = (noticias || []).map(n => {
+          let finalImg = null;
+          if (n.imagem && /^\/uploads\//.test(n.imagem)) {
+            // Prioriza caminho original (mais provável de existir agora)
+            finalImg = n.imagem;
+          } else {
+            finalImg = getPrimaryCloudinaryUrl(n.imagem);
+          }
+          return { ...n, imagem_cloudinary: finalImg };
+        });
 
         res.render('index', {
           title: 'Arquivo de Notícias - R10 Piauí',
@@ -286,7 +292,13 @@ arquivoRouter.get('/noticia/:id', (req, res) => {
     // Função util para fetch (node18+) ou fallback dynamic import
     const fetchImpl = global.fetch ? global.fetch.bind(global) : (...args) => import('node-fetch').then(m => m.default(...args));
 
-    const promPrincipal = noticia && noticia.imagem ? resolveCloudinaryUrl(noticia.imagem, fetchImpl) : Promise.resolve(null);
+    const promPrincipal = (async () => {
+      if (noticia && noticia.imagem) {
+        if (/^\/uploads\//.test(noticia.imagem)) return noticia.imagem; // usar direto
+        return await resolveCloudinaryUrl(noticia.imagem, fetchImpl);
+      }
+      return null;
+    })();
 
     // Buscar notícias relacionadas (mesma categoria)
     db.all(
