@@ -172,67 +172,77 @@ arquivoRouter.get('/admin/diagnostic', (req, res) => {
   });
 });
 
-// Rota administrativa: sincronizar URLs Cloudinary (SOMENTE banco arquivo/arquivo.db)
+// Rota administrativa: sincronizar URLs Cloudinary usando verificação HEAD
 arquivoRouter.get('/admin/sync', async (req, res) => {
   try {
-    const cloudinary = require('cloudinary').v2;
+    const limit = parseInt(req.query.limit) || 100; // Processar em lotes
     
-    // Buscar recursos do Cloudinary na pasta arquivo/uploads
-    const resources = await cloudinary.api.resources({
-      type: 'upload',
-      prefix: 'arquivo/uploads',
-      max_results: 500
+    // Buscar notícias sem URLs https
+    const rows = await new Promise((resolve, reject) => {
+      db.all(
+        `SELECT id, imagem FROM noticias 
+         WHERE imagem IS NOT NULL AND imagem != '' AND imagem NOT LIKE 'https://%' 
+         LIMIT ?`,
+        [limit],
+        (err, r) => err ? reject(err) : resolve(r)
+      );
     });
     
-    // Criar mapeamento filename -> URL completa
-    const filenameMap = new Map();
-    for (const r of resources.resources) {
-      const parts = r.public_id.split('/');
-      const basename = parts[parts.length - 1];
-      // Adicionar com extensões comuns
-      const formats = [r.format, 'jpg', 'jpeg', 'png', 'webp'];
-      for (const ext of formats) {
-        if (!ext) continue;
-        const key = `${basename}.${ext}`;
-        if (!filenameMap.has(key)) {
-          filenameMap.set(key, r.secure_url);
+    let updated = 0;
+    let failed = 0;
+    const samples = [];
+    
+    // Processar cada notícia
+    for (const row of rows) {
+      // Usar o helper existente para gerar candidatos
+      const candidatos = buildCloudinaryCandidates(row.imagem);
+      
+      // Testar primeiro candidato (já tem versões prioritárias)
+      let workingUrl = null;
+      for (const url of candidatos.slice(0, 6)) { // Testar primeiros 6 candidatos
+        try {
+          const fetchImpl = global.fetch || (await import('node-fetch')).default;
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 3000);
+          const response = await fetchImpl(url, { 
+            method: 'HEAD', 
+            signal: controller.signal 
+          });
+          clearTimeout(timeout);
+          
+          if (response.ok) {
+            workingUrl = url;
+            break;
+          }
+        } catch (e) {
+          // Continua tentando próximo candidato
         }
+      }
+      
+      if (workingUrl) {
+        await new Promise((resolve, reject) => {
+          db.run(
+            `UPDATE noticias SET imagem = ? WHERE id = ?`,
+            [workingUrl, row.id],
+            (err) => err ? reject(err) : resolve()
+          );
+        });
+        updated++;
+        if (samples.length < 5) {
+          samples.push({ id: row.id, old: row.imagem, new: workingUrl });
+        }
+      } else {
+        failed++;
       }
     }
     
-    // Atualizar notícias no banco ISOLADO (arquivo/arquivo.db)
-    const updated = await new Promise((resolve, reject) => {
-      db.all(`SELECT id, imagem FROM noticias WHERE imagem IS NOT NULL AND imagem != '' AND imagem NOT LIKE 'https://%'`, (err, rows) => {
-        if (err) return reject(err);
-        
-        let count = 0;
-        const promises = [];
-        
-        for (const row of rows) {
-          const filename = row.imagem.split('/').pop();
-          const cloudUrl = filenameMap.get(filename);
-          
-          if (cloudUrl && cloudUrl !== row.imagem) {
-            const p = new Promise((res, rej) => {
-              db.run(
-                `UPDATE noticias SET imagem = ? WHERE id = ?`,
-                [cloudUrl, row.id],
-                (err) => err ? rej(err) : (count++, res())
-              );
-            });
-            promises.push(p);
-          }
-        }
-        
-        Promise.all(promises).then(() => resolve(count)).catch(reject);
-      });
-    });
-    
     res.json({
       success: true,
-      message: `Sincronização concluída: ${updated} URLs atualizadas`,
-      cloudinary_resources: resources.resources.length,
-      mapped_filenames: filenameMap.size
+      message: `Sincronização concluída: ${updated} atualizadas, ${failed} falharam`,
+      processadas: rows.length,
+      atualizadas: updated,
+      falhadas: failed,
+      amostras: samples
     });
     
   } catch (error) {
