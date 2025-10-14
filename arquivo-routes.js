@@ -15,6 +15,21 @@ const arquivoRouter = express.Router();
 // Banco de dados do arquivo
 const DB_PATH = path.join(__dirname, 'arquivo', 'arquivo.db');
 
+/**
+ * FUNÇÃO HELPER: Converte URL local para URL do Cloudinary
+ * Solução para banco sem coluna imagem_cloudinary
+ */
+function getCloudinaryUrl(localImagePath) {
+  if (!localImagePath) return null;
+  
+  // Extrair nome do arquivo da URL local
+  // Ex: /uploads/noticias/1/726a7eed49b74936676e205eca9f4d11.jpeg -> 726a7eed49b74936676e205eca9f4d11.jpeg
+  const filename = localImagePath.split('/').pop().split('?')[0];
+  
+  // Construir URL do Cloudinary
+  return `https://res.cloudinary.com/dlogsw1hy/image/upload/v1/r10-arquivo-antigo/${filename}`;
+}
+
 // Verificar se banco existe antes de conectar
 if (!fs.existsSync(DB_PATH)) {
   console.error('❌ Banco de dados não encontrado:', DB_PATH);
@@ -117,9 +132,15 @@ arquivoRouter.get('/', (req, res) => {
           return res.status(500).send('Erro ao buscar notícias');
         }
 
+        // Enriquecer com URL do Cloudinary gerada dinamicamente
+        const noticiasComImagem = (noticias || []).map(n => ({
+          ...n,
+          imagem_cloudinary: getCloudinaryUrl(n.imagem)
+        }));
+
         res.render('index', {
           title: 'Arquivo de Notícias - R10 Piauí',
-          noticias,
+          noticias: noticiasComImagem,
           stats,
           currentPage: page,
           totalPages,
@@ -145,6 +166,11 @@ arquivoRouter.get('/noticia/:id', (req, res) => {
       return res.status(404).render('404');
     }
 
+    // Adicionar URL Cloudinary na principal
+    if (noticia && noticia.imagem) {
+      noticia.imagem_cloudinary = getCloudinaryUrl(noticia.imagem);
+    }
+
     // Buscar notícias relacionadas (mesma categoria)
     db.all(
       `SELECT id, titulo, imagem, data_publicacao 
@@ -158,6 +184,12 @@ arquivoRouter.get('/noticia/:id', (req, res) => {
           console.error('Erro ao buscar relacionadas:', err);
           relacionadas = [];
         }
+
+        // Enriquecer relacionadas com URL Cloudinary
+        relacionadas = (relacionadas || []).map(r => ({
+          ...r,
+          imagem_cloudinary: getCloudinaryUrl(r.imagem)
+        }));
 
         res.render('detalhe', {
           title: noticia.titulo + ' - Arquivo R10 Piauí',

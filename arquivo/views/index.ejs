@@ -286,9 +286,9 @@
             <div class="card-noticia">
               <% if (noticia.imagem_cloudinary) { %>
                 <img src="<%= noticia.imagem_cloudinary %>" alt="<%= noticia.titulo %>" 
-                     onerror="this.src='https://via.placeholder.com/400x200?text=Sem+Imagem'">
+                     onerror="this.src='https://placehold.co/400x200?text=Sem+Imagem'">
               <% } else { %>
-                <img src="https://via.placeholder.com/400x200?text=Sem+Imagem" alt="Placeholder">
+                <img src="https://placehold.co/400x200?text=Sem+Imagem" alt="Placeholder">
               <% } %>
               
               <div class="card-body">
