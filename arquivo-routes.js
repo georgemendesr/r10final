@@ -175,13 +175,14 @@ arquivoRouter.get('/admin/diagnostic', (req, res) => {
 // Rota administrativa: sincronizar URLs Cloudinary usando verificação HEAD
 arquivoRouter.get('/admin/sync', async (req, res) => {
   try {
-    const limit = parseInt(req.query.limit) || 100; // Processar em lotes
+    const limit = parseInt(req.query.limit) || 50; // Reduzir para evitar timeout
     
-    // Buscar notícias sem URLs https
+    // Buscar TODAS notícias (ignorar se já tem https, pois podem ser placeholders)
     const rows = await new Promise((resolve, reject) => {
       db.all(
         `SELECT id, imagem FROM noticias 
-         WHERE imagem IS NOT NULL AND imagem != '' AND imagem NOT LIKE 'https://%' 
+         WHERE imagem IS NOT NULL AND imagem != '' 
+         ORDER BY id ASC
          LIMIT ?`,
         [limit],
         (err, r) => err ? reject(err) : resolve(r)
@@ -189,37 +190,44 @@ arquivoRouter.get('/admin/sync', async (req, res) => {
     });
     
     let updated = 0;
-    let failed = 0;
+    let skipped = 0;
     const samples = [];
+    
+    // Helper simples de HEAD check
+    async function testUrl(url) {
+      try {
+        const https = require('https');
+        return await new Promise((resolve) => {
+          const parsed = new URL(url);
+          const req = https.request({
+            hostname: parsed.hostname,
+            path: parsed.pathname + parsed.search,
+            method: 'HEAD',
+            timeout: 2000
+          }, (res) => resolve(res.statusCode === 200));
+          req.on('error', () => resolve(false));
+          req.on('timeout', () => { req.destroy(); resolve(false); });
+          req.end();
+        });
+      } catch (e) {
+        return false;
+      }
+    }
     
     // Processar cada notícia
     for (const row of rows) {
-      // Usar o helper existente para gerar candidatos
       const candidatos = buildCloudinaryCandidates(row.imagem);
       
-      // Testar primeiro candidato (já tem versões prioritárias)
       let workingUrl = null;
-      for (const url of candidatos.slice(0, 6)) { // Testar primeiros 6 candidatos
-        try {
-          const fetchImpl = global.fetch || (await import('node-fetch')).default;
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 3000);
-          const response = await fetchImpl(url, { 
-            method: 'HEAD', 
-            signal: controller.signal 
-          });
-          clearTimeout(timeout);
-          
-          if (response.ok) {
-            workingUrl = url;
-            break;
-          }
-        } catch (e) {
-          // Continua tentando próximo candidato
+      // Testar até 4 candidatos
+      for (const url of candidatos.slice(0, 4)) {
+        if (await testUrl(url)) {
+          workingUrl = url;
+          break;
         }
       }
       
-      if (workingUrl) {
+      if (workingUrl && workingUrl !== row.imagem) {
         await new Promise((resolve, reject) => {
           db.run(
             `UPDATE noticias SET imagem = ? WHERE id = ?`,
@@ -228,28 +236,29 @@ arquivoRouter.get('/admin/sync', async (req, res) => {
           );
         });
         updated++;
-        if (samples.length < 5) {
-          samples.push({ id: row.id, old: row.imagem, new: workingUrl });
+        if (samples.length < 3) {
+          samples.push({ id: row.id, url: workingUrl.substring(0, 80) + '...' });
         }
       } else {
-        failed++;
+        skipped++;
       }
     }
     
     res.json({
       success: true,
-      message: `Sincronização concluída: ${updated} atualizadas, ${failed} falharam`,
       processadas: rows.length,
       atualizadas: updated,
-      falhadas: failed,
-      amostras: samples
+      ignoradas: skipped,
+      amostras: samples,
+      proxima: `Executar novamente para processar mais ${limit} registros`
     });
     
   } catch (error) {
     console.error('[arquivo/admin/sync] Erro:', error);
     res.status(500).json({
       success: false,
-      error: error.message
+      error: error.message,
+      stack: error.stack
     });
   }
 });
