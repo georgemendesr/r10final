@@ -22,6 +22,10 @@ const DB_PATH = path.join(__dirname, 'arquivo', 'arquivo.db');
 function getCloudinaryUrl(localImagePath) {
   if (!localImagePath) return null;
   const clean = localImagePath.split('?')[0];
+  // Se já é uma URL completa do Cloudinary, retorna como está
+  if (/^https?:\/\/res\.cloudinary\.com\//.test(clean)) {
+    return clean; // já válida
+  }
   const filename = clean.split('/').pop();
   // Alguns arquivos podem ter extensão .jpeg/.jpg misturada; só devolver se parecer válido
   if (!/^[a-f0-9]{20,}\.(jpe?g|png|webp)$/i.test(filename)) {
@@ -29,8 +33,10 @@ function getCloudinaryUrl(localImagePath) {
     return null;
   }
 
-  // Tentativas de caminhos (ordem de maior probabilidade) — deixar o front tentar a primeira
-  return `https://res.cloudinary.com/dlogsw1hy/image/upload/r10-arquivo-antigo/${filename}`;
+  // Usar cloud_name correto detectado no script de upload (dd6ln5xmu)
+  // Pastas utilizadas no upload original: 'arquivo/uploads/imagens' e 'arquivo/uploads/editor'
+  // Não sabemos de qual veio, então priorizamos 'arquivo/uploads/imagens'
+  return `https://res.cloudinary.com/dd6ln5xmu/image/upload/arquivo/uploads/imagens/${filename}`;
 }
 
 // Rota de debug para inspecionar construção de URLs
