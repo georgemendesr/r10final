@@ -89,41 +89,32 @@ function buildCloudinaryCandidates(localImagePath) {
   if (!localImagePath) return [];
   const clean = localImagePath.split('?')[0];
   if (/^https?:\/\/res\.cloudinary\.com\//.test(clean)) return [clean];
-
-  // Aceita qualquer caminho /uploads/<tipo>/<...>
-  const uploadsMatch = clean.match(/^\/uploads\/(noticias|imagens|editor)\/(.+)$/);
-  if (!uploadsMatch) return [];
-  const tipoOriginal = uploadsMatch[1];
-  const subPath = uploadsMatch[2];
-  if (!/\.(jpe?g|png|webp|jpg)$/i.test(subPath)) return [];
+  // Qualquer coisa que contenha /uploads/ pega só o último nome (filename)
+  const uploadsIdx = clean.lastIndexOf('/');
+  const filename = uploadsIdx !== -1 ? clean.substring(uploadsIdx + 1) : clean;
+  if (!/\.(jpe?g|png|webp|jpg)$/i.test(filename)) return [];
 
   const cloud = 'dd6ln5xmu';
   const base = `https://res.cloudinary.com/${cloud}/image/upload`;
-  const filename = subPath.split('/').pop();
-
-  // Gera candidatos para todas as variações possíveis
-  const tipos = ['noticias', 'imagens', 'editor'];
-  const candidates = [];
-  for (const tipo of tipos) {
-    candidates.push(`${base}/arquivo/uploads/${tipo}/${subPath}`);
-    candidates.push(`${base}/arquivo/uploads/${tipo}/${filename}`);
+  const tipos = ['imagens', 'editor'];
+  const core = [];
+  for (const t of tipos) {
+    core.push(`${base}/arquivo/uploads/${t}/${filename}`);
   }
-  // Adicionar variantes com versões conhecidas (se existir pelo menos uma)
+  // Versões conhecidas primeiro (prioridade) depois sem versão
+  const withVersions = [];
   if (__KNOWN_VERSIONS.size) {
-    const withVersions = [];
-    for (const c of candidates) {
-      const idx = c.indexOf('/image/upload/');
-      if (idx === -1) continue;
-      const prefix = c.substring(0, idx + '/image/upload'.length);
-      const rest = c.substring(idx + '/image/upload'.length);
-      for (const ver of __KNOWN_VERSIONS) {
+    for (const ver of __KNOWN_VERSIONS) {
+      for (const url of core) {
+        const idx = url.indexOf('/image/upload/');
+        const prefix = url.substring(0, idx + '/image/upload'.length);
+        const rest = url.substring(idx + '/image/upload'.length);
         withVersions.push(prefix + `/v${ver}` + rest);
       }
     }
-    candidates.push(...withVersions);
   }
-  // Remove duplicados mantendo ordem
-  return [...new Set(candidates)];
+  const all = [...withVersions, ...core];
+  return [...new Set(all)];
 }
 
 function getPrimaryCloudinaryUrl(localImagePath) {
