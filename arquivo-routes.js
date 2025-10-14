@@ -147,6 +147,156 @@ arquivoRouter.get('/debug/urls', (req, res) => {
   });
 });
 
+// Rota administrativa: sincronizar URLs Cloudinary (SOMENTE banco arquivo/arquivo.db)
+arquivoRouter.get('/admin/sync', async (req, res) => {
+  try {
+    const cloudinary = require('cloudinary').v2;
+    
+    // Buscar recursos do Cloudinary na pasta arquivo/uploads
+    const resources = await cloudinary.api.resources({
+      type: 'upload',
+      prefix: 'arquivo/uploads',
+      max_results: 500
+    });
+    
+    // Criar mapeamento filename -> URL completa
+    const filenameMap = new Map();
+    for (const r of resources.resources) {
+      const parts = r.public_id.split('/');
+      const basename = parts[parts.length - 1];
+      // Adicionar com extensões comuns
+      const formats = [r.format, 'jpg', 'jpeg', 'png', 'webp'];
+      for (const ext of formats) {
+        if (!ext) continue;
+        const key = `${basename}.${ext}`;
+        if (!filenameMap.has(key)) {
+          filenameMap.set(key, r.secure_url);
+        }
+      }
+    }
+    
+    // Atualizar notícias no banco ISOLADO (arquivo/arquivo.db)
+    const updated = await new Promise((resolve, reject) => {
+      db.all(`SELECT id, imagem FROM noticias WHERE imagem IS NOT NULL AND imagem != '' AND imagem NOT LIKE 'https://%'`, (err, rows) => {
+        if (err) return reject(err);
+        
+        let count = 0;
+        const promises = [];
+        
+        for (const row of rows) {
+          const filename = row.imagem.split('/').pop();
+          const cloudUrl = filenameMap.get(filename);
+          
+          if (cloudUrl && cloudUrl !== row.imagem) {
+            const p = new Promise((res, rej) => {
+              db.run(
+                `UPDATE noticias SET imagem = ? WHERE id = ?`,
+                [cloudUrl, row.id],
+                (err) => err ? rej(err) : (count++, res())
+              );
+            });
+            promises.push(p);
+          }
+        }
+        
+        Promise.all(promises).then(() => resolve(count)).catch(reject);
+      });
+    });
+    
+    res.json({
+      success: true,
+      message: `Sincronização concluída: ${updated} URLs atualizadas`,
+      cloudinary_resources: resources.resources.length,
+      mapped_filenames: filenameMap.size
+    });
+    
+  } catch (error) {
+    console.error('[arquivo/admin/sync] Erro:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Rota admin: sincroniza URLs de imagens com Cloudinary
+arquivoRouter.get('/admin/sync-cloudinary', async (req, res) => {
+  const cloudinary = require('cloudinary').v2;
+  const https = require('https');
+  
+  function headCheck(url) {
+    return new Promise((resolve) => {
+      const parsed = new URL(url);
+      https.request({
+        hostname: parsed.hostname,
+        path: parsed.pathname,
+        method: 'HEAD',
+        timeout: 3000
+      }, (r) => resolve(r.statusCode === 200))
+        .on('error', () => resolve(false))
+        .on('timeout', function() { this.destroy(); resolve(false); })
+        .end();
+    });
+  }
+  
+  async function findWorkingUrl(originalPath) {
+    const filename = originalPath.split('/').pop();
+    if (!/\.(jpe?g|png|webp|jpg)$/i.test(filename)) return null;
+    
+    const base = 'https://res.cloudinary.com/dd6ln5xmu/image/upload';
+    const tipos = ['imagens', 'editor'];
+    
+    for (const ver of __KNOWN_VERSIONS) {
+      for (const tipo of tipos) {
+        const url = `${base}/v${ver}/arquivo/uploads/${tipo}/${filename}`;
+        if (await headCheck(url)) return url;
+      }
+    }
+    
+    for (const tipo of tipos) {
+      const url = `${base}/arquivo/uploads/${tipo}/${filename}`;
+      if (await headCheck(url)) return url;
+    }
+    
+    return null;
+  }
+  
+  try {
+    const rows = await new Promise((resolve, reject) => {
+      db.all(
+        `SELECT id, imagem FROM noticias WHERE imagem IS NOT NULL AND imagem != '' AND imagem NOT LIKE 'https://%' LIMIT 100`,
+        (err, r) => err ? reject(err) : resolve(r)
+      );
+    });
+    
+    let updated = 0;
+    const results = [];
+    
+    for (const row of rows) {
+      const cloudUrl = await findWorkingUrl(row.imagem);
+      if (cloudUrl) {
+        await new Promise((resolve, reject) => {
+          db.run(`UPDATE noticias SET imagem = ? WHERE id = ?`, [cloudUrl, row.id], 
+            (err) => err ? reject(err) : resolve());
+        });
+        updated++;
+        results.push({ id: row.id, status: 'ok', url: cloudUrl });
+      } else {
+        results.push({ id: row.id, status: 'not_found', original: row.imagem });
+      }
+    }
+    
+    res.json({
+      success: true,
+      processed: rows.length,
+      updated,
+      results: results.slice(0, 20)
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 // Verificar se banco existe antes de conectar
 if (!fs.existsSync(DB_PATH)) {
   console.error('❌ Banco de dados não encontrado:', DB_PATH);
