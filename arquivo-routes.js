@@ -41,17 +41,13 @@ function buildCloudinaryCandidates(localImagePath) {
   const cloud = 'dd6ln5xmu';
   const base = 'https://res.cloudinary.com/' + cloud + '/image/upload';
   // Pastas usadas no script: arquivo/uploads/imagens e arquivo/uploads/editor
-  // Tentativas:
-  const candidates = [
-    // 1. Caminho completo preservando a possível hierarquia imagens/... (mais provável)
-    `${base}/arquivo/uploads/imagens/${relative}`,
-    // 2. Se veio de editor
-    `${base}/arquivo/uploads/editor/${relative}`,
-    // 3. Flat só com filename (caso tenha sido flatten)
-    `${base}/arquivo/uploads/imagens/${filename}`,
-    // 4. Flat editor
-    `${base}/arquivo/uploads/editor/${filename}`
-  ];
+    // Novo modelo: usar diretamente a subestrutura real após /uploads/ em uma única pasta raiz "arquivo/uploads".
+    // Ex: se relative = 'noticias/1/abc.jpeg' =>
+    // https://res.cloudinary.com/<cloud>/image/upload/arquivo/uploads/noticias/1/abc.jpeg
+    const candidates = [
+      `${base}/arquivo/uploads/${relative}`,
+      `${base}/arquivo/uploads/${filename}` // fallback flatten
+    ];
   // Remover duplicados mantendo ordem
   const uniq = [...new Set(candidates)];
   return uniq;
