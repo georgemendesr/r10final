@@ -16,38 +16,65 @@ const arquivoRouter = express.Router();
 const DB_PATH = path.join(__dirname, 'arquivo', 'arquivo.db');
 
 /**
- * FUNÇÃO HELPER: Converte URL local para URL do Cloudinary
- * Solução para banco sem coluna imagem_cloudinary
+ * Gera candidatos de URL Cloudinary preservando subpastas e variações de versão.
+ * Retorna array de strings (ordem de tentativa). Primeiro item é o "principal".
  */
-function getCloudinaryUrl(localImagePath) {
-  if (!localImagePath) return null;
+function buildCloudinaryCandidates(localImagePath) {
+  if (!localImagePath) return [];
   const clean = localImagePath.split('?')[0];
-  // Se já é uma URL completa do Cloudinary, retorna como está
   if (/^https?:\/\/res\.cloudinary\.com\//.test(clean)) {
-    return clean; // já válida
+    return [clean];
   }
-  const filename = clean.split('/').pop();
-  // Alguns arquivos podem ter extensão .jpeg/.jpg misturada; só devolver se parecer válido
-  if (!/^[a-f0-9]{20,}\.(jpe?g|png|webp)$/i.test(filename)) {
-    // fallback: retornar null para cair no placeholder
-    return null;
+  // Ex: /uploads/noticias/1/726a....jpeg
+  const parts = clean.split('/').filter(Boolean); // remove vazios
+  const filename = parts.pop();
+  if (!filename || !/\.(jpe?g|png|webp)$/i.test(filename)) return [];
+
+  // Hash ou não, aceitamos: só validar extensão.
+  // Subcaminho relativo após /uploads/...
+  const uploadsIndex = parts.indexOf('uploads');
+  let relative = filename;
+  if (uploadsIndex !== -1) {
+    relative = parts.slice(uploadsIndex + 1).concat(filename).join('/');
   }
 
-  // Usar cloud_name correto detectado no script de upload (dd6ln5xmu)
-  // Pastas utilizadas no upload original: 'arquivo/uploads/imagens' e 'arquivo/uploads/editor'
-  // Não sabemos de qual veio, então priorizamos 'arquivo/uploads/imagens'
-  return `https://res.cloudinary.com/dd6ln5xmu/image/upload/arquivo/uploads/imagens/${filename}`;
+  const cloud = 'dd6ln5xmu';
+  const base = 'https://res.cloudinary.com/' + cloud + '/image/upload';
+  // Pastas usadas no script: arquivo/uploads/imagens e arquivo/uploads/editor
+  // Tentativas:
+  const candidates = [
+    // 1. Caminho completo preservando a possível hierarquia imagens/... (mais provável)
+    `${base}/arquivo/uploads/imagens/${relative}`,
+    // 2. Se veio de editor
+    `${base}/arquivo/uploads/editor/${relative}`,
+    // 3. Flat só com filename (caso tenha sido flatten)
+    `${base}/arquivo/uploads/imagens/${filename}`,
+    // 4. Flat editor
+    `${base}/arquivo/uploads/editor/${filename}`
+  ];
+  // Remover duplicados mantendo ordem
+  const uniq = [...new Set(candidates)];
+  return uniq;
+}
+
+function getPrimaryCloudinaryUrl(localImagePath) {
+  const list = buildCloudinaryCandidates(localImagePath);
+  return list[0] || null;
 }
 
 // Rota de debug para inspecionar construção de URLs
 arquivoRouter.get('/debug/urls', (req, res) => {
   db.all(`SELECT id, imagem FROM noticias WHERE imagem IS NOT NULL AND imagem != '' LIMIT 25`, (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
-    const mapped = rows.map(r => ({
-      id: r.id,
-      original: r.imagem,
-      gerada: getCloudinaryUrl(r.imagem)
-    }));
+    const mapped = rows.map(r => {
+      const candidatos = buildCloudinaryCandidates(r.imagem);
+      return {
+        id: r.id,
+        original: r.imagem,
+        candidato_principal: candidatos[0] || null,
+        outros: candidatos.slice(1)
+      };
+    });
     res.json({ total: mapped.length, exemplos: mapped });
   });
 });
@@ -157,7 +184,7 @@ arquivoRouter.get('/', (req, res) => {
         // Enriquecer com URL do Cloudinary gerada dinamicamente
         const noticiasComImagem = (noticias || []).map(n => ({
           ...n,
-          imagem_cloudinary: getCloudinaryUrl(n.imagem)
+          imagem_cloudinary: getPrimaryCloudinaryUrl(n.imagem)
         }));
 
         res.render('index', {
@@ -190,7 +217,7 @@ arquivoRouter.get('/noticia/:id', (req, res) => {
 
     // Adicionar URL Cloudinary na principal
     if (noticia && noticia.imagem) {
-      noticia.imagem_cloudinary = getCloudinaryUrl(noticia.imagem);
+      noticia.imagem_cloudinary = getPrimaryCloudinaryUrl(noticia.imagem);
     }
 
     // Buscar notícias relacionadas (mesma categoria)
@@ -210,7 +237,7 @@ arquivoRouter.get('/noticia/:id', (req, res) => {
         // Enriquecer relacionadas com URL Cloudinary
         relacionadas = (relacionadas || []).map(r => ({
           ...r,
-          imagem_cloudinary: getCloudinaryUrl(r.imagem)
+          imagem_cloudinary: getPrimaryCloudinaryUrl(r.imagem)
         }));
 
         res.render('detalhe', {
