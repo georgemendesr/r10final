@@ -21,14 +21,30 @@ const DB_PATH = path.join(__dirname, 'arquivo', 'arquivo.db');
  */
 function getCloudinaryUrl(localImagePath) {
   if (!localImagePath) return null;
-  
-  // Extrair nome do arquivo da URL local
-  // Ex: /uploads/noticias/1/726a7eed49b74936676e205eca9f4d11.jpeg -> 726a7eed49b74936676e205eca9f4d11.jpeg
-  const filename = localImagePath.split('/').pop().split('?')[0];
-  
-  // Construir URL do Cloudinary
-  return `https://res.cloudinary.com/dlogsw1hy/image/upload/v1/r10-arquivo-antigo/${filename}`;
+  const clean = localImagePath.split('?')[0];
+  const filename = clean.split('/').pop();
+  // Alguns arquivos podem ter extensão .jpeg/.jpg misturada; só devolver se parecer válido
+  if (!/^[a-f0-9]{20,}\.(jpe?g|png|webp)$/i.test(filename)) {
+    // fallback: retornar null para cair no placeholder
+    return null;
+  }
+
+  // Tentativas de caminhos (ordem de maior probabilidade) — deixar o front tentar a primeira
+  return `https://res.cloudinary.com/dlogsw1hy/image/upload/r10-arquivo-antigo/${filename}`;
 }
+
+// Rota de debug para inspecionar construção de URLs
+arquivoRouter.get('/debug/urls', (req, res) => {
+  db.all(`SELECT id, imagem FROM noticias WHERE imagem IS NOT NULL AND imagem != '' LIMIT 25`, (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    const mapped = rows.map(r => ({
+      id: r.id,
+      original: r.imagem,
+      gerada: getCloudinaryUrl(r.imagem)
+    }));
+    res.json({ total: mapped.length, exemplos: mapped });
+  });
+});
 
 // Verificar se banco existe antes de conectar
 if (!fs.existsSync(DB_PATH)) {
