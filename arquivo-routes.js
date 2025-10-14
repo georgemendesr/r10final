@@ -147,6 +147,31 @@ arquivoRouter.get('/debug/urls', (req, res) => {
   });
 });
 
+// Rota de diagnóstico: ver estado atual do banco
+arquivoRouter.get('/admin/diagnostic', (req, res) => {
+  db.all(`SELECT id, imagem FROM noticias LIMIT 10`, (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    
+    const samples = rows.map(r => ({
+      id: r.id,
+      imagem_original: r.imagem,
+      tem_https: r.imagem ? r.imagem.startsWith('https://') : false,
+      filename: r.imagem ? r.imagem.split('/').pop() : null
+    }));
+    
+    db.get(`SELECT COUNT(*) as total, 
+            COUNT(CASE WHEN imagem LIKE 'https://%' THEN 1 END) as com_https,
+            COUNT(CASE WHEN imagem NOT LIKE 'https://%' AND imagem IS NOT NULL AND imagem != '' THEN 1 END) as sem_https
+            FROM noticias`, (err, stats) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({
+        estatisticas: stats,
+        amostras: samples
+      });
+    });
+  });
+});
+
 // Rota administrativa: sincronizar URLs Cloudinary (SOMENTE banco arquivo/arquivo.db)
 arquivoRouter.get('/admin/sync', async (req, res) => {
   try {
