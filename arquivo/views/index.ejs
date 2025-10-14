@@ -410,6 +410,40 @@
       </div>
     </div>
   </footer>
+  
+  <script>
+    // Fallback automático: se imagem de /imagens/ falhar, tenta /editor/ com o mesmo nome
+    (function(){
+      function tentarFallback(img){
+        if (!img || img.__tentouFallback) return;
+        const src = img.getAttribute('src');
+        if (!src) return;
+        // Só tenta se contiver /imagens/
+        if (src.includes('/imagens/')) {
+          const candidato = src.replace('/imagens/','/editor/');
+          img.__tentouFallback = true;
+          fetch(candidato, { method:'HEAD', mode:'no-cors' })
+            .finally(()=>{ img.src = candidato; });
+        }
+      }
+      document.addEventListener('error', function(e){
+        const t = e.target;
+        if (t && t.tagName === 'IMG') {
+          tentarFallback(t);
+        }
+      }, true);
+      // Também varrer inicialmente imagens já quebradas (caso onerror já tenha disparado antes)
+      window.addEventListener('load', function(){
+        document.querySelectorAll('img').forEach(img => {
+          if (!img.complete || img.naturalWidth === 0) {
+            tentarFallback(img);
+          }
+        });
+      });
+    })();
+  </script>
+ </body>
+ </html>
 
   <style>
     .footer-arquivo {

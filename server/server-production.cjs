@@ -2,6 +2,12 @@
 const path = require('path');
 const express = require('express');
 const { createApp } = require('./server-api-simple.cjs');
+// Bootstrap automático do banco do módulo /arquivo (não interfere no principal)
+try {
+  require('../arquivo/bootstrap-arquivo-db.cjs');
+} catch(e) {
+  console.warn('[bootstrap-arquivo] Falha opcional:', e.message);
+}
 
 // Respeita SQLITE_DB_PATH automaticamente via createApp
 const app = createApp({ dbPath: process.env.SQLITE_DB_PATH });

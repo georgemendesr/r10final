@@ -12,6 +12,72 @@ const fs = require('fs');
 
 const arquivoRouter = express.Router();
 
+// Cache simples em memória para URLs validadas (existe -> true, inexistente -> false)
+const __cloudCache = new Map(); // key = url, value = { ok:boolean, ts:number }
+const CLOUD_CACHE_TTL_MS = 1000 * 60 * 60 * 6; // 6h
+const MAX_PARALLEL_HEAD = 8;
+let activeHead = 0;
+const headQueue = [];
+// Versões Cloudinary conhecidas observadas (podem ser expandidas dinamicamente se quisermos)
+// Conjunto de versões Cloudinary observadas em URLs reais.
+// Adicionadas inicialmente a partir de exemplos coletados.
+const __KNOWN_VERSIONS = new Set(['1760376718','1760376717','1760377573']);
+const MAX_KNOWN_VERSIONS = 8;
+
+function scheduleHead(url, fetchImpl) {
+  return new Promise((resolve) => {
+    const job = async () => {
+      try {
+        activeHead++;
+        let ok = false;
+        try {
+          const controller = new AbortController();
+          const to = setTimeout(()=>controller.abort(), 4000);
+          const res = await fetchImpl(url, { method: 'HEAD', signal: controller.signal });
+          clearTimeout(to);
+          ok = res.ok;
+        } catch(_) { ok = false; }
+        __cloudCache.set(url, { ok, ts: Date.now() });
+        if (ok) {
+          // Aprendizado automático: se a URL tinha /v<digits>/ memorizar versão
+            const m = url.match(/\/image\/upload\/v(\d+)\//);
+            if (m && m[1]) {
+              if (!__KNOWN_VERSIONS.has(m[1])) {
+                // Manter tamanho limitado: se exceder, remover o mais antigo (iterador)
+                if (__KNOWN_VERSIONS.size >= MAX_KNOWN_VERSIONS) {
+                  const first = __KNOWN_VERSIONS.values().next().value;
+                  __KNOWN_VERSIONS.delete(first);
+                }
+                __KNOWN_VERSIONS.add(m[1]);
+                console.log('[cloudinary] Nova versão aprendida v' + m[1]);
+              }
+            }
+        }
+        resolve(ok);
+      } finally {
+        activeHead--;
+        if (headQueue.length) {
+          const next = headQueue.shift();
+            setTimeout(next, 10);
+        }
+      }
+    };
+    if (activeHead < MAX_PARALLEL_HEAD) job(); else headQueue.push(job);
+  });
+}
+
+async function firstExistingUrl(candidates, fetchImpl) {
+  for (const url of candidates) {
+    const cached = __cloudCache.get(url);
+    if (cached && (Date.now() - cached.ts) < CLOUD_CACHE_TTL_MS) {
+      if (cached.ok) return url; else continue;
+    }
+    const ok = await scheduleHead(url, fetchImpl);
+    if (ok) return url;
+  }
+  return null;
+}
+
 // Banco de dados do arquivo
 const DB_PATH = path.join(__dirname, 'arquivo', 'arquivo.db');
 
@@ -22,40 +88,55 @@ const DB_PATH = path.join(__dirname, 'arquivo', 'arquivo.db');
 function buildCloudinaryCandidates(localImagePath) {
   if (!localImagePath) return [];
   const clean = localImagePath.split('?')[0];
-  if (/^https?:\/\/res\.cloudinary\.com\//.test(clean)) {
-    return [clean];
-  }
-  // Ex: /uploads/noticias/1/726a....jpeg
-  const parts = clean.split('/').filter(Boolean); // remove vazios
-  const filename = parts.pop();
-  if (!filename || !/\.(jpe?g|png|webp)$/i.test(filename)) return [];
+  if (/^https?:\/\/res\.cloudinary\.com\//.test(clean)) return [clean];
 
-  // Hash ou não, aceitamos: só validar extensão.
-  // Subcaminho relativo após /uploads/...
-  const uploadsIndex = parts.indexOf('uploads');
-  let relative = filename;
-  if (uploadsIndex !== -1) {
-    relative = parts.slice(uploadsIndex + 1).concat(filename).join('/');
-  }
+  // Aceita qualquer caminho /uploads/<tipo>/<...>
+  const uploadsMatch = clean.match(/^\/uploads\/(noticias|imagens|editor)\/(.+)$/);
+  if (!uploadsMatch) return [];
+  const tipoOriginal = uploadsMatch[1];
+  const subPath = uploadsMatch[2];
+  if (!/\.(jpe?g|png|webp|jpg)$/i.test(subPath)) return [];
 
   const cloud = 'dd6ln5xmu';
-  const base = 'https://res.cloudinary.com/' + cloud + '/image/upload';
-  // Pastas usadas no script: arquivo/uploads/imagens e arquivo/uploads/editor
-    // Novo modelo: usar diretamente a subestrutura real após /uploads/ em uma única pasta raiz "arquivo/uploads".
-    // Ex: se relative = 'noticias/1/abc.jpeg' =>
-    // https://res.cloudinary.com/<cloud>/image/upload/arquivo/uploads/noticias/1/abc.jpeg
-    const candidates = [
-      `${base}/arquivo/uploads/${relative}`,
-      `${base}/arquivo/uploads/${filename}` // fallback flatten
-    ];
-  // Remover duplicados mantendo ordem
-  const uniq = [...new Set(candidates)];
-  return uniq;
+  const base = `https://res.cloudinary.com/${cloud}/image/upload`;
+  const filename = subPath.split('/').pop();
+
+  // Gera candidatos para todas as variações possíveis
+  const tipos = ['noticias', 'imagens', 'editor'];
+  const candidates = [];
+  for (const tipo of tipos) {
+    candidates.push(`${base}/arquivo/uploads/${tipo}/${subPath}`);
+    candidates.push(`${base}/arquivo/uploads/${tipo}/${filename}`);
+  }
+  // Adicionar variantes com versões conhecidas (se existir pelo menos uma)
+  if (__KNOWN_VERSIONS.size) {
+    const withVersions = [];
+    for (const c of candidates) {
+      const idx = c.indexOf('/image/upload/');
+      if (idx === -1) continue;
+      const prefix = c.substring(0, idx + '/image/upload'.length);
+      const rest = c.substring(idx + '/image/upload'.length);
+      for (const ver of __KNOWN_VERSIONS) {
+        withVersions.push(prefix + `/v${ver}` + rest);
+      }
+    }
+    candidates.push(...withVersions);
+  }
+  // Remove duplicados mantendo ordem
+  return [...new Set(candidates)];
 }
 
 function getPrimaryCloudinaryUrl(localImagePath) {
   const list = buildCloudinaryCandidates(localImagePath);
   return list[0] || null;
+}
+
+// Versão assíncrona com verificação real (usada em endpoints de detalhe)
+async function resolveCloudinaryUrl(localImagePath, fetchImpl) {
+  const list = buildCloudinaryCandidates(localImagePath);
+  if (!list.length) return null;
+  // Tenta achar a primeira realmente existente
+  try { return await firstExistingUrl(list, fetchImpl); } catch(_) { return list[0]; }
 }
 
 // Rota de debug para inspecionar construção de URLs
@@ -211,10 +292,10 @@ arquivoRouter.get('/noticia/:id', (req, res) => {
       return res.status(404).render('404');
     }
 
-    // Adicionar URL Cloudinary na principal
-    if (noticia && noticia.imagem) {
-      noticia.imagem_cloudinary = getPrimaryCloudinaryUrl(noticia.imagem);
-    }
+    // Função util para fetch (node18+) ou fallback dynamic import
+    const fetchImpl = global.fetch ? global.fetch.bind(global) : (...args) => import('node-fetch').then(m => m.default(...args));
+
+    const promPrincipal = noticia && noticia.imagem ? resolveCloudinaryUrl(noticia.imagem, fetchImpl) : Promise.resolve(null);
 
     // Buscar notícias relacionadas (mesma categoria)
     db.all(
@@ -230,16 +311,37 @@ arquivoRouter.get('/noticia/:id', (req, res) => {
           relacionadas = [];
         }
 
-        // Enriquecer relacionadas com URL Cloudinary
-        relacionadas = (relacionadas || []).map(r => ({
-          ...r,
-          imagem_cloudinary: getPrimaryCloudinaryUrl(r.imagem)
-        }));
+        // Resolver URLs Cloudinary de relacionadas em paralelo (máximo 5)
+        const fetchRelated = async () => {
+          const slice = (relacionadas||[]).slice(0,5);
+          const promises = slice.map(r => resolveCloudinaryUrl(r.imagem, fetchImpl).then(url => ({ r, url })));
+          const resolved = await Promise.all(promises);
+          return resolved.map(x => ({ ...x.r, imagem_cloudinary: x.url }));
+        };
 
-        res.render('detalhe', {
-          title: noticia.titulo + ' - Arquivo R10 Piauí',
-          noticia,
-          relacionadas: relacionadas || []
+        Promise.all([promPrincipal, fetchRelated()]).then(values => {
+          const [imgPrincipal, rels] = values;
+          if (imgPrincipal) noticia.imagem_cloudinary = imgPrincipal;
+          relacionadas = rels;
+          res.render('detalhe', {
+            title: noticia.titulo + ' - Arquivo R10 Piauí',
+            noticia,
+            relacionadas: relacionadas || []
+          });
+        }).catch(() => {
+          // fallback simples
+          if (noticia && noticia.imagem && !noticia.imagem_cloudinary) {
+            noticia.imagem_cloudinary = getPrimaryCloudinaryUrl(noticia.imagem);
+          }
+          relacionadas = (relacionadas || []).map(r => ({
+            ...r,
+            imagem_cloudinary: getPrimaryCloudinaryUrl(r.imagem)
+          }));
+          res.render('detalhe', {
+            title: noticia.titulo + ' - Arquivo R10 Piauí',
+            noticia,
+            relacionadas: relacionadas || []
+          });
         });
       }
     );
