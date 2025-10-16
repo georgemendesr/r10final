@@ -16,7 +16,6 @@
   "author": "R10 Piauí",
   "license": "ISC",
   "dependencies": {
-    "cloudinary": "^2.7.0",
     "dotenv": "^16.3.1",
     "ejs": "^3.1.9",
     "express": "^4.18.2",

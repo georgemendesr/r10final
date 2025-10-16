@@ -297,9 +297,9 @@
             </div>
           </header>
 
-          <% if (noticia.imagem_cloudinary) { %>
+          <% if (noticia.imagem && noticia.imagem.startsWith('http')) { %>
             <img 
-              src="<%= noticia.imagem_cloudinary %>" 
+              src="<%= noticia.imagem %>" 
               alt="<%= noticia.titulo %>" 
               class="article-image"
               onerror="this.style.display='none'"
@@ -326,9 +326,9 @@
           <% if (relacionadas && relacionadas.length > 0) { %>
             <% relacionadas.forEach(rel => { %>
               <a href="/arquivo/noticia/<%= rel.id %>" class="related-card">
-                <% if (rel.imagem_cloudinary) { %>
+                <% if (rel.imagem && rel.imagem.startsWith('http')) { %>
                   <img 
-                    src="<%= rel.imagem_cloudinary %>" 
+                    src="<%= rel.imagem %>" 
                     alt="<%= rel.titulo %>"
                     onerror="this.src='https://placehold.co/400x150?text=Sem+Imagem'"
                   >
