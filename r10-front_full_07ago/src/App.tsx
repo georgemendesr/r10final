@@ -17,7 +17,6 @@ import DailyEmotionsSection from './components/DailyEmotionsSection';
 import R10PlaySection from './components/R10PlaySection';
 import MunicipiosSection from './components/MunicipiosSection';
 import Footer from './components/Footer';
-import AdminLink from './components/AdminLink';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { initializeTestData } from './services/authService';
 import { getLayoutConfig, getActiveHeroLayout } from './services/layoutService';
@@ -209,7 +208,6 @@ function App() {
           ))}
         </main>
         <Footer />
-        <AdminLink />
       </>
     );
   };
@@ -243,7 +241,6 @@ function App() {
           </div>
         </main>
         <Footer />
-        <AdminLink />
       </>
     );
   };
@@ -256,7 +253,6 @@ function App() {
         <MunicipiosSection />
       </main>
       <Footer />
-      <AdminLink />
     </>
   );
 

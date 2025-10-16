@@ -15,6 +15,19 @@ const SocialLinks: React.FC<SocialLinksProps> = ({
   variant = 'header',
   showLabels = false 
 }) => {
+  // Formatar data atual: "Piauí, 15 de outubro de 2025"
+  const formatCurrentDate = () => {
+    const months = [
+      'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+      'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'
+    ];
+    const now = new Date();
+    const day = now.getDate();
+    const month = months[now.getMonth()];
+    const year = now.getFullYear();
+    return `Piauí, ${day} de ${month} de ${year}`;
+  };
+
   const getSizeClasses = () => {
     switch (iconSize) {
       case 'sm': return 'w-4 h-4';
@@ -75,6 +88,13 @@ const SocialLinks: React.FC<SocialLinksProps> = ({
           </a>
         );
       })}
+      
+      {/* Data no header - DEPOIS dos ícones */}
+      {variant === 'header' && (
+        <span className="text-sm text-gray-600 font-medium ml-2">
+          {formatCurrentDate()}
+        </span>
+      )}
     </div>
   );
 };

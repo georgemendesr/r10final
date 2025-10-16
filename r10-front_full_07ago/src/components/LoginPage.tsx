@@ -106,16 +106,6 @@ const LoginPage: React.FC = () => {
                 Esqueci minha senha
               </Link>
             </div>
-            
-            <div className="mt-6 text-center">
-              <p className="text-sm text-gray-600">
-                Para testes, use:
-                <br />
-                <span className="font-medium">joao@r10piaui.com</span> ou <span className="font-medium">george@r10piaui.com</span>
-                <br />
-                Senha: <span className="font-medium">admin</span>
-              </p>
-            </div>
           </div>
         </div>
       </div>

@@ -15,7 +15,13 @@ lerna-debug.log*
 .env.development.local
 .env.test.local
 .env.production.local
+.env.r2-migration
 BACKUP-SECRETS.txt
+
+# R2 Migration files
+r2-migration-mapping.json
+r2-migration.log
+r2-database-update.log
 
 # Build outputs
 # IMPORTANTE: dist/ do frontend DEVE ser commitado para Integrator!

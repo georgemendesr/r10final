@@ -412,6 +412,24 @@ arquivoRouter.get('/test', (req, res) => {
 // Middleware para servir arquivos estáticos do módulo arquivo
 arquivoRouter.use('/static', express.static(path.join(__dirname, 'arquivo', 'public')));
 
+// Servir uploads das notícias antigas (isolado)
+const arquivoUploadsPath = path.join(__dirname, 'arquivo', 'uploads');
+arquivoRouter.use('/uploads', express.static(arquivoUploadsPath, {
+  maxAge: 0,
+  etag: false,
+  setHeaders: (res, filepath) => {
+    res.setHeader('Cache-Control', 'public, max-age=86400'); // 1 dia
+    if (filepath.endsWith('.jpg') || filepath.endsWith('.jpeg')) {
+      res.setHeader('Content-Type', 'image/jpeg');
+    } else if (filepath.endsWith('.png')) {
+      res.setHeader('Content-Type', 'image/png');
+    } else if (filepath.endsWith('.webp')) {
+      res.setHeader('Content-Type', 'image/webp');
+    }
+  }
+}));
+console.log('✅ [ARQUIVO] Uploads servidos de:', arquivoUploadsPath);
+
 // Middleware para configurar views path em cada request
 arquivoRouter.use((req, res, next) => {
   req.app.set('views', arquivoViewsPath);
@@ -480,13 +498,8 @@ arquivoRouter.get('/', (req, res) => {
 
         // Enriquecer com URL do Cloudinary gerada dinamicamente
         const noticiasComImagem = (noticias || []).map(n => {
-          let finalImg = null;
-          if (n.imagem && /^\/uploads\//.test(n.imagem)) {
-            // Prioriza caminho original (mais provável de existir agora)
-            finalImg = n.imagem;
-          } else {
-            finalImg = getPrimaryCloudinaryUrl(n.imagem);
-          }
+          // USAR SEMPRE CAMINHO LOCAL (não tentar Cloudinary)
+          let finalImg = n.imagem || '/placeholder.svg';
           return { ...n, imagem_cloudinary: finalImg };
         });
 
