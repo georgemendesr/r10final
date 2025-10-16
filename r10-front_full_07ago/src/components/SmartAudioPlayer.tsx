@@ -15,6 +15,9 @@ interface SmartAudioPlayerProps {
 }
 
 const SmartAudioPlayer: React.FC<SmartAudioPlayerProps> = ({ post, content }) => {
+  // Debug: log inicial
+  console.log('🎵 SmartAudioPlayer montado', { post, contentLength: content?.length });
+  
   // Hook Azure TTS (usa voz padrão configurada no backend)
   const { enabled: elevenLabsEnabled, loading: elevenLabsLoading, url: elevenLabsUrl, onClick: generateElevenLabs, response: ttsResponse } = useTts(post);
   
@@ -278,14 +281,24 @@ const SmartAudioPlayer: React.FC<SmartAudioPlayerProps> = ({ post, content }) =>
 
   // Handler principal
   const handlePlay = async () => {
+    console.log('🎵 handlePlay chamado', { 
+      isPlayingSequence, 
+      isWebSpeechPlaying, 
+      elevenLabsEnabled,
+      elevenLabsUrl,
+      post 
+    });
+    
     // Se sequência está tocando, parar
     if (isPlayingSequence) {
+      console.log('⏹️ Parando sequência');
       stopSequence();
       return;
     }
 
     // Se Web Speech está tocando, parar
     if (isWebSpeechPlaying) {
+      console.log('⏹️ Parando Web Speech');
       if (audioRef.current) {
         audioRef.current.pause();
         setIsWebSpeechPlaying(false);
@@ -298,8 +311,10 @@ const SmartAudioPlayer: React.FC<SmartAudioPlayerProps> = ({ post, content }) =>
 
     // Se ElevenLabs está habilitado, usar sequência vinheta + TTS
     if (elevenLabsEnabled) {
+      console.log('✅ Azure TTS habilitado, iniciando sequência');
       await playSequence();
     } else {
+      console.log('⚠️ Azure TTS desabilitado, usando Web Speech fallback');
       // Fallback para Web Speech API (notícias comuns)
       await playWithWebSpeech();
     }
