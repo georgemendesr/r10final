@@ -3778,6 +3778,12 @@ function createApp({ dbPath }) {
 
   console.log('🎙️ Rotas Azure TTS registradas em /api/tts/*');
 
+  // Registrar rotas de Configurações
+  const settingsRoutes = require('./settingsRoutes.cjs');
+  app.use('/api/settings', settingsRoutes);
+
+  console.log('⚙️ Rotas de Configurações registradas em /api/settings/*');
+
   // ======= FIM TTS =======
 
   // Buscar por slug (quando não há coluna slug, calculamos em memória)

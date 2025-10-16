@@ -27,6 +27,7 @@ import AnalyticsPanel from './AnalyticsPanel';
 import SiteAnalyticsPanel from './SiteAnalyticsPanel';
 import DashboardOverview from './DashboardOverview';
 import DetailedAnalytics from './DetailedAnalytics';
+import SettingsPage from './Settings';
 
 const Dashboard = () => {
   const location = useLocation();
@@ -559,7 +560,8 @@ const Dashboard = () => {
             ...(canAccessCategories ? [{ id: 'categorias', label: 'Categorias', icon: Settings, badge: null, url: '/admin?tab=categorias' }] : []),
             { id: 'analytics', label: 'Analytics', icon: TrendingUp, badge: null, url: '/admin?tab=analytics' },
             { id: 'advanced-analytics', label: 'Analytics Avançados', icon: BarChart3, badge: 'NEW', url: '/admin?tab=advanced-analytics' },
-            ...(canAccessUsers ? [{ id: 'usuarios', label: 'Usuários', icon: Users, badge: null, url: '/admin/usuarios' }] : [])
+            ...(canAccessUsers ? [{ id: 'usuarios', label: 'Usuários', icon: Users, badge: null, url: '/admin/usuarios' }] : []),
+            { id: 'configuracoes', label: 'Configurações', icon: Settings, badge: null, url: '/admin?tab=configuracoes' }
           ].map(item => (
             <Link
               key={item.id}
@@ -661,6 +663,7 @@ const Dashboard = () => {
             {activeTab === 'overview' && <OverviewContent />}
             {activeTab === 'materias' && <PostsManager />}
             {activeTab === 'usuarios' && canAccessUsers && <UsersManager />}
+            {activeTab === 'configuracoes' && <SettingsPage />}
           {activeTab === 'midia' && <MediaGallery />}
           {activeTab === 'layout' && canAccessLayout && (
             <div className="space-y-4">

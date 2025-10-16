@@ -14,7 +14,7 @@ interface TtsResponse {
   vinhetaUsada?: string;
 }
 
-export function useTts(post: Post | null) {
+export function useTts(post: Post | null, voiceName?: string) {
   const [enabled, setEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
   const [url, setUrl] = useState<string | undefined>();
@@ -87,18 +87,19 @@ export function useTts(post: Post | null) {
       
       const API_URL = API_BASE.replace('/api', ''); // Remover /api se existir
       
-      console.log('🌐 TTS API URL:', `${API_URL}/api/articles/${post.id}/tts/request`);
+      console.log('�️ Azure TTS API URL:', `${API_URL}/api/tts/generate-post/${post.id}`);
       
-      const response = await fetch(`${API_URL}/api/articles/${post.id}/tts/request`, {
+      // Nova API do Azure TTS
+      const response = await fetch(`${API_URL}/api/tts/generate-post/${post.id}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          title: articleTitle || 'Notícia',
-          subtitle: articleSubtitle || '',
-          content: articleContent || 'Conteúdo não encontrado',
-          posicao: post.posicao || 'geral'
+          // Opcional: pode passar texto customizado se quiser
+          // text: articleContent,
+          // titulo: articleTitle
+          voiceName: voiceName // Passar voz selecionada
         })
       });
 
@@ -109,15 +110,21 @@ export function useTts(post: Post | null) {
 
       const data = await response.json();
       
-      if (!data.ok) {
+      if (!data.success) {
         throw new Error(data.error || 'Erro ao gerar áudio');
       }
 
       setUrl(data.audioUrl);
-      setResponse(data); // Salvar response completa para vinheta
+      setResponse({
+        ok: true,
+        audioUrl: data.audioUrl,
+        cached: data.cached,
+        elevenLabsUsed: false, // Azure TTS agora
+        vinhetaUsada: ''
+      });
       
     } catch (err) {
-      console.error('❌ Erro ao gerar TTS:', err);
+      console.error('❌ Erro ao gerar Azure TTS:', err);
       setError(err instanceof Error ? err.message : 'Erro ao gerar áudio');
     } finally {
       setLoading(false);

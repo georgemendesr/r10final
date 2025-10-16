@@ -15,7 +15,7 @@ interface SmartAudioPlayerProps {
 }
 
 const SmartAudioPlayer: React.FC<SmartAudioPlayerProps> = ({ post, content }) => {
-  // Hook ElevenLabs TTS
+  // Hook Azure TTS (usa voz padrão configurada no backend)
   const { enabled: elevenLabsEnabled, loading: elevenLabsLoading, url: elevenLabsUrl, onClick: generateElevenLabs, response: ttsResponse } = useTts(post);
   
   // Estados para Web Speech API (fallback/notícias comuns)
@@ -24,7 +24,7 @@ const SmartAudioPlayer: React.FC<SmartAudioPlayerProps> = ({ post, content }) =>
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   
-  // Estados para sequência vinheta + ElevenLabs
+  // Estados para sequência vinheta + Azure TTS
   const [isPlayingSequence, setIsPlayingSequence] = useState(false);
   const [currentPhase, setCurrentPhase] = useState<'idle' | 'generating' | 'vinheta' | 'tts'>('idle');
   

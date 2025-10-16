@@ -76,6 +76,7 @@ router.post('/generate', authMiddleware, async (req, res) => {
 router.post('/generate-post/:id', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
+    const { voiceName } = req.body; // Voz selecionada pelo usuário
 
     if (!azureTts.isConfigured()) {
       return res.status(503).json({ 
@@ -98,9 +99,9 @@ router.post('/generate-post/:id', authMiddleware, async (req, res) => {
       }
 
       try {
-        // Gerar áudio
-        console.log(`[TTS API] Gerando áudio para matéria ${id}: "${post.titulo}"`);
-        const result = await azureTts.generatePostAudio(post);
+        // Gerar áudio com voz customizada
+        console.log(`[TTS API] Gerando áudio para matéria ${id}: "${post.titulo}" (voz: ${voiceName || 'padrão'})`);
+        const result = await azureTts.generatePostAudio(post, undefined, { voiceName });
 
         // Atualizar banco com URL do áudio
         db.run(

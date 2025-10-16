@@ -82,12 +82,13 @@ class AzureTtsService {
   /**
    * Cria SSML (Speech Synthesis Markup Language) para melhor controle da narração
    */
-  createSSML(text, titulo = '') {
+  createSSML(text, titulo = '', voiceName = null) {
     const cleanText = this.cleanTextForSpeech(text);
     const cleanTitle = titulo ? this.cleanTextForSpeech(titulo) : '';
+    const voice = voiceName || this.voiceName;
     
     let ssml = `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="pt-BR">`;
-    ssml += `<voice name="${this.voiceName}">`;
+    ssml += `<voice name="${voice}">`;
     
     // Adiciona título com ênfase se fornecido
     if (cleanTitle) {
@@ -128,6 +129,9 @@ class AzureTtsService {
         // Configurar formato de saída (MP3)
         speechConfig.speechSynthesisOutputFormat = sdk.SpeechSynthesisOutputFormat.Audio16Khz32KBitRateMonoMp3;
         
+        // Usar voz customizada se fornecida, senão usar padrão
+        const voiceToUse = options.voiceName || this.voiceName;
+        
         // Criar diretório se não existir
         const dir = path.dirname(outputPath);
         if (!fs.existsSync(dir)) {
@@ -140,8 +144,8 @@ class AzureTtsService {
         // Criar sintetizador
         const synthesizer = new sdk.SpeechSynthesizer(speechConfig, audioConfig);
         
-        // Criar SSML
-        const ssml = this.createSSML(text, options.titulo);
+        // Criar SSML com voz customizada
+        const ssml = this.createSSML(text, options.titulo, voiceToUse);
         
         console.log(`[Azure TTS] Gerando áudio: ${path.basename(outputPath)}`);
         console.log(`[Azure TTS] Tamanho do texto: ${text.length} caracteres`);
