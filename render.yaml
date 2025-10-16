@@ -3,8 +3,8 @@ services:
     name: r10piaui
     env: node
     runtime: node
-    buildCommand: npm install && npm run build:render
-    startCommand: bash init-arquivo-db.sh && node server/server-production.cjs
+    buildCommand: npm install && npm run build:render && node force-update-db.cjs
+    startCommand: node server/server-production.cjs
     healthCheckPath: /api/health
     autoDeploy: true
     disk:
