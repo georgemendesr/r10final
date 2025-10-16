@@ -3720,240 +3720,63 @@ function createApp({ dbPath }) {
 
   // ======= FIM REAÇÕES =======
 
-  // ======= INÍCIO TTS (Text-to-Speech) =======
+  // ======= INÍCIO TTS (Text-to-Speech) - AZURE =======
 
-  // Importar Google Cloud TTS
-  const textToSpeech = require('@google-cloud/text-to-speech');
-  let googleTtsClient = null;
+  // Importar Azure TTS Service
+  const azureTts = require('./azureTtsService.cjs');
   
-  // Configurar cliente Google TTS (se credenciais disponíveis)
-  const GOOGLE_TTS_ENABLED = process.env.GOOGLE_TTS_ENABLED === 'true';
-  const GOOGLE_CREDENTIALS_PATH = process.env.GOOGLE_APPLICATION_CREDENTIALS || './server/google-tts-key.json';
-  
-  if (GOOGLE_TTS_ENABLED && fs.existsSync(GOOGLE_CREDENTIALS_PATH)) {
-    try {
-      googleTtsClient = new textToSpeech.TextToSpeechClient({
-        keyFilename: GOOGLE_CREDENTIALS_PATH
-      });
-      console.log('✅ Google Cloud TTS configurado');
-    } catch (error) {
-      console.error('❌ Erro ao configurar Google TTS:', error.message);
-    }
+  // Verificar se Azure TTS está configurado
+  if (azureTts.isConfigured()) {
+    console.log('✅ Azure TTS configurado e pronto (region: brazilsouth)');
   } else {
-    console.warn('⚠️ Google TTS não configurado (credenciais ausentes)');
+    console.warn('⚠️ Azure TTS não configurado (configure AZURE_SPEECH_KEY e AZURE_SPEECH_REGION no .env)');
   }
 
-  // Criar tabela para tracking de TTS gerados (URLs do Cloudinary)
-  db.run(`
-    CREATE TABLE IF NOT EXISTS tts_cache (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      post_id INTEGER NOT NULL,
-      audio_filename TEXT,
-      audio_url TEXT,
-      cloudinary_public_id TEXT,
-      provider TEXT NOT NULL,
-      created_at TEXT NOT NULL,
-      expires_at TEXT NOT NULL,
-      file_size INTEGER,
-      UNIQUE(post_id)
-    )
-  `, (err) => {
-    if (err) {
-      console.error('❌ Erro ao criar tabela tts_cache:', err);
-      return;
-    }
-    
-    console.log('✅ Tabela tts_cache pronta');
-    
-    // Migração: Adicionar colunas se não existirem (para tabelas antigas)
-    // Usar serialize para garantir ordem de execução
-    db.serialize(() => {
-      db.run(`ALTER TABLE tts_cache ADD COLUMN audio_url TEXT`, (err) => {
-        if (err && !err.message.includes('duplicate column')) {
-          console.error('⚠️ Erro ao adicionar coluna audio_url:', err.message);
-        } else if (!err) {
-          console.log('✅ Coluna audio_url adicionada');
-        }
-      });
+  // Criar diretório de áudio se não existir
+  const audioDir = path.join(__dirname, '../uploads/audio');
+  if (!fs.existsSync(audioDir)) {
+    fs.mkdirSync(audioDir, { recursive: true });
+    console.log('📁 Diretório de áudio criado:', audioDir);
+  }
+
+  // Adicionar colunas de áudio na tabela noticias (se não existirem)
+  db.serialize(() => {
+    db.all(`PRAGMA table_info(noticias)`, [], (err, columns) => {
+      if (err) {
+        console.error('❌ Erro ao verificar colunas de noticias:', err.message);
+        return;
+      }
       
-      db.run(`ALTER TABLE tts_cache ADD COLUMN cloudinary_public_id TEXT`, (err) => {
-        if (err && !err.message.includes('duplicate column')) {
-          console.error('⚠️ Erro ao adicionar coluna cloudinary_public_id:', err.message);
-        } else if (!err) {
-          console.log('✅ Coluna cloudinary_public_id adicionada');
-        }
-      });
-      
-      // Aguardar as alterações e então limpar registros inválidos
-      setTimeout(() => {
-        db.run(`DELETE FROM tts_cache WHERE audio_url IS NULL OR audio_url LIKE '/uploads/tts-cache/%'`, function(err) {
-          if (err) {
-            console.error('❌ Erro ao limpar cache inválido:', err);
-          } else if (this.changes > 0) {
-            console.log(`🗑️ Removidos ${this.changes} registros de cache inválidos`);
+      const hasAudioUrl = columns.some(col => col.name === 'audio_url');
+      if (!hasAudioUrl) {
+        db.run(`ALTER TABLE noticias ADD COLUMN audio_url TEXT`, (err) => {
+          if (err && !err.message.includes('duplicate column')) {
+            console.error('❌ Erro ao adicionar coluna audio_url:', err.message);
+          } else {
+            console.log('✅ Coluna audio_url adicionada à tabela noticias');
           }
         });
-      }, 500); // Aguardar 500ms para garantir que ALTER TABLE foi executado
+      }
+
+      const hasAudioDuration = columns.some(col => col.name === 'audio_duration');
+      if (!hasAudioDuration) {
+        db.run(`ALTER TABLE noticias ADD COLUMN audio_duration REAL`, (err) => {
+          if (err && !err.message.includes('duplicate column')) {
+            console.error('❌ Erro ao adicionar coluna audio_duration:', err.message);
+          } else {
+            console.log('✅ Coluna audio_duration adicionada à tabela noticias');
+          }
+        });
+      }
     });
   });
 
-  // Função para verificar se posição é elegível para ElevenLabs
-  function isEligibleForElevenLabs(posicao) {
-    if (!posicao) return false;
-    const elegivel = ['supermanchete', 'super-manchete', 'manchete', 'destaque', 'destaqueprincipal', 'destaque-principal'];
-    return elegivel.includes(String(posicao).toLowerCase());
-  }
+  // Registrar rotas TTS do Azure
+  const ttsRoutes = require('./ttsRoutes.cjs');
+  app.locals.db = db; // Disponibilizar DB para rotas TTS
+  app.use('/api/tts', ttsRoutes);
 
-  // Função para limpar cache expirado (deletar do Cloudinary)
-  async function cleanExpiredTTSCache() {
-    const now = new Date().toISOString();
-    db.all('SELECT * FROM tts_cache WHERE expires_at < ?', [now], async (err, expired) => {
-      if (err || !expired || expired.length === 0) return;
-      
-      const { deleteAudioFromCloudinary } = require('./cloudinary-config.cjs');
-      
-      for (const record of expired) {
-        if (record.cloudinary_public_id) {
-          try {
-            await deleteAudioFromCloudinary(record.cloudinary_public_id);
-            console.log(`🗑️ Áudio TTS expirado removido do Cloudinary: ${record.cloudinary_public_id}`);
-          } catch (error) {
-            console.error(`❌ Erro ao deletar áudio do Cloudinary:`, error);
-          }
-        }
-        db.run('DELETE FROM tts_cache WHERE id = ?', [record.id]);
-      }
-    });
-  }
-
-  // Limpar cache expirado a cada 6 horas
-  setInterval(cleanExpiredTTSCache, 6 * 60 * 60 * 1000);
-  cleanExpiredTTSCache(); // Limpar ao iniciar
-
-  // POST /api/articles/:id/tts/request - Gerar TTS para artigo
-  app.post('/api/articles/:id/tts/request', async (req, res) => {
-    const { id } = req.params;
-    const { title, subtitle, content, posicao } = req.body;
-
-    console.log(`\n🎙️ ===== TTS REQUEST DEBUG =====`);
-    console.log(`📌 Post ID: ${id}`);
-    console.log(`📌 Posição: "${posicao}" (tipo: ${typeof posicao})`);
-    console.log(`📌 Título: ${title?.substring(0, 50)}...`);
-    console.log(`📌 Conteúdo length: ${content?.length} chars`);
-
-    if (!id || isNaN(Number(id))) {
-      return res.status(400).json({ ok: false, error: 'ID de post inválido' });
-    }
-
-    try {
-      // 1. Verificar se já existe cache válido
-      const now = new Date().toISOString();
-      const cached = await new Promise((resolve, reject) => {
-        db.get('SELECT * FROM tts_cache WHERE post_id = ? AND expires_at > ?', [id, now], (err, row) => {
-          if (err) reject(err);
-          else resolve(row);
-        });
-      });
-
-      // Ignorar cache se audio_url for NULL/undefined (registro inválido)
-      if (cached && cached.audio_url) {
-        console.log(`✅ TTS em cache: ${cached.audio_url}`);
-        return res.json({
-          ok: true,
-          audioUrl: cached.audio_url,
-          cached: true,
-          provider: cached.provider,
-          expiresAt: cached.expires_at
-        });
-      } else if (cached && !cached.audio_url) {
-        // Cache inválido (audio_url NULL), deletar e regenerar
-        console.warn(`⚠️ Cache inválido encontrado para post ${id}, deletando...`);
-        db.run('DELETE FROM tts_cache WHERE post_id = ?', [id], (err) => {
-          if (err) console.error('❌ Erro ao deletar cache inválido:', err);
-        });
-      }
-
-      // 2. Gerar TTS com Google Cloud (TODAS as notícias)
-      if (googleTtsClient) {
-        console.log(`🎤 Gerando TTS com Google Cloud para post ${id}...`);
-        
-        // Preparar texto para TTS (limite de 5000 chars)
-        const textToSpeak = `${title}. ${subtitle ? subtitle + '. ' : ''}${content}`.substring(0, 5000);
-        console.log(`📝 Texto length: ${textToSpeak.length} chars`);
-
-        try {
-          // Chamar API do Google Cloud TTS
-          const [response] = await googleTtsClient.synthesizeSpeech({
-            input: { text: textToSpeak },
-            voice: {
-              languageCode: 'pt-BR',
-              name: process.env.GOOGLE_TTS_VOICE || 'pt-BR-Wavenet-A', // Voz feminina natural WaveNet
-              ssmlGender: 'FEMALE'
-            },
-            audioConfig: {
-              audioEncoding: 'MP3',
-              speakingRate: 1.0,
-              pitch: 0.0,
-              volumeGainDb: 0.0
-            }
-          });
-
-          console.log(`✅ Google TTS gerou áudio com sucesso`);
-
-          // Converter para buffer
-          const audioBuffer = Buffer.from(response.audioContent, 'binary');
-          const filename = `post-${id}-${Date.now()}.mp3`;
-          
-          // Upload para Cloudinary
-          const { uploadAudioToCloudinary } = require('./cloudinary-config.cjs');
-          const cloudinaryResult = await uploadAudioToCloudinary(audioBuffer, filename);
-          
-          // Salvar no cache com validade de 30 dias
-          const createdAt = new Date().toISOString();
-          const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-          
-          db.run(`
-            INSERT OR REPLACE INTO tts_cache (post_id, audio_filename, audio_url, cloudinary_public_id, provider, created_at, expires_at, file_size)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-          `, [id, filename, cloudinaryResult.secure_url, cloudinaryResult.public_id, 'google-tts', createdAt, expiresAt, audioBuffer.length], (err) => {
-            if (err) console.error('❌ Erro ao salvar cache TTS:', err);
-            else console.log('✅ Cache TTS salvo com sucesso');
-          });
-
-          console.log(`✅ TTS gerado com Google Cloud e enviado para Cloudinary: ${cloudinaryResult.secure_url}`);
-
-          return res.json({
-            ok: true,
-            audioUrl: cloudinaryResult.secure_url,
-            cached: false,
-            provider: 'google-tts',
-            expiresAt
-          });
-
-        } catch (error) {
-          console.error('❌ Erro ao gerar TTS com Google Cloud:', error);
-          throw error;
-        }
-
-      } else {
-        // Fallback: Notícias usam Web Speech API no frontend
-        console.log(`📢 Google TTS não configurado, usando Web Speech API no frontend`);
-        return res.json({
-          ok: true,
-          audioUrl: null,
-          provider: 'web-speech-api'
-        });
-      }
-
-    } catch (error) {
-      console.error('❌ Erro ao gerar TTS:', error);
-      return res.status(500).json({
-        ok: false,
-        error: 'Erro ao gerar áudio TTS',
-        details: error.message
-      });
-    }
-  });
+  console.log('🎙️ Rotas Azure TTS registradas em /api/tts/*');
 
   // ======= FIM TTS =======
 
