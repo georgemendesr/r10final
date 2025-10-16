@@ -44,6 +44,12 @@ const SmartAudioPlayer: React.FC<SmartAudioPlayerProps> = ({ post, content }) =>
 
   // useEffect para reagir quando Azure TTS terminar de gerar
   useEffect(() => {
+    console.log('🔍 useEffect azureTtsUrl mudou!', { 
+      waitingForAzureUrl, 
+      azureTtsUrl,
+      'vai tocar?': waitingForAzureUrl && azureTtsUrl 
+    });
+    
     if (waitingForAzureUrl && azureTtsUrl) {
       console.log('✅ Azure TTS gerado! URL:', azureTtsUrl);
       setWaitingForAzureUrl(false);
@@ -96,16 +102,23 @@ const SmartAudioPlayer: React.FC<SmartAudioPlayerProps> = ({ post, content }) =>
 
     try {
       console.log('🎵 Iniciando sequência Azure TTS...');
+      console.log('🔍 azureTtsUrl atual:', azureTtsUrl);
+      console.log('🔍 post:', post);
       
       // Se já tem URL, tocar direto
       if (azureTtsUrl) {
-        console.log('🔍 URL já existe:', azureTtsUrl);
+        console.log('✅ URL já existe, tocando direto:', azureTtsUrl);
         playVinhetaAndAudio(azureTtsUrl);
       } else {
         // Chamar API Azure TTS e aguardar useEffect reagir
-        console.log('🔄 Chamando API Azure TTS...');
+        console.log('🔄 Chamando generateAzureTts()...');
         setWaitingForAzureUrl(true);
+        
         await generateAzureTts();
+        
+        console.log('✅ generateAzureTts() concluído');
+        console.log('🔍 Agora azureTtsUrl é:', azureTtsUrl);
+        console.log('⏳ Aguardando useEffect detectar mudança...');
         // useEffect vai detectar quando azureTtsUrl for atualizado
       }
 
