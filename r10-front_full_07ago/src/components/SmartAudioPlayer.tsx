@@ -30,6 +30,7 @@ const SmartAudioPlayer: React.FC<SmartAudioPlayerProps> = ({ post, content }) =>
   // Estados para sequência vinheta + Azure TTS
   const [isPlayingSequence, setIsPlayingSequence] = useState(false);
   const [currentPhase, setCurrentPhase] = useState<'idle' | 'generating' | 'vinheta' | 'tts'>('idle');
+  const [waitingForAzureUrl, setWaitingForAzureUrl] = useState(false);
   
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -41,80 +42,74 @@ const SmartAudioPlayer: React.FC<SmartAudioPlayerProps> = ({ post, content }) =>
     return vinhetas[Math.floor(Math.random() * vinhetas.length)];
   };
 
-  // Tocar sequência: vinheta + Azure TTS (TODAS as notícias)
+  // useEffect para reagir quando Azure TTS terminar de gerar
+  useEffect(() => {
+    if (waitingForAzureUrl && elevenLabsUrl) {
+      console.log('✅ Azure TTS gerado! URL:', elevenLabsUrl);
+      setWaitingForAzureUrl(false);
+      // Agora tocar vinheta + áudio
+      playVinhetaAndAudio(elevenLabsUrl);
+    }
+  }, [elevenLabsUrl, waitingForAzureUrl]);
+
+  // Função para tocar vinheta seguida de áudio Azure
+  const playVinhetaAndAudio = (audioUrl: string) => {
+    setCurrentPhase('vinheta');
+    const vinhetaUrl = getRandomVinheta();
+    console.log('🎵 Tocando vinheta ANTES:', vinhetaUrl);
+    
+    vinhetaRef.current = new Audio(vinhetaUrl);
+    vinhetaRef.current.volume = 0.8;
+    
+    vinhetaRef.current.onended = () => {
+      console.log('🎵 Vinheta terminada, iniciando Azure TTS...');
+      setCurrentPhase('tts');
+      console.log('✅ Tocando Azure TTS:', audioUrl);
+      playElevenLabsAudio(audioUrl);
+    };
+    
+    vinhetaRef.current.onerror = () => {
+      console.error('❌ Erro ao carregar vinheta');
+      setIsPlayingSequence(false);
+      setCurrentPhase('idle');
+    };
+    
+    vinhetaRef.current.play().catch(error => {
+      console.error('❌ Erro ao tocar vinheta:', error);
+      setIsPlayingSequence(false);
+      setCurrentPhase('idle');
+    });
+  };
+
+  // Tocar sequência: gerar Azure TTS → vinheta → áudio
   const playSequence = async () => {
     setIsPlayingSequence(true);
     setCurrentPhase('generating');
 
     try {
-      console.log('🎵 Gerando/buscando áudio Azure TTS...');
+      console.log('🎵 Iniciando sequência Azure TTS...');
       
-      let audioUrl = elevenLabsUrl;
-      
-      if (!audioUrl) {
-        await generateElevenLabs(); // Gera com Azure TTS
-        // Aguardar Azure TTS processar (demora mais que Web Speech)
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        audioUrl = elevenLabsUrl;
-        console.log('🔍 URL Azure TTS após geração:', audioUrl);
-      }
-
-      // Se temos URL, tocar com vinheta
-      if (audioUrl) {
-        setCurrentPhase('vinheta');
-        const vinhetaUrl = getRandomVinheta();
-        console.log('🎵 Tocando vinheta:', vinhetaUrl);
-        
-        vinhetaRef.current = new Audio(vinhetaUrl);
-        vinhetaRef.current.volume = 0.8;
-        
-        vinhetaRef.current.onended = async () => {
-          console.log('🎵 Vinheta terminada, iniciando TTS...');
-          setCurrentPhase('tts');
-          
-          const finalUrl = elevenLabsUrl || audioUrl;
-          console.log('🔍 URL final para reprodução:', finalUrl);
-          
-          if (finalUrl) {
-            console.log('✅ Tocando Azure TTS:', finalUrl);
-            playElevenLabsAudio(finalUrl); // Toca áudio Azure TTS
-          } else {
-            console.error('❌ ERRO: Sem URL de áudio!');
-            console.error('Debug - elevenLabsUrl:', elevenLabsUrl);
-            console.error('Debug - audioUrl:', audioUrl);
-            console.error('Debug - ttsResponse:', ttsResponse);
-            
-            setIsPlayingSequence(false);
-            setCurrentPhase('idle');
-            console.warn('⚠️ Erro ao gerar áudio, tente novamente');
-          }
-        };
-        
-        vinhetaRef.current.onerror = () => {
-          console.error('❌ Erro ao carregar vinheta');
-          setIsPlayingSequence(false);
-          setCurrentPhase('idle');
-        };
-        
-        vinhetaRef.current.play().catch(error => {
-          console.error('❌ Erro ao tocar vinheta:', error);
-          setIsPlayingSequence(false);
-          setCurrentPhase('idle');
-        });
-
+      // Se já tem URL, tocar direto
+      if (elevenLabsUrl) {
+        console.log('🔍 URL já existe:', elevenLabsUrl);
+        playVinhetaAndAudio(elevenLabsUrl);
       } else {
-        // Sem URL - usar Web Speech API como fallback silencioso
-        console.log('📢 Fallback para Web Speech API');
-        setIsPlayingSequence(false);
-        setCurrentPhase('idle');
-        await playWithWebSpeech();
+        // Chamar API Azure TTS e aguardar useEffect reagir
+        console.log('� Chamando API Azure TTS...');
+        setWaitingForAzureUrl(true);
+        await generateElevenLabs();
+        // useEffect vai detectar quando elevenLabsUrl for atualizado
       }
 
     } catch (error) {
-      console.error('❌ Erro ao processar TTS:', error);
+      console.error('❌ Erro ao processar Azure TTS:', error);
       setIsPlayingSequence(false);
       setCurrentPhase('idle');
-      console.warn('⚠️ Erro ao gerar/reproduzir áudio');
+      setWaitingForAzureUrl(false);
+      
+      // Fallback para Web Speech
+      console.log('📢 Fallback para Web Speech API');
+      await playWithWebSpeech();
     }
   };
 
