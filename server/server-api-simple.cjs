@@ -551,6 +551,36 @@ function createApp({ dbPath }) {
       const distPath = path.join(__dirname, '../r10-front_full_07ago/dist');
       if (fs.existsSync(distPath)) {
         console.log('📦 Servindo frontend estático de', distPath);
+        
+        // ============================================================
+        // SERVIR /uploads ANTES DO CATCH-ALL (CRÍTICO!)
+        // ============================================================
+        const UPLOADS_DIR_EARLY = path.join(__dirname, '../uploads');
+        app.use('/uploads', express.static(UPLOADS_DIR_EARLY, {
+          maxAge: 0,
+          etag: false,
+          lastModified: false,
+          setHeaders: (res, filePath, stat) => {
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
+            
+            if (filePath.endsWith('.jpg') || filePath.endsWith('.jpeg')) {
+              res.setHeader('Content-Type', 'image/jpeg');
+            } else if (filePath.endsWith('.png')) {
+              res.setHeader('Content-Type', 'image/png');
+            } else if (filePath.endsWith('.gif')) {
+              res.setHeader('Content-Type', 'image/gif');
+            } else if (filePath.endsWith('.webp')) {
+              res.setHeader('Content-Type', 'image/webp');
+            } else if (filePath.endsWith('.mp3')) {
+              res.setHeader('Content-Type', 'audio/mpeg');
+              res.setHeader('Accept-Ranges', 'bytes');
+            }
+          }
+        }));
+        console.log('✅ Rota /uploads configurada ANTES do catch-all');
+        
         app.use(express.static(distPath, { maxAge: '5m', index: 'index.html' }));
         
         // ============================================================
@@ -577,7 +607,22 @@ function createApp({ dbPath }) {
         // ============================================================
         
         // Qualquer rota não /api/ e não /arquivo volta index.html para permitir SPA router
-        app.get(/^(?!\/api\/)(?!\/arquivo).+/, (req, res) => {
+        // ⚠️ IMPORTANTE: NÃO interceptar arquivos estáticos (mp3, imagens, etc)
+        app.get('*', (req, res, next) => {
+          // Lista de extensões que NUNCA devem retornar HTML
+          const fileExtensions = ['.mp3', '.mp4', '.wav', '.ogg', '.pdf', '.jpg', '.jpeg', '.png', '.gif', '.webp', '.json', '.xml', '.csv', '.zip'];
+          
+          // Se é arquivo estático, passar para próximo middleware (express.static ou 404)
+          if (fileExtensions.some(ext => req.path.toLowerCase().endsWith(ext))) {
+            return next();
+          }
+          
+          // Se começa com /api/ ou /arquivo, passar adiante
+          if (req.path.startsWith('/api/') || req.path.startsWith('/arquivo') || req.path.startsWith('/uploads')) {
+            return next();
+          }
+          
+          // Só retorna HTML para rotas do React
           res.sendFile(path.join(distPath, 'index.html'));
         });
       } else {
