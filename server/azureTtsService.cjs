@@ -198,9 +198,8 @@ class AzureTtsService {
     // Montar texto completo para narração
     let fullText = '';
     
-    if (post.titulo) {
-      fullText += post.titulo + '. ';
-    }
+    // NÃO adicionar título aqui - ele é passado separadamente para o SSML
+    // O SSML já coloca o título com ênfase e pausa
     
     if (post.subtitulo) {
       fullText += post.subtitulo + '. ';
@@ -214,7 +213,7 @@ class AzureTtsService {
     const filename = `post-${post.id}-${Date.now()}.mp3`;
     const outputPath = path.join(outputDir, filename);
 
-    // Gerar áudio
+    // Gerar áudio (título vai no SSML com ênfase)
     const result = await this.generateAudio(fullText, outputPath, {
       titulo: post.titulo
     });

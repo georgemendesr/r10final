@@ -377,6 +377,8 @@ const SmartAudioPlayer: React.FC<SmartAudioPlayerProps> = ({ post, content }) =>
   const isLoading = azureTtsLoading || isWebSpeechLoading;
   const isPlaying = isPlayingSequence || isWebSpeechPlaying;
   
+  console.log('🔍 Render - isPlayingSequence:', isPlayingSequence, 'currentPhase:', currentPhase, 'isPlaying:', isPlaying);
+  
   // Mensagem de status
   const getStatusMessage = () => {
     if (currentPhase === 'generating') return 'Gerando áudio de alta qualidade...';
