@@ -48,15 +48,16 @@ const QuickSummary: React.FC<QuickSummaryProps> = ({ value, onChange, content })
 
   // Gerar resumo automático usando IA do backend
   const generateAutoSummary = async () => {
-    if (!content || content.trim().length < 50) {
-      onChange('• Conteúdo insuficiente para gerar resumo automático');
+    // Limpar tags HTML ANTES de verificar o tamanho
+    const textContent = content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    
+    if (!content || textContent.length < 100) {
+      onChange('• Conteúdo insuficiente para gerar resumo automático (mínimo 100 caracteres de texto)');
       return;
     }
 
     setIsGenerating(true);
     try {
-      // Limpar tags HTML do conteúdo para enviar para a IA
-      const textContent = content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
       
       const response = await fetch('/api/ai/completions', {
         method: 'POST',
@@ -113,6 +114,7 @@ const QuickSummary: React.FC<QuickSummaryProps> = ({ value, onChange, content })
     } catch (error) {
       console.error('Erro ao gerar resumo com IA:', error);
       // Fallback para lógica local em caso de erro
+      console.log('Usando geração local como fallback...');
       generateLocalSummary();
     } finally {
       setIsGenerating(false);
@@ -200,15 +202,23 @@ const QuickSummary: React.FC<QuickSummaryProps> = ({ value, onChange, content })
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <label className="block text-base font-semibold text-gray-900">
-          Resumo Rápido <span className="text-blue-500">⚡</span>
-        </label>
+        <div className="flex items-center gap-2">
+          <label className="block text-base font-semibold text-gray-900">
+            Resumo Rápido <span className="text-blue-500">⚡</span>
+          </label>
+          {content && (
+            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+              {content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().length} chars no conteúdo
+            </span>
+          )}
+        </div>
         
         <div className="flex items-center space-x-2">
           <button
             onClick={generateAutoSummary}
-            disabled={isGenerating}
-            className="flex items-center space-x-1 px-3 py-1 bg-blue-100 hover:bg-blue-200 disabled:bg-gray-100 text-blue-700 disabled:text-gray-500 rounded-md text-sm transition-colors"
+            disabled={isGenerating || !content || content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().length < 100}
+            className="flex items-center space-x-1 px-3 py-1 bg-blue-100 hover:bg-blue-200 disabled:bg-gray-100 disabled:cursor-not-allowed text-blue-700 disabled:text-gray-500 rounded-md text-sm transition-colors"
+            title={content && content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().length < 100 ? 'Mínimo 100 caracteres de texto' : 'Gerar resumo com IA'}
           >
             {isGenerating ? (
               <>
