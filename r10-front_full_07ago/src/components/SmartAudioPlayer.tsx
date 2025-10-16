@@ -100,11 +100,11 @@ const SmartAudioPlayer: React.FC<SmartAudioPlayerProps> = ({ post, content }) =>
         });
 
       } else {
-        // Sem URL - NÃO cair em Web Speech se Azure TTS está configurado
-        console.error('❌ Azure TTS não gerou áudio');
+        // Sem URL - usar Web Speech API como fallback silencioso
+        console.log('📢 Fallback para Web Speech API');
         setIsPlayingSequence(false);
         setCurrentPhase('idle');
-        alert('Erro ao gerar áudio. Verifique se o Azure TTS está configurado no servidor.');
+        await playWithWebSpeech();
       }
 
     } catch (error) {
