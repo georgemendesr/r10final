@@ -4,7 +4,7 @@ services:
     env: node
     runtime: node
     buildCommand: npm install && npm run build:render
-    startCommand: node server/server-production.cjs
+    startCommand: bash init-arquivo-db.sh && node server/server-production.cjs
     healthCheckPath: /api/health
     autoDeploy: true
     disk:
