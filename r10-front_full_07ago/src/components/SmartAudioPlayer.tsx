@@ -100,9 +100,11 @@ const SmartAudioPlayer: React.FC<SmartAudioPlayerProps> = ({ post, content }) =>
         });
 
       } else {
-        // Sem URL - usar Web Speech API diretamente (sem vinheta)
-        console.log('📢 Sem Google TTS, usando Web Speech API');
-        await playWithWebSpeech();
+        // Sem URL - NÃO cair em Web Speech se Azure TTS está configurado
+        console.error('❌ Azure TTS não gerou áudio');
+        setIsPlayingSequence(false);
+        setCurrentPhase('idle');
+        alert('Erro ao gerar áudio. Verifique se o Azure TTS está configurado no servidor.');
       }
 
     } catch (error) {
@@ -176,16 +178,26 @@ const SmartAudioPlayer: React.FC<SmartAudioPlayerProps> = ({ post, content }) =>
     setIsWebSpeechLoading(true);
     
     try {
-      const optimizedText = content
-        .replace(/\*\*(.*?)\*\*/g, '$1')
-        .replace(/\*(.*?)\*/g, '$1')
-        .replace(/#{1,6}\s*/g, '')
-        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-        .replace(/!\[([^\]]*)\]\([^)]+\)/g, '')
-        .replace(/```[\s\S]*?```/g, '')
-        .replace(/`([^`]+)`/g, '$1')
-        .replace(/\n{3,}/g, '\n\n')
+      // Limpar HTML e formatar para narração
+      const cleanText = content
+        .replace(/<[^>]*>/g, ' ')  // Remove tags HTML
+        .replace(/&nbsp;/g, ' ')   // Remove &nbsp;
+        .replace(/&amp;/g, '&')    // Converte entidades HTML
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/\*\*(.*?)\*\*/g, '$1')  // Remove markdown bold
+        .replace(/\*(.*?)\*/g, '$1')      // Remove markdown italic
+        .replace(/#{1,6}\s*/g, '')        // Remove markdown headers
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')  // Remove markdown links
+        .replace(/!\[([^\]]*)\]\([^)]+\)/g, '')   // Remove markdown images
+        .replace(/```[\s\S]*?```/g, '')   // Remove code blocks
+        .replace(/`([^`]+)`/g, '$1')      // Remove inline code
+        .replace(/\s+/g, ' ')             // Remove espaços extras
+        .replace(/\n{3,}/g, '\n\n')       // Remove quebras excessivas
         .trim();
+
+      const optimizedText = cleanText;
 
       // Buscar a melhor voz PT-BR disponível
       const voices = speechSynthesis.getVoices();
