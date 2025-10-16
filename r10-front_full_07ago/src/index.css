@@ -14,14 +14,27 @@
 .super-manchete-title {
   font-family: 'Outfit', sans-serif;
   font-weight: 700; /* bold */
-  font-size: 50px;
-  line-height: 55px;
+  font-size: 28px; /* mobile first */
+  line-height: 32px;
+}
+
+@media (min-width: 768px) {
+  .super-manchete-title {
+    font-size: 50px;
+    line-height: 55px;
+  }
 }
 
 .super-manchete-subtitle {
   font-family: 'Figtree', sans-serif;
   font-weight: 500; /* medium */
-  font-size: 18px;
+  font-size: 16px; /* mobile */
+}
+
+@media (min-width: 768px) {
+  .super-manchete-subtitle {
+    font-size: 18px;
+  }
 }
 
 .super-manchete-chapeu {

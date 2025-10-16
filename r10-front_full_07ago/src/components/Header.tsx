@@ -12,7 +12,7 @@ const Header = () => {
 
   return (
     <>
-  <header role="banner" className="bg-white py-4 md:py-6 lg:py-8 font-body shadow-sm">
+  <header role="banner" className="bg-white py-4 md:py-6 lg:py-8 font-body shadow-sm relative">
         {/* Skip to content link */}
         <a 
           href="#conteudo" 
