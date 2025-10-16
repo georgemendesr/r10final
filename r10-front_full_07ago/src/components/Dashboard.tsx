@@ -51,7 +51,14 @@ const Dashboard = () => {
   const [errorOverview, setErrorOverview] = useState<string | null>(null);
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
+  const isEditor = user?.role === 'editor';
   const canSeeInsights = !!user; // qualquer usuário autenticado
+  
+  // Usuários do tipo 'editor' (redação) NÃO podem acessar: Layout, Banner Ads, Categorias, Usuários
+  const canAccessLayout = isAdmin;
+  const canAccessBanners = isAdmin;
+  const canAccessCategories = isAdmin;
+  const canAccessUsers = isAdmin;
 
   // Detectar aba ativa pela URL
   useEffect(() => {
@@ -71,7 +78,20 @@ const Dashboard = () => {
       // Detectar parâmetro tab na URL para compatibilidade
       const tabParam = searchParams.get('tab');
       if (tabParam && ['overview', 'midia', 'layout', 'instagram', 'agendamento', 'banners', 'categorias', 'analytics', 'advanced-analytics'].includes(tabParam)) {
-        setActiveTab(tabParam);
+        // Verificar permissões antes de permitir acesso às abas restritas
+        const restrictedTabs = {
+          'layout': canAccessLayout,
+          'banners': canAccessBanners,
+          'categorias': canAccessCategories
+        };
+        
+        if (tabParam in restrictedTabs && !restrictedTabs[tabParam as keyof typeof restrictedTabs]) {
+          // Usuário sem permissão tentou acessar aba restrita - redirecionar
+          setActiveTab('overview');
+          navigate('/admin');
+        } else {
+          setActiveTab(tabParam);
+        }
       } else {
         setActiveTab('overview');
       }
@@ -532,14 +552,14 @@ const Dashboard = () => {
             { id: 'overview', label: 'Dashboard', icon: BarChart3, badge: null, url: '/admin' },
             { id: 'materias', label: 'Matérias', icon: FileText, badge: null, url: '/admin/materias' },
             { id: 'midia', label: 'Mídia', icon: Image, badge: null, url: '/admin?tab=midia' },
-            { id: 'layout', label: 'Layout', icon: Layout, badge: null, url: '/admin?tab=layout' },
+            ...(canAccessLayout ? [{ id: 'layout', label: 'Layout', icon: Layout, badge: null, url: '/admin?tab=layout' }] : []),
             { id: 'instagram', label: 'Instagram', icon: Camera, badge: null, url: '/admin?tab=instagram' },
             { id: 'agendamento', label: 'Agenda', icon: Calendar, badge: null, url: '/admin?tab=agendamento' },
-            { id: 'banners', label: 'Banner Ads', icon: Target, badge: null, url: '/admin?tab=banners' },
-            { id: 'categorias', label: 'Categorias', icon: Settings, badge: null, url: '/admin?tab=categorias' },
+            ...(canAccessBanners ? [{ id: 'banners', label: 'Banner Ads', icon: Target, badge: null, url: '/admin?tab=banners' }] : []),
+            ...(canAccessCategories ? [{ id: 'categorias', label: 'Categorias', icon: Settings, badge: null, url: '/admin?tab=categorias' }] : []),
             { id: 'analytics', label: 'Analytics', icon: TrendingUp, badge: null, url: '/admin?tab=analytics' },
             { id: 'advanced-analytics', label: 'Analytics Avançados', icon: BarChart3, badge: 'NEW', url: '/admin?tab=advanced-analytics' },
-            ...(isAdmin ? [{ id: 'usuarios', label: 'Usuários', icon: Users, badge: null, url: '/admin/usuarios' }] : [])
+            ...(canAccessUsers ? [{ id: 'usuarios', label: 'Usuários', icon: Users, badge: null, url: '/admin/usuarios' }] : [])
           ].map(item => (
             <Link
               key={item.id}
@@ -607,7 +627,7 @@ const Dashboard = () => {
               { id: 'overview', label: 'Dashboard', icon: BarChart3, url: '/admin' },
               { id: 'materias', label: 'Matérias', icon: FileText, url: '/admin/materias' },
               { id: 'midia', label: 'Mídia', icon: Image, url: '/admin?tab=midia' },
-              { id: 'layout', label: 'Layout', icon: Layout, url: '/admin?tab=layout' },
+              ...(canAccessLayout ? [{ id: 'layout', label: 'Layout', icon: Layout, url: '/admin?tab=layout' }] : []),
               { id: 'instagram', label: 'Instagram', icon: Camera, url: '/admin?tab=instagram' },
               { id: 'agendamento', label: 'Agenda', icon: Calendar, url: '/admin?tab=agendamento' },
             ].map(item => (
@@ -640,9 +660,9 @@ const Dashboard = () => {
           <div className="flex-1 min-w-0 w-full">
             {activeTab === 'overview' && <OverviewContent />}
             {activeTab === 'materias' && <PostsManager />}
-            {activeTab === 'usuarios' && isAdmin && <UsersManager />}
+            {activeTab === 'usuarios' && canAccessUsers && <UsersManager />}
           {activeTab === 'midia' && <MediaGallery />}
-          {activeTab === 'layout' && (
+          {activeTab === 'layout' && canAccessLayout && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -653,7 +673,7 @@ const Dashboard = () => {
               <LayoutManager />
             </div>
           )}
-          {activeTab === 'banners' && (
+          {activeTab === 'banners' && canAccessBanners && (
             <PublicidadeContent />
           )}
           {activeTab === 'instagram' && (
@@ -1093,7 +1113,7 @@ const Dashboard = () => {
           )}
 
           {/* Categorias Content */}
-          {activeTab === 'categorias' && (
+          {activeTab === 'categorias' && canAccessCategories && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
