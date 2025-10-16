@@ -496,16 +496,10 @@ arquivoRouter.get('/', (req, res) => {
           return res.status(500).send('Erro ao buscar notícias');
         }
 
-        // Enriquecer com URL do Cloudinary gerada dinamicamente
-        const noticiasComImagem = (noticias || []).map(n => {
-          // USAR SEMPRE CAMINHO LOCAL (não tentar Cloudinary)
-          let finalImg = n.imagem || '/placeholder.svg';
-          return { ...n, imagem_cloudinary: finalImg };
-        });
-
+        // Usar URLs diretas do banco (R2)
         res.render('index', {
           title: 'Arquivo de Notícias - R10 Piauí',
-          noticias: noticiasComImagem,
+          noticias: noticias || [],
           stats,
           currentPage: page,
           totalPages,
@@ -531,17 +525,6 @@ arquivoRouter.get('/noticia/:id', (req, res) => {
       return res.status(404).render('404');
     }
 
-    // Função util para fetch (node18+) ou fallback dynamic import
-    const fetchImpl = global.fetch ? global.fetch.bind(global) : (...args) => import('node-fetch').then(m => m.default(...args));
-
-    const promPrincipal = (async () => {
-      if (noticia && noticia.imagem) {
-        if (/^\/uploads\//.test(noticia.imagem)) return noticia.imagem; // usar direto
-        return await resolveCloudinaryUrl(noticia.imagem, fetchImpl);
-      }
-      return null;
-    })();
-
     // Buscar notícias relacionadas (mesma categoria)
     db.all(
       `SELECT id, titulo, imagem, data_publicacao 
@@ -556,37 +539,11 @@ arquivoRouter.get('/noticia/:id', (req, res) => {
           relacionadas = [];
         }
 
-        // Resolver URLs Cloudinary de relacionadas em paralelo (máximo 5)
-        const fetchRelated = async () => {
-          const slice = (relacionadas||[]).slice(0,5);
-          const promises = slice.map(r => resolveCloudinaryUrl(r.imagem, fetchImpl).then(url => ({ r, url })));
-          const resolved = await Promise.all(promises);
-          return resolved.map(x => ({ ...x.r, imagem_cloudinary: x.url }));
-        };
-
-        Promise.all([promPrincipal, fetchRelated()]).then(values => {
-          const [imgPrincipal, rels] = values;
-          if (imgPrincipal) noticia.imagem_cloudinary = imgPrincipal;
-          relacionadas = rels;
-          res.render('detalhe', {
-            title: noticia.titulo + ' - Arquivo R10 Piauí',
-            noticia,
-            relacionadas: relacionadas || []
-          });
-        }).catch(() => {
-          // fallback simples
-          if (noticia && noticia.imagem && !noticia.imagem_cloudinary) {
-            noticia.imagem_cloudinary = getPrimaryCloudinaryUrl(noticia.imagem);
-          }
-          relacionadas = (relacionadas || []).map(r => ({
-            ...r,
-            imagem_cloudinary: getPrimaryCloudinaryUrl(r.imagem)
-          }));
-          res.render('detalhe', {
-            title: noticia.titulo + ' - Arquivo R10 Piauí',
-            noticia,
-            relacionadas: relacionadas || []
-          });
+        // Usar URLs diretas do banco (R2)
+        res.render('detalhe', {
+          title: noticia.titulo + ' - Arquivo R10 Piauí',
+          noticia,
+          relacionadas: relacionadas || []
         });
       }
     );
