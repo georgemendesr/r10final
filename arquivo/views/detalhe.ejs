@@ -298,12 +298,7 @@
           </header>
 
           <% if (noticia.imagem && noticia.imagem.startsWith('http')) { %>
-            <img 
-              src="<%= noticia.imagem %>" 
-              alt="<%= noticia.titulo %>" 
-              class="article-image"
-              onerror="this.style.display='none'"
-            >
+            <img src="<%= noticia.imagem %>" alt="<%= noticia.titulo %>" class="article-image" onerror="this.style.display='none'">
           <% } %>
 
           <div class="article-content">
