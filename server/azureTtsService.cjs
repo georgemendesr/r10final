@@ -56,13 +56,68 @@ class AzureTtsService {
   }
 
   /**
-   * Limpa o HTML e prepara o texto para narração
+   * Limpa o HTML e prepara o texto para narração com naturalidade
    */
   cleanTextForSpeech(htmlContent) {
     if (!htmlContent) return '';
 
     // Remove tags HTML
     let text = htmlContent.replace(/<[^>]*>/g, ' ');
+    
+    // ===== NORMALIZAÇÃO PARA NATURALIDADE =====
+    
+    // Expandir abreviações comuns
+    text = text.replace(/\bR\$\s*(\d+)/g, '$1 reais'); // R$ 100 → 100 reais
+    text = text.replace(/\bDr\./g, 'Doutor');
+    text = text.replace(/\bDra\./g, 'Doutora');
+    text = text.replace(/\bSr\./g, 'Senhor');
+    text = text.replace(/\bSra\./g, 'Senhora');
+    text = text.replace(/\bProf\./g, 'Professor');
+    text = text.replace(/\bProfa\./g, 'Professora');
+    
+    // Siglas comuns do Piauí/Brasil (falar letra por letra)
+    text = text.replace(/\bPM\b/g, 'Pê Eme'); // Polícia Militar
+    text = text.replace(/\bPC\b/g, 'Pê Cê'); // Polícia Civil
+    text = text.replace(/\bPRF\b/g, 'Pê Erre Efe'); // Polícia Rodoviária Federal
+    text = text.replace(/\bUPA\b/g, 'U P A'); // Unidade de Pronto Atendimento
+    text = text.replace(/\bUBS\b/g, 'U B S'); // Unidade Básica de Saúde
+    text = text.replace(/\bCPF\b/g, 'Cê Pê Efe');
+    text = text.replace(/\bRG\b/g, 'Erre Gê');
+    text = text.replace(/\bCNH\b/g, 'Cê Ene Agá');
+    text = text.replace(/\bSUS\b/g, 'S U S');
+    text = text.replace(/\bMPPI\b/g, 'Eme Pê Pê I'); // Ministério Público do Piauí
+    text = text.replace(/\bTJPI\b/g, 'Tê Jota Pê I'); // Tribunal de Justiça do Piauí
+    text = text.replace(/\bPI\b/g, 'Piauí'); // Estado
+    text = text.replace(/\bBR-(\d+)/g, 'B R $1'); // BR-343 → B R 343
+    
+    // Órgãos que devem ser falados por extenso
+    text = text.replace(/\bIBGE\b/g, 'I B G E');
+    text = text.replace(/\bINSS\b/g, 'I N S S');
+    text = text.replace(/\bFGTS\b/g, 'Efe Gê Tê Esse');
+    
+    // Partidos políticos
+    text = text.replace(/\bPT\b/g, 'Pê Tê');
+    text = text.replace(/\bPSDB\b/g, 'Pê Esse Dê Bê');
+    text = text.replace(/\bPL\b/g, 'Pê Éle');
+    text = text.replace(/\bPDT\b/g, 'Pê Dê Tê');
+    text = text.replace(/\bMDB\b/g, 'Eme Dê Bê');
+    
+    // Normalizar números de telefone
+    text = text.replace(/\((\d{2})\)\s*(\d{4,5})-(\d{4})/g, (match, ddd, parte1, parte2) => {
+      return `telefone ${ddd} ${parte1} ${parte2}`;
+    });
+    
+    // Horários (15h30 → 15 horas e 30 minutos)
+    text = text.replace(/(\d{1,2})h(\d{2})/g, '$1 horas e $2 minutos');
+    text = text.replace(/(\d{1,2})h\b/g, '$1 horas');
+    
+    // Datas (01/01/2024 → 1 de janeiro de 2024)
+    const meses = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 
+                   'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+    text = text.replace(/(\d{1,2})\/(\d{1,2})\/(\d{4})/g, (match, dia, mes, ano) => {
+      const mesNome = meses[parseInt(mes) - 1] || mes;
+      return `${parseInt(dia)} de ${mesNome} de ${ano}`;
+    });
     
     // Remove múltiplos espaços
     text = text.replace(/\s+/g, ' ');
@@ -71,10 +126,12 @@ class AzureTtsService {
     text = text.replace(/[""]/g, '"');
     text = text.replace(/['']/g, "'");
     
-    // Adiciona pausas em pontuações
-    text = text.replace(/\./g, '. ');
-    text = text.replace(/\?/g, '? ');
-    text = text.replace(/!/g, '! ');
+    // Melhorar pausas em pontuações (SSML vai controlar isso melhor)
+    text = text.replace(/\.\s+/g, '. ');
+    text = text.replace(/\?\s+/g, '? ');
+    text = text.replace(/!\s+/g, '! ');
+    text = text.replace(/,\s+/g, ', ');
+    text = text.replace(/:\s+/g, ': ');
     
     return text.trim();
   }
@@ -92,16 +149,38 @@ class AzureTtsService {
     
     // Adiciona título com ênfase se fornecido
     if (cleanTitle) {
-      ssml += `<prosody rate="0.9" pitch="+5%">`;
-      ssml += `<emphasis level="strong">${cleanTitle}</emphasis>`;
+      ssml += `<prosody rate="0.95" pitch="+3%" volume="+2dB">`;
+      ssml += `<emphasis level="moderate">${cleanTitle}</emphasis>`;
       ssml += `</prosody>`;
-      ssml += `<break time="800ms"/>`;
+      ssml += `<break time="1000ms"/>`; // Pausa de 1 segundo após título
     }
     
-    // Adiciona o conteúdo com velocidade natural
-    ssml += `<prosody rate="1.0" pitch="0%">`;
-    ssml += cleanText;
-    ssml += `</prosody>`;
+    // Adiciona o conteúdo com velocidade natural e pausas
+    // Dividir em parágrafos para adicionar pausas entre eles
+    const paragraphs = cleanText.split(/\n\n+/);
+    
+    paragraphs.forEach((para, index) => {
+      if (!para.trim()) return;
+      
+      // Velocidade um pouco mais lenta para melhor compreensão
+      ssml += `<prosody rate="0.95" pitch="0%" volume="medium">`;
+      
+      // Adicionar pausas em vírgulas e pontos
+      let paraWithPauses = para;
+      paraWithPauses = paraWithPauses.replace(/,\s+/g, ',<break time="300ms"/> ');
+      paraWithPauses = paraWithPauses.replace(/\.\s+/g, '.<break time="500ms"/> ');
+      paraWithPauses = paraWithPauses.replace(/!\s+/g, '!<break time="600ms"/> ');
+      paraWithPauses = paraWithPauses.replace(/\?\s+/g, '?<break time="600ms"/> ');
+      paraWithPauses = paraWithPauses.replace(/:\s+/g, ':<break time="400ms"/> ');
+      
+      ssml += paraWithPauses;
+      ssml += `</prosody>`;
+      
+      // Pausa entre parágrafos
+      if (index < paragraphs.length - 1) {
+        ssml += `<break time="800ms"/>`;
+      }
+    });
     
     ssml += `</voice>`;
     ssml += `</speak>`;
