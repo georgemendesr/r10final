@@ -41,22 +41,22 @@ const SmartAudioPlayer: React.FC<SmartAudioPlayerProps> = ({ post, content }) =>
     return vinhetas[Math.floor(Math.random() * vinhetas.length)];
   };
 
-  // Tocar sequência: vinheta + Google TTS (TODAS as notícias)
+  // Tocar sequência: vinheta + Azure TTS (TODAS as notícias)
   const playSequence = async () => {
     setIsPlayingSequence(true);
     setCurrentPhase('generating');
 
     try {
-      console.log('🎵 Gerando/buscando áudio Google TTS...');
+      console.log('🎵 Gerando/buscando áudio Azure TTS...');
       
       let audioUrl = elevenLabsUrl;
       
       if (!audioUrl) {
-        await generateElevenLabs(); // Nome mantido mas agora gera com Google TTS
-        // Aguardar estado atualizar
-        await new Promise(resolve => setTimeout(resolve, 200));
+        await generateElevenLabs(); // Gera com Azure TTS
+        // Aguardar Azure TTS processar (demora mais que Web Speech)
+        await new Promise(resolve => setTimeout(resolve, 2000));
         audioUrl = elevenLabsUrl;
-        console.log('🔍 URL após geração:', audioUrl);
+        console.log('🔍 URL Azure TTS após geração:', audioUrl);
       }
 
       // Se temos URL, tocar com vinheta
@@ -76,8 +76,8 @@ const SmartAudioPlayer: React.FC<SmartAudioPlayerProps> = ({ post, content }) =>
           console.log('🔍 URL final para reprodução:', finalUrl);
           
           if (finalUrl) {
-            console.log('✅ Tocando Google TTS:', finalUrl);
-            playElevenLabsAudio(finalUrl); // Nome mantido mas toca Google TTS
+            console.log('✅ Tocando Azure TTS:', finalUrl);
+            playElevenLabsAudio(finalUrl); // Toca áudio Azure TTS
           } else {
             console.error('❌ ERRO: Sem URL de áudio!');
             console.error('Debug - elevenLabsUrl:', elevenLabsUrl);
