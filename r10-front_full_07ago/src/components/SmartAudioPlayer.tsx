@@ -19,7 +19,7 @@ const SmartAudioPlayer: React.FC<SmartAudioPlayerProps> = ({ post, content }) =>
   console.log('🎵 SmartAudioPlayer montado', { post, contentLength: content?.length });
   
   // Hook Azure TTS (usa voz padrão configurada no backend)
-  const { enabled: elevenLabsEnabled, loading: elevenLabsLoading, url: elevenLabsUrl, onClick: generateElevenLabs, response: ttsResponse } = useTts(post);
+  const { enabled: azureTtsEnabled, loading: azureTtsLoading, url: azureTtsUrl, onClick: generateAzureTts, response: ttsResponse } = useTts(post);
   
   // Estados para Web Speech API (fallback/notícias comuns)
   const [isWebSpeechPlaying, setIsWebSpeechPlaying] = useState(false);
@@ -44,13 +44,13 @@ const SmartAudioPlayer: React.FC<SmartAudioPlayerProps> = ({ post, content }) =>
 
   // useEffect para reagir quando Azure TTS terminar de gerar
   useEffect(() => {
-    if (waitingForAzureUrl && elevenLabsUrl) {
-      console.log('✅ Azure TTS gerado! URL:', elevenLabsUrl);
+    if (waitingForAzureUrl && azureTtsUrl) {
+      console.log('✅ Azure TTS gerado! URL:', azureTtsUrl);
       setWaitingForAzureUrl(false);
       // Agora tocar vinheta + áudio
-      playVinhetaAndAudio(elevenLabsUrl);
+      playVinhetaAndAudio(azureTtsUrl);
     }
-  }, [elevenLabsUrl, waitingForAzureUrl]);
+  }, [azureTtsUrl, waitingForAzureUrl]);
 
   // Função para tocar vinheta seguida de áudio Azure
   const playVinhetaAndAudio = (audioUrl: string) => {
@@ -65,7 +65,7 @@ const SmartAudioPlayer: React.FC<SmartAudioPlayerProps> = ({ post, content }) =>
       console.log('🎵 Vinheta terminada, iniciando Azure TTS...');
       setCurrentPhase('tts');
       console.log('✅ Tocando Azure TTS:', audioUrl);
-      playElevenLabsAudio(audioUrl);
+      playAzureTtsAudio(audioUrl);
     };
     
     vinhetaRef.current.onerror = () => {
@@ -90,15 +90,15 @@ const SmartAudioPlayer: React.FC<SmartAudioPlayerProps> = ({ post, content }) =>
       console.log('🎵 Iniciando sequência Azure TTS...');
       
       // Se já tem URL, tocar direto
-      if (elevenLabsUrl) {
-        console.log('🔍 URL já existe:', elevenLabsUrl);
-        playVinhetaAndAudio(elevenLabsUrl);
+      if (azureTtsUrl) {
+        console.log('🔍 URL já existe:', azureTtsUrl);
+        playVinhetaAndAudio(azureTtsUrl);
       } else {
         // Chamar API Azure TTS e aguardar useEffect reagir
-        console.log('� Chamando API Azure TTS...');
+        console.log('🔄 Chamando API Azure TTS...');
         setWaitingForAzureUrl(true);
-        await generateElevenLabs();
-        // useEffect vai detectar quando elevenLabsUrl for atualizado
+        await generateAzureTts();
+        // useEffect vai detectar quando azureTtsUrl for atualizado
       }
 
     } catch (error) {
@@ -113,8 +113,8 @@ const SmartAudioPlayer: React.FC<SmartAudioPlayerProps> = ({ post, content }) =>
     }
   };
 
-  // Tocar áudio ElevenLabs
-  const playElevenLabsAudio = (url: string) => {
+  // Tocar áudio Azure TTS
+  const playAzureTtsAudio = (url: string) => {
     if (audioRef.current) {
       audioRef.current.pause();
     }
@@ -137,17 +137,17 @@ const SmartAudioPlayer: React.FC<SmartAudioPlayerProps> = ({ post, content }) =>
       setProgress(0);
       setIsPlayingSequence(false);
       setCurrentPhase('idle');
-      console.log('🎉 Sequência vinheta + ElevenLabs concluída!');
+      console.log('🎉 Sequência vinheta + Azure TTS concluída!');
     };
 
     audioRef.current.onerror = () => {
-      console.error('❌ Erro ao reproduzir ElevenLabs');
+      console.error('❌ Erro ao reproduzir Azure TTS');
       setIsPlayingSequence(false);
       setCurrentPhase('idle');
     };
 
     audioRef.current.play().then(() => {
-      console.log('🤖 ElevenLabs tocando...');
+      console.log('🤖 Azure TTS tocando...');
     }).catch(error => {
       console.error('❌ Erro ao iniciar ElevenLabs:', error);
       setIsPlayingSequence(false);
@@ -279,8 +279,8 @@ const SmartAudioPlayer: React.FC<SmartAudioPlayerProps> = ({ post, content }) =>
     console.log('🎵 handlePlay chamado', { 
       isPlayingSequence, 
       isWebSpeechPlaying, 
-      elevenLabsEnabled,
-      elevenLabsUrl,
+      azureTtsEnabled,
+      azureTtsUrl,
       post 
     });
     
@@ -304,8 +304,8 @@ const SmartAudioPlayer: React.FC<SmartAudioPlayerProps> = ({ post, content }) =>
       return;
     }
 
-    // Se ElevenLabs está habilitado, usar sequência vinheta + TTS
-    if (elevenLabsEnabled) {
+    // Se Azure TTS está habilitado, usar sequência vinheta + TTS
+    if (azureTtsEnabled) {
       console.log('✅ Azure TTS habilitado, iniciando sequência');
       await playSequence();
     } else {
@@ -315,12 +315,12 @@ const SmartAudioPlayer: React.FC<SmartAudioPlayerProps> = ({ post, content }) =>
     }
   };
 
-  // Efeito para reproduzir ElevenLabs quando URL estiver pronta
+  // Efeito para reproduzir Azure TTS quando URL estiver pronta
   useEffect(() => {
-    if (elevenLabsUrl && currentPhase === 'tts') {
-      playElevenLabsAudio(elevenLabsUrl);
+    if (azureTtsUrl && currentPhase === 'tts') {
+      playAzureTtsAudio(azureTtsUrl);
     }
-  }, [elevenLabsUrl, currentPhase]);
+  }, [azureTtsUrl, currentPhase]);
 
   // Limpar recursos
   useEffect(() => {
@@ -343,7 +343,7 @@ const SmartAudioPlayer: React.FC<SmartAudioPlayerProps> = ({ post, content }) =>
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const isLoading = elevenLabsLoading || isWebSpeechLoading;
+  const isLoading = azureTtsLoading || isWebSpeechLoading;
   const isPlaying = isPlayingSequence || isWebSpeechPlaying;
   
   // Mensagem de status
