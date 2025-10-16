@@ -54,6 +54,7 @@ const SmartAudioPlayer: React.FC<SmartAudioPlayerProps> = ({ post, content }) =>
 
   // Função para tocar vinheta seguida de áudio Azure
   const playVinhetaAndAudio = (audioUrl: string) => {
+    console.log('🔍 playVinhetaAndAudio chamado com URL:', audioUrl);
     setCurrentPhase('vinheta');
     const vinhetaUrl = getRandomVinheta();
     console.log('🎵 Tocando vinheta ANTES:', vinhetaUrl);
@@ -62,10 +63,17 @@ const SmartAudioPlayer: React.FC<SmartAudioPlayerProps> = ({ post, content }) =>
     vinhetaRef.current.volume = 0.8;
     
     vinhetaRef.current.onended = () => {
-      console.log('🎵 Vinheta terminada, iniciando Azure TTS...');
+      console.log('🎵 Vinheta terminada! Agora vai tocar Azure TTS...');
+      console.log('🔍 audioUrl recebido:', audioUrl);
       setCurrentPhase('tts');
-      console.log('✅ Tocando Azure TTS:', audioUrl);
-      playAzureTtsAudio(audioUrl);
+      
+      // Tentar tocar Azure TTS
+      try {
+        console.log('✅ Chamando playAzureTtsAudio com:', audioUrl);
+        playAzureTtsAudio(audioUrl);
+      } catch (error) {
+        console.error('❌ ERRO ao chamar playAzureTtsAudio:', error);
+      }
     };
     
     vinhetaRef.current.onerror = () => {
@@ -115,14 +123,20 @@ const SmartAudioPlayer: React.FC<SmartAudioPlayerProps> = ({ post, content }) =>
 
   // Tocar áudio Azure TTS
   const playAzureTtsAudio = (url: string) => {
+    console.log('🎙️ playAzureTtsAudio chamado!');
+    console.log('🔍 URL recebida:', url);
+    
     if (audioRef.current) {
+      console.log('⏹️ Pausando áudio anterior');
       audioRef.current.pause();
     }
 
+    console.log('📦 Criando novo Audio() com URL:', url);
     audioRef.current = new Audio(url);
     audioRef.current.volume = 0.9;
 
     audioRef.current.onloadedmetadata = () => {
+      console.log('✅ Metadata carregada, duração:', audioRef.current?.duration);
       setDuration(audioRef.current?.duration || 0);
     };
 
@@ -134,22 +148,26 @@ const SmartAudioPlayer: React.FC<SmartAudioPlayerProps> = ({ post, content }) =>
     };
 
     audioRef.current.onended = () => {
+      console.log('🎉 Azure TTS terminou!');
       setProgress(0);
       setIsPlayingSequence(false);
       setCurrentPhase('idle');
       console.log('🎉 Sequência vinheta + Azure TTS concluída!');
     };
 
-    audioRef.current.onerror = () => {
+    audioRef.current.onerror = (event) => {
       console.error('❌ Erro ao reproduzir Azure TTS');
+      console.error('❌ Detalhes do erro:', event);
+      console.error('❌ URL que falhou:', url);
       setIsPlayingSequence(false);
       setCurrentPhase('idle');
     };
 
+    console.log('▶️ Tentando dar play()...');
     audioRef.current.play().then(() => {
-      console.log('🤖 Azure TTS tocando...');
+      console.log('✅ Azure TTS tocando com sucesso!');
     }).catch(error => {
-      console.error('❌ Erro ao iniciar ElevenLabs:', error);
+      console.error('❌ Erro ao iniciar Azure TTS:', error);
       setIsPlayingSequence(false);
       setCurrentPhase('idle');
     });

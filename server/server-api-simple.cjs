@@ -856,6 +856,9 @@ function createApp({ dbPath }) {
         res.setHeader('Content-Type', 'image/gif');
       } else if (path.endsWith('.webp')) {
         res.setHeader('Content-Type', 'image/webp');
+      } else if (path.endsWith('.mp3')) {
+        res.setHeader('Content-Type', 'audio/mpeg');
+        res.setHeader('Accept-Ranges', 'bytes'); // Permitir streaming
       }
     }
   }));
