@@ -593,4 +593,70 @@ arquivoRouter.get('/noticia/:id', (req, res) => {
   });
 });
 
+// Rota de DEBUG: verificar estado do banco no servidor
+arquivoRouter.get('/admin/db-status', (req, res) => {
+  const fs = require('fs');
+  const crypto = require('crypto');
+  
+  // Calcular hash do arquivo
+  let fileHash = 'N/A';
+  let fileSize = 'N/A';
+  let fileExists = fs.existsSync(DB_PATH);
+  
+  if (fileExists) {
+    try {
+      const stats = fs.statSync(DB_PATH);
+      fileSize = (stats.size / 1024 / 1024).toFixed(2) + ' MB';
+      
+      const fileBuffer = fs.readFileSync(DB_PATH);
+      const hash = crypto.createHash('md5');
+      hash.update(fileBuffer);
+      fileHash = hash.digest('hex').substring(0, 12);
+    } catch (e) {
+      fileHash = 'Erro: ' + e.message;
+    }
+  }
+  
+  // Verificar algumas notícias específicas
+  db.all('SELECT id, titulo, imagem FROM noticias WHERE id IN (75927, 75938, 60012) ORDER BY id DESC', (err, samples) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    
+    // Estatísticas de URLs
+    db.get(`SELECT 
+      COUNT(*) as total,
+      COUNT(CASE WHEN imagem LIKE 'https://pub-9dd576330b004101943425aed2436078.r2.dev%' THEN 1 END) as com_r2_publico,
+      COUNT(CASE WHEN imagem LIKE 'https://pub-%' THEN 1 END) as com_qualquer_r2,
+      COUNT(CASE WHEN imagem LIKE 'https://res.cloudinary.com%' THEN 1 END) as com_cloudinary
+    FROM noticias WHERE imagem IS NOT NULL`, (err, stats) => {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+      
+      res.json({
+        banco: {
+          caminho: DB_PATH,
+          existe: fileExists,
+          tamanho: fileSize,
+          hash_parcial: fileHash,
+          ambiente: process.env.NODE_ENV || 'development'
+        },
+        estatisticas: stats,
+        amostras: samples.map(s => ({
+          id: s.id,
+          titulo: s.titulo.substring(0, 50),
+          imagem_url: s.imagem,
+          imagem_tipo: s.imagem ? (
+            s.imagem.includes('pub-9dd576330b004101943425aed2436078') ? 'R2_PUBLICO_CORRETO' :
+            s.imagem.includes('pub-') ? 'R2_OUTRO' :
+            s.imagem.includes('cloudinary') ? 'CLOUDINARY' :
+            'LOCAL'
+          ) : 'NULL'
+        }))
+      });
+    });
+  });
+});
+
 module.exports = arquivoRouter;
