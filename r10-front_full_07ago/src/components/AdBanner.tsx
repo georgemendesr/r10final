@@ -73,9 +73,10 @@ const AdBanner: React.FC<AdBannerProps> = ({ position, className = '' }) => {
   }
 
   const getSizeClasses = (tamanho: Banner['tamanho']) => {
-    // Para news-sidebar da seção Geral, usar o mesmo tamanho da imagem principal (responsivo)
+    // Para news-sidebar da seção Geral, SEMPRE usar o tamanho responsivo da imagem principal
+    // Ignora o tamanho do banco e força classes responsivas
     if (position === 'news-sidebar') {
-      return NEWS_GENERAL_MAIN_IMAGE_CLASSES;
+      return NEWS_GENERAL_MAIN_IMAGE_CLASSES; // w-full h-48 md:h-64 lg:h-80 (320px desktop)
     }
     
     switch (tamanho) {

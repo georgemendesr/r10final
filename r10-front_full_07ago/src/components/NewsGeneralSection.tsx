@@ -83,15 +83,15 @@ const NewsGeneralSection = () => {
   };
 
   return (
-    <section className="py-6 md:py-8 bg-white font-body">
+    <section className="pt-6 md:pt-8 pb-6 md:pb-8 bg-white font-body">
       <div className="container mx-auto px-4 max-w-[1250px]">
         {/* Título da Seção SEO */}
         <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6 border-l-4 border-brand pl-4 font-title">
           {getHomeSectionTitles().geral}
         </h2>
 
-        {/* Super Banner */}
-        <div className="w-full flex justify-center mb-6 md:mb-8">
+        {/* Super Banner - Margem balanceada (6/8 acima E abaixo) */}
+        <div className="w-full flex justify-center my-6 md:my-8">
           <AdBanner position="super-banner" />
         </div>
 
