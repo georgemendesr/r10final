@@ -133,20 +133,22 @@ class AzureTtsService {
       return `${parseInt(dia)} de ${mesNome} de ${ano}`;
     });
     
-    // Remove múltiplos espaços
-    text = text.replace(/\s+/g, ' ');
+    // Remove múltiplos espaços e normaliza quebras de linha
+    text = text.replace(/\r\n/g, '\n'); // Windows → Unix
+    text = text.replace(/\r/g, '\n'); // Mac antigo → Unix
+    text = text.replace(/\s+/g, ' '); // Múltiplos espaços → um espaço
     
-    // Normalizar aspas, traços e espaços especiais que costumam quebrar SSML
-    text = text.replace(/[\x00-\x1F\x7F]/g, ''); // remove caracteres de controle invisíveis
-    text = text.replace(/\r/g, ''); // remove carriage return isolado
-    text = text.replace(/\t/g, ' '); // tab → espaço simples
+    // CRÍTICO: Remove caracteres de controle inválidos (exceto \n que já foi normalizado)
+    text = text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, '');
+    
+    // Normalizar aspas, traços e caracteres especiais
     text = text.replace(/[\u00A0\u202F]/g, ' '); // espaços não separáveis → espaço normal
     text = text.replace(/[\u201C\u201D]/g, '"'); // aspas duplas curvas → "
     text = text.replace(/[\u2018\u2019]/g, "'"); // aspas simples curvas → '
-  text = text.replace(/[\u2013\u2014]/g, '-'); // travessão / meia-risca → hífen
-  text = text.replace(/\u2022/g, '-'); // bullet → hífen
-  text = text.replace(/\u2026/g, '...'); // reticências → ...
-  text = text.replace(/[\u200B\u200C\u200D\u200E\u200F\u2028\u2029\u202A-\u202E\u2060\uFEFF]/g, ''); // remove espaços/controles invisíveis
+    text = text.replace(/[\u2013\u2014]/g, '-'); // travessão / meia-risca → hífen
+    text = text.replace(/\u2022/g, '-'); // bullet → hífen
+    text = text.replace(/\u2026/g, '...'); // reticências → ...
+    text = text.replace(/[\u200B\u200C\u200D\u200E\u200F\u2028\u2029\u202A-\u202E\u2060\uFEFF]/g, ''); // remove espaços/controles invisíveis
 
     // Normalizar pontuação repetida que quebra SSML (ex: ".." ou ",,")
     text = text.replace(/\.{2,}/g, '.');
@@ -163,9 +165,7 @@ class AzureTtsService {
     text = text.replace(/:\s+/g, ': ');
     
     return text.trim();
-  }
-
-  /**
+  }  /**
    * Cria SSML (Speech Synthesis Markup Language) para melhor controle da narração
    */
   createSSML(text, titulo = '', voiceName = null) {
@@ -180,19 +180,20 @@ class AzureTtsService {
     let ssml = `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="pt-BR">`;
     ssml += `<voice name="${voice}">`;
     
-    // Adiciona título com ênfase se fornecido
+    // UM ÚNICO prosody envolvendo TODO o conteúdo
+    ssml += `<prosody rate="0.95" pitch="+3%" volume="+2dB">`;
+    
+    // Título com ênfase (se fornecido)
     if (escapedTitle) {
-      ssml += `<prosody rate="0.95" pitch="+3%" volume="+2dB">`;
       ssml += `<emphasis level="moderate">${escapedTitle}</emphasis>`;
-      ssml += `</prosody>`;
       ssml += `<break time="1000ms"/>`; // Pausa de 1 segundo após título
     }
     
-    // Adiciona o conteúdo com velocidade natural
-    ssml += `<prosody rate="0.95" pitch="0%" volume="medium">`;
+    // Conteúdo principal
     ssml += escapedText;
-    ssml += `</prosody>`;
     
+    // Fecha o prosody único
+    ssml += `</prosody>`;
     ssml += `</voice>`;
     ssml += `</speak>`;
     
