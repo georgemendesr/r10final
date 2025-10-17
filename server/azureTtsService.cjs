@@ -173,23 +173,27 @@ class AzureTtsService {
     const cleanTitle = titulo ? this.cleanTextForSpeech(titulo) : '';
     const voice = voiceName || this.voiceName;
     
-    // NÃO escapar XML - Azure TTS pode estar rejeitando &quot;
-    // Remover aspas ao invés de escapar
+    // SOLUÇÃO: Remover aspas ao invés de escapar (Azure rejeita &quot;)
     const textSemAspas = cleanText.replace(/["'"'"]/g, '');
     const titleSemAspas = cleanTitle.replace(/["'"'"]/g, '');
     
-    // SSML MINIMALISTA - sem prosody, sem emphasis, sem break
+    // SSML otimizado: adiciona prosody leve + break (sem emphasis)
     let ssml = `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="pt-BR">`;
     ssml += `<voice name="${voice}">`;
     
-    // Adiciona título simples (se fornecido)
+    // Prosody leve para controle de velocidade
+    ssml += `<prosody rate="0.95">`;
+    
+    // Título seguido de pausa
     if (titleSemAspas) {
-      ssml += titleSemAspas + '. ';
+      ssml += titleSemAspas;
+      ssml += `<break time="800ms"/>`; // Pausa após título
     }
     
     // Conteúdo principal
     ssml += textSemAspas;
     
+    ssml += `</prosody>`;
     ssml += `</voice>`;
     ssml += `</speak>`;
     
