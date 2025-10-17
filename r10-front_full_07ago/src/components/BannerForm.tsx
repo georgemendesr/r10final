@@ -106,7 +106,6 @@ const BannerForm: React.FC<BannerFormProps> = ({ banner, onSave, onCancel }) => 
             {/* Informações Básicas */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-900">Informações Básicas</h3>
-              
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Título do Banner *
@@ -120,7 +119,6 @@ const BannerForm: React.FC<BannerFormProps> = ({ banner, onSave, onCancel }) => 
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Cliente *
@@ -134,7 +132,6 @@ const BannerForm: React.FC<BannerFormProps> = ({ banner, onSave, onCancel }) => 
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Posição *
@@ -153,18 +150,31 @@ const BannerForm: React.FC<BannerFormProps> = ({ banner, onSave, onCancel }) => 
                   ))}
                 </select>
               </div>
-
-              {/* Tipo de Banner e Tamanho definidos automaticamente */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Tipo de Banner *
+                </label>
+                <select
+                  name="tipo"
+                  value={formData.tipo}
+                  onChange={handleInputChange}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                >
+                  <option value="imagem">Imagem</option>
+                  <option value="gif">GIF Animado</option>
+                  <option value="html">HTML/AdSense</option>
+                  <option value="video">Vídeo</option>
+                </select>
+              </div>
             </div>
-
             {/* Conteúdo do Banner */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-900">Conteúdo</h3>
-
-              {formData.tipo === 'imagem' || formData.tipo === 'gif' ? (
+              {(formData.tipo === 'imagem' || formData.tipo === 'gif' || formData.tipo === 'video') && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Upload de Imagem
+                    Upload de Arquivo
                   </label>
                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
                     {imagePreview ? (
@@ -182,7 +192,7 @@ const BannerForm: React.FC<BannerFormProps> = ({ banner, onSave, onCancel }) => 
                           }}
                           className="text-red-600 text-sm hover:text-red-800"
                         >
-                          Remover imagem
+                          Remover arquivo
                         </button>
                       </div>
                     ) : (
@@ -194,7 +204,7 @@ const BannerForm: React.FC<BannerFormProps> = ({ banner, onSave, onCancel }) => 
                           </span>
                           <input
                             type="file"
-                            accept="image/*"
+                            accept={formData.tipo === 'video' ? 'video/*' : 'image/*'}
                             onChange={handleImageUpload}
                             disabled={uploading}
                             className="hidden"
@@ -203,7 +213,6 @@ const BannerForm: React.FC<BannerFormProps> = ({ banner, onSave, onCancel }) => 
                       </div>
                     )}
                   </div>
-                  
                   <div className="mt-2">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Link de Destino
@@ -218,7 +227,8 @@ const BannerForm: React.FC<BannerFormProps> = ({ banner, onSave, onCancel }) => 
                     />
                   </div>
                 </div>
-              ) : (
+              )}
+              {formData.tipo === 'html' && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Código HTML/AdSense
@@ -238,114 +248,6 @@ const BannerForm: React.FC<BannerFormProps> = ({ banner, onSave, onCancel }) => 
               )}
             </div>
           </div>
-
-          {/* Configurações Avançadas */}
-          <div className="border-t pt-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Configurações</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Status
-                </label>
-                <select
-                  name="status"
-                  value={formData.status}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-                >
-                  <option value="ativo">Ativo</option>
-                  <option value="pausado">Pausado</option>
-                  <option value="agendado">Agendado</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Data Início
-                </label>
-                <input
-                  type="date"
-                  name="dataInicio"
-                  value={formData.dataInicio}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Data Fim
-                </label>
-                <input
-                  type="date"
-                  name="dataFim"
-                  value={formData.dataFim}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Prioridade
-                </label>
-                <select
-                  name="prioridade"
-                  value={formData.prioridade}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-                >
-                  <option value={1}>1 - Mais Alta</option>
-                  <option value={2}>2 - Alta</option>
-                  <option value={3}>3 - Média</option>
-                  <option value={4}>4 - Baixa</option>
-                  <option value={5}>5 - Mais Baixa</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Máx. Impressões
-                </label>
-                <input
-                  type="number"
-                  name="impressoesMax"
-                  value={formData.impressoesMax}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  CPM (R$)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  name="cpm"
-                  value={formData.cpm}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-                />
-              </div>
-            </div>
-
-            <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Observações
-              </label>
-              <textarea
-                name="observacoes"
-                value={formData.observacoes}
-                onChange={handleInputChange}
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-              />
-            </div>
-          </div>
-
           {/* Botões */}
           <div className="flex justify-end space-x-4 pt-6 border-t">
             <button
