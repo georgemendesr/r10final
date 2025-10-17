@@ -56,6 +56,20 @@ class AzureTtsService {
   }
 
   /**
+   * Escapa caracteres especiais para XML/SSML
+   * CRÍTICO: Previne SSML parsing errors
+   */
+  escapeXml(text) {
+    if (!text) return '';
+    return text
+      .replace(/&/g, '&amp;')   // & deve ser primeiro!
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+  }
+
+  /**
    * Limpa o HTML e prepara o texto para narração com naturalidade
    */
   cleanTextForSpeech(htmlContent) {
@@ -144,20 +158,25 @@ class AzureTtsService {
     const cleanTitle = titulo ? this.cleanTextForSpeech(titulo) : '';
     const voice = voiceName || this.voiceName;
     
+    // CRÍTICO: Escapar XML para prevenir SSML parsing errors
+    const escapedText = this.escapeXml(cleanText);
+    const escapedTitle = this.escapeXml(cleanTitle);
+    
     let ssml = `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="pt-BR">`;
     ssml += `<voice name="${voice}">`;
     
     // Adiciona título com ênfase se fornecido
-    if (cleanTitle) {
+    if (escapedTitle) {
       ssml += `<prosody rate="0.95" pitch="+3%" volume="+2dB">`;
-      ssml += `<emphasis level="moderate">${cleanTitle}</emphasis>`;
+      ssml += `<emphasis level="moderate">${escapedTitle}</emphasis>`;
       ssml += `</prosody>`;
       ssml += `<break time="1000ms"/>`; // Pausa de 1 segundo após título
     }
     
     // Adiciona o conteúdo com velocidade natural e pausas
     // Dividir em parágrafos para adicionar pausas entre eles
-    const paragraphs = cleanText.split(/\n\n+/);
+    // CRÍTICO: Usar escapedText que já tem XML entities escapadas
+    const paragraphs = escapedText.split(/\n\n+/);
     
     paragraphs.forEach((para, index) => {
       if (!para.trim()) return;
@@ -166,6 +185,7 @@ class AzureTtsService {
       ssml += `<prosody rate="0.95" pitch="0%" volume="medium">`;
       
       // Adicionar pausas em vírgulas e pontos
+      // Nota: Para já está escapado (vem de escapedText)
       let paraWithPauses = para;
       paraWithPauses = paraWithPauses.replace(/,\s+/g, ',<break time="300ms"/> ');
       paraWithPauses = paraWithPauses.replace(/\.\s+/g, '.<break time="500ms"/> ');
