@@ -79,6 +79,11 @@ const AdBanner: React.FC<AdBannerProps> = ({ position, className = '' }) => {
       return NEWS_GENERAL_MAIN_IMAGE_CLASSES; // w-full h-48 md:h-64 lg:h-80 (320px desktop)
     }
     
+    // Super-banner: largura máxima 970px e altura proporcional
+    if (position === 'super-banner') {
+      return 'w-full max-w-[970px] h-auto';
+    }
+    
     switch (tamanho) {
       case '728x90':
         return 'w-[728px] h-[90px] max-w-full';
@@ -125,11 +130,12 @@ const AdBanner: React.FC<AdBannerProps> = ({ position, className = '' }) => {
       case 'gif':
       case 'imagem':
       default:
+        const objectFitClass = position === 'news-sidebar' ? 'object-contain' : 'object-cover';
         return (
           <img
             src={banner.imagem}
             alt={banner.titulo}
-            className={`${getSizeClasses(banner.tamanho)} object-cover`}
+            className={`${getSizeClasses(banner.tamanho)} ${objectFitClass}`}
             loading="lazy"
             onError={(e) => {
               console.log('❌ AdBanner: Erro ao carregar imagem do banner:', e);

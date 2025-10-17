@@ -90,9 +90,9 @@ const NewsGeneralSection = () => {
           {getHomeSectionTitles().geral}
         </h2>
 
-        {/* Super Banner - Margem balanceada (6/8 acima E abaixo) */}
-        <div className="w-full flex justify-center my-6 md:my-8">
-          <AdBanner position="super-banner" />
+        {/* Super Banner - Margem reduzida e centralizado */}
+        <div className="w-full flex justify-center my-4 md:my-6">
+          <AdBanner position="super-banner" className="mx-auto" />
         </div>
 
         {/* 3 Equal Columns Grid - Responsivo */}
