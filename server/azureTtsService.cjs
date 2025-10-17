@@ -248,7 +248,19 @@ class AzureTtsService {
         
         console.log(`[Azure TTS] Gerando áudio: ${path.basename(outputPath)}`);
         console.log(`[Azure TTS] Tamanho do texto: ${text.length} caracteres`);
+        console.log(`[Azure TTS] Tamanho do SSML: ${ssml.length} caracteres`);
         console.log(`[Azure TTS] 🔍 SSML Gerado (primeiros 500 chars):`, ssml.substring(0, 500));
+        
+        // Debug adicional: verificar se SSML está completo
+        if (ssml.length > 10000) {
+          console.warn(`[Azure TTS] ⚠️ SSML muito grande (${ssml.length} chars)! Pode ser truncado pelo Azure.`);
+        }
+        
+        // Verificar se SSML está bem formado
+        if (!ssml.includes('</speak>')) {
+          console.error(`[Azure TTS] ❌ SSML INCOMPLETO - falta tag de fechamento </speak>!`);
+          console.log(`[Azure TTS] 🔍 SSML completo (últimos 200 chars):`, ssml.substring(ssml.length - 200));
+        }
         
         // Sintetizar
         synthesizer.speakSsmlAsync(
@@ -290,10 +302,14 @@ class AzureTtsService {
    * @param {string} outputDir - Diretório onde salvar o áudio
    * @returns {Promise<object>} Informações do áudio gerado
    */
-  async generatePostAudio(post, outputDir = './uploads/audio') {
+  async generatePostAudio(post, outputDir = './uploads/audio', options = {}) {
     if (!this.isConfigured()) {
       throw new Error('Azure TTS não configurado');
     }
+
+    // Azure TTS tem limite de ~10.000 caracteres no SSML total
+    // Vamos limitar o texto base a ~5.000 caracteres para dar margem ao SSML
+    const MAX_TEXT_LENGTH = 5000;
 
     // Montar texto completo para narração
     let fullText = '';
@@ -309,13 +325,37 @@ class AzureTtsService {
       fullText += post.conteudo;
     }
 
+    // CRÍTICO: Truncar texto se ultrapassar limite, cortando em parágrafo/frase completa
+    if (fullText.length > MAX_TEXT_LENGTH) {
+      console.log(`[Azure TTS] ⚠️ Texto muito longo (${fullText.length} chars), truncando para ${MAX_TEXT_LENGTH}...`);
+      
+      // Tentar cortar em parágrafo
+      let truncated = fullText.substring(0, MAX_TEXT_LENGTH);
+      const lastParagraph = truncated.lastIndexOf('\n\n');
+      const lastSentence = truncated.lastIndexOf('. ');
+      
+      // Priorizar corte em parágrafo, depois em frase
+      if (lastParagraph > MAX_TEXT_LENGTH * 0.8) {
+        fullText = truncated.substring(0, lastParagraph);
+      } else if (lastSentence > MAX_TEXT_LENGTH * 0.8) {
+        fullText = truncated.substring(0, lastSentence + 1); // +1 para incluir o ponto
+      } else {
+        // Último recurso: cortar em espaço
+        const lastSpace = truncated.lastIndexOf(' ');
+        fullText = truncated.substring(0, lastSpace);
+      }
+      
+      console.log(`[Azure TTS] ✂️ Texto truncado para ${fullText.length} caracteres`);
+    }
+
     // Gerar nome do arquivo
     const filename = `post-${post.id}-${Date.now()}.mp3`;
     const outputPath = path.join(outputDir, filename);
 
-    // Gerar áudio (título vai no SSML com ênfase)
+    // Gerar áudio (título vai no SSML com ênfase, voiceName pode vir em options)
     const result = await this.generateAudio(fullText, outputPath, {
-      titulo: post.titulo
+      titulo: post.titulo,
+      voiceName: options?.voiceName
     });
 
     return {
