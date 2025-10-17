@@ -50,8 +50,24 @@
 .destaque-principal-title {
   font-family: 'Outfit', sans-serif;
   font-weight: 700; /* bold */
-  font-size: 50px;
-  line-height: 55px;
+  font-size: 28px; /* Mobile: tamanho reduzido */
+  line-height: 32px;
+}
+
+/* Tablet */
+@media (min-width: 768px) {
+  .destaque-principal-title {
+    font-size: 38px;
+    line-height: 44px;
+  }
+}
+
+/* Desktop */
+@media (min-width: 1024px) {
+  .destaque-principal-title {
+    font-size: 50px;
+    line-height: 55px;
+  }
 }
 
 /* Remove qualquer arredondamento residual em spans de highlight dentro do h1 do premium */
