@@ -69,15 +69,44 @@ const QuickSummary: React.FC<QuickSummaryProps> = ({ value, onChange, content })
           messages: [
             {
               role: 'system',
-              content: 'Você é um jornalista especializado em resumos objetivos. Responda APENAS com 4 linhas, cada uma começando com "• " seguido de uma frase direta e informativa. NÃO use markdown, NÃO use títulos como "Tópico 1", NÃO use formatação. Apenas bullet points simples.'
+              content: `Você é um jornalista experiente especializado em criar resumos noticiosos contextualizados e informativos.
+
+REGRAS OBRIGATÓRIAS:
+1. Crie EXATAMENTE 4 pontos-chave da notícia
+2. Cada ponto deve começar com "• " (bullet point + espaço)
+3. Cada frase deve ter entre 60-80 caracteres
+4. Use linguagem jornalística profissional e direta
+5. Mantenha o CONTEXTO COMPLETO: quem, o quê, quando, onde, por quê
+6. NÃO fragmente informações: cada ponto deve fazer sentido sozinho
+7. NÃO use títulos como "Tópico 1", "Item 1", etc.
+8. NÃO use formatação markdown (**, __, etc.)
+9. Priorize informações mais relevantes nos primeiros pontos
+
+FORMATO ESPERADO:
+• [Frase completa com contexto sobre o fato principal]
+• [Frase completa com contexto sobre desdobramento importante]
+• [Frase completa com contexto sobre impacto ou consequência]
+• [Frase completa com contexto sobre próximos passos ou conclusão]
+
+EXEMPLO BOM:
+• O R10 Piauí transmitiu ao vivo o Festejo de Nossa Senhora dos Remédios em Piripiri
+• A transmissão ocorreu durante 12 dias consecutivos, de 5 a 16 de outubro de 2024
+• Milhares de devotos acompanharam as celebrações religiosas pela plataforma digital
+• A iniciativa democratizou o acesso ao festejo para quem não pôde comparecer presencialmente
+
+EXEMPLO RUIM (fragmentado, sem contexto):
+• Acompanhei todas as noites e me emocionei muito
+• O R10 Piauí encerrou com sucesso na quinta-feira
+• Durante 12 dias consecutivos de 5 a 16 de outubro
+• A iniciativa possibilitou que devotos de Piripiri`
             },
             {
               role: 'user',
-              content: `Resuma esta notícia em 4 bullet points simples:\n\n${textContent}`
+              content: `Crie um resumo noticioso contextualizado e inteligente com 4 pontos-chave desta matéria:\n\n${textContent}`
             }
           ],
-          max_tokens: 200,
-          temperature: 0.7,
+          max_tokens: 300,
+          temperature: 0.5,
         }),
       });
 
