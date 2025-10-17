@@ -154,49 +154,14 @@ const BannerForm: React.FC<BannerFormProps> = ({ banner, onSave, onCancel }) => 
                 </select>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Tipo de Banner *
-                </label>
-                <select
-                  name="tipo"
-                  value={formData.tipo}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-                >
-                  <option value="imagem">Imagem</option>
-                  <option value="html">HTML/AdSense</option>
-                  <option value="video">Vídeo</option>
-                  <option value="gif">GIF</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Tamanho *
-                </label>
-                <select
-                  name="tamanho"
-                  value={formData.tamanho}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-                >
-                  {sizes.map(size => (
-                    <option key={size.value} value={size.value}>
-                      {size.label} - {size.dimensions}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {/* Tipo de Banner e Tamanho definidos automaticamente */}
             </div>
 
             {/* Conteúdo do Banner */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-900">Conteúdo</h3>
 
-              {formData.tipo === 'imagem' ? (
+              {formData.tipo === 'imagem' || formData.tipo === 'gif' ? (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Upload de Imagem
