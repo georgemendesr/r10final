@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Youtube, Eye, Clock, Calendar, TrendingUp, Users, BarChart3, Trash2, Edit3, MoreVertical, Filter, Search, Sparkles } from 'lucide-react';
+import { Play, Youtube, Eye, Clock, Calendar, TrendingUp, Users, BarChart3, Trash2, Edit3, MoreVertical, Filter, Search, Sparkles, X } from 'lucide-react';
 import { getRecentVideos, getChannelStats, formatRelativeDate, getVideoCategory } from '../services/youtubeService';
 
 interface Video {
@@ -26,6 +26,7 @@ interface Stats {
 const R10PlayPage = () => {
   const [videos, setVideos] = useState<Video[]>([]);
   const [stats, setStats] = useState<Stats>(getChannelStats());
+  const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
 
   useEffect(() => {
     // Carregar dados reais do canal
@@ -45,8 +46,17 @@ const R10PlayPage = () => {
     return formatRelativeDate(dateString);
   };
 
-  const openVideo = (url: string) => {
-    window.open(url, '_blank');
+  const openVideo = (video: Video) => {
+    setSelectedVideo(video);
+  };
+
+  const closeVideo = () => {
+    setSelectedVideo(null);
+  };
+
+  const getYouTubeVideoId = (url: string) => {
+    const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&]+)/);
+    return match ? match[1] : null;
   };
 
   const deleteVideo = (id: string) => {
@@ -220,7 +230,7 @@ const R10PlayPage = () => {
                 {/* Play Button */}
                 <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                   <button
-                    onClick={() => openVideo(video.url)}
+                    onClick={() => openVideo(video)}
                     className="w-14 h-14 bg-red-600 rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-transform hover:bg-red-700"
                     aria-label={`Reproduzir vídeo: ${video.title}`}
                   >
@@ -311,6 +321,70 @@ const R10PlayPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Modal Popup de Vídeo */}
+      {selectedVideo && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-fadeIn"
+          onClick={closeVideo}
+        >
+          <div 
+            className="relative w-full max-w-5xl bg-neutral-900 rounded-2xl shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Botão Fechar */}
+            <button
+              onClick={closeVideo}
+              className="absolute top-4 right-4 z-10 w-10 h-10 flex items-center justify-center bg-black/70 hover:bg-black text-white rounded-full transition-all hover:scale-110"
+              aria-label="Fechar vídeo"
+            >
+              <X className="w-6 h-6" />
+            </button>
+
+            {/* Player YouTube Embed */}
+            <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+              <iframe
+                className="absolute inset-0 w-full h-full"
+                src={`https://www.youtube.com/embed/${getYouTubeVideoId(selectedVideo.url)}?autoplay=1&rel=0`}
+                title={selectedVideo.title}
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+
+            {/* Informações do Vídeo */}
+            <div className="p-6 bg-gradient-to-b from-neutral-900 to-neutral-950">
+              <h3 className="text-xl md:text-2xl font-bold text-white mb-3">
+                {selectedVideo.title}
+              </h3>
+              <div className="flex flex-wrap items-center gap-4 text-sm text-gray-400">
+                <div className="flex items-center gap-2">
+                  <Eye className="w-4 h-4 text-red-500" />
+                  <span>{selectedVideo.viewCount} visualizações</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-red-500" />
+                  <span>{formatDate(selectedVideo.publishedAt)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-red-500" />
+                  <span>{selectedVideo.duration}</span>
+                </div>
+              </div>
+              <a
+                href={selectedVideo.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-4 inline-flex items-center gap-2 text-red-500 hover:text-red-400 transition-colors text-sm font-semibold"
+              >
+                <Youtube className="w-4 h-4" />
+                Assistir no YouTube
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

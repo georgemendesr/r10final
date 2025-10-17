@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Youtube, Eye, Clock, Calendar, Sparkles, TrendingUp } from 'lucide-react';
+import { Play, Youtube, Eye, Clock, Calendar, Sparkles, X } from 'lucide-react';
 import { fetchRecentVideos, getChannelStats, formatRelativeDate, getVideoCategory } from '../services/youtubeService';
 
 interface Video {
@@ -17,6 +17,7 @@ const R10PlaySection = () => {
   const [videos, setVideos] = useState<Video[]>([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(getChannelStats());
+  const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
   
   // Sempre renderizar a seção: se não houver chaves, o youtubeService usa fallback real
 
@@ -36,8 +37,18 @@ const R10PlaySection = () => {
     loadVideos();
   }, []);
 
-  const openVideo = (url: string) => {
-    window.open(url, '_blank');
+  const openVideo = (video: Video) => {
+    setSelectedVideo(video);
+  };
+
+  const closeVideo = () => {
+    setSelectedVideo(null);
+  };
+
+  // Extrair videoId da URL do YouTube
+  const getYouTubeVideoId = (url: string) => {
+    const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&]+)/);
+    return match ? match[1] : null;
   };
 
   return (
@@ -54,13 +65,9 @@ const R10PlaySection = () => {
               alt="R10 Play" 
               className="h-12 md:h-14 w-auto drop-shadow-2xl" 
             />
-            <div className="hidden md:flex items-center gap-2 text-red-500">
-              <TrendingUp className="w-5 h-5 animate-pulse" />
-              <span className="text-sm font-semibold uppercase tracking-wider">Vídeos em Alta</span>
-            </div>
           </div>
           <p className="text-gray-400 text-sm md:text-base">
-            Conteúdo exclusivo produzido pela nossa equipe
+            Conteúdo original e exclusivo do R10 Piauí
           </p>
         </div>
 
@@ -89,7 +96,7 @@ const R10PlaySection = () => {
                 className={`group cursor-pointer rounded-xl overflow-hidden bg-neutral-800/50 backdrop-blur hover:bg-neutral-800 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-red-900/30 ${
                   index === 0 ? 'ring-2 ring-red-500 ring-offset-2 ring-offset-neutral-900' : ''
                 }`}
-                onClick={() => openVideo(video.url)}
+                onClick={() => openVideo(video)}
               >
                 <div className="relative aspect-video overflow-hidden">
                   <img 
@@ -176,6 +183,75 @@ const R10PlaySection = () => {
           )}
         </div>
       </div>
+
+      {/* Modal Popup de Vídeo */}
+      {selectedVideo && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-fadeIn"
+          onClick={closeVideo}
+        >
+          <div 
+            className="relative w-full max-w-5xl bg-neutral-900 rounded-2xl shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Botão Fechar */}
+            <button
+              onClick={closeVideo}
+              className="absolute top-4 right-4 z-10 w-10 h-10 flex items-center justify-center bg-black/70 hover:bg-black text-white rounded-full transition-all hover:scale-110"
+              aria-label="Fechar vídeo"
+            >
+              <X className="w-6 h-6" />
+            </button>
+
+            {/* Player YouTube Embed */}
+            <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+              <iframe
+                className="absolute inset-0 w-full h-full"
+                src={`https://www.youtube.com/embed/${getYouTubeVideoId(selectedVideo.url)}?autoplay=1&rel=0`}
+                title={selectedVideo.title}
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+
+            {/* Informações do Vídeo */}
+            <div className="p-6 bg-gradient-to-b from-neutral-900 to-neutral-950">
+              <h3 className="text-xl md:text-2xl font-bold text-white mb-3">
+                {selectedVideo.title}
+              </h3>
+              <div className="flex flex-wrap items-center gap-4 text-sm text-gray-400">
+                <div className="flex items-center gap-2">
+                  <Eye className="w-4 h-4 text-red-500" />
+                  <span>{selectedVideo.viewCount} visualizações</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-red-500" />
+                  <span>{formatRelativeDate(selectedVideo.publishedAt)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-red-500" />
+                  <span>{selectedVideo.duration}</span>
+                </div>
+              </div>
+              {selectedVideo.description && (
+                <p className="mt-4 text-gray-300 text-sm line-clamp-3">
+                  {selectedVideo.description}
+                </p>
+              )}
+              <a
+                href={selectedVideo.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-4 inline-flex items-center gap-2 text-red-500 hover:text-red-400 transition-colors text-sm font-semibold"
+              >
+                <Youtube className="w-4 h-4" />
+                Assistir no YouTube
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 };
