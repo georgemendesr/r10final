@@ -188,34 +188,10 @@ class AzureTtsService {
       ssml += `<break time="1000ms"/>`; // Pausa de 1 segundo após título
     }
     
-    // Adiciona o conteúdo com velocidade natural e pausas
-    // Dividir em parágrafos para adicionar pausas entre eles
-    // CRÍTICO: Usar escapedText que já tem XML entities escapadas
-    const paragraphs = escapedText.split(/\n\n+/);
-    
-    paragraphs.forEach((para, index) => {
-      if (!para.trim()) return;
-      
-      // Velocidade um pouco mais lenta para melhor compreensão
-      ssml += `<prosody rate="0.95" pitch="0%" volume="medium">`;
-      
-      // Adicionar pausas em vírgulas e pontos
-      // Nota: Para já está escapado (vem de escapedText)
-      let paraWithPauses = para;
-      paraWithPauses = paraWithPauses.replace(/,\s+/g, ',<break time="300ms"/> ');
-      paraWithPauses = paraWithPauses.replace(/\.\s+/g, '.<break time="500ms"/> ');
-      paraWithPauses = paraWithPauses.replace(/!\s+/g, '!<break time="600ms"/> ');
-      paraWithPauses = paraWithPauses.replace(/\?\s+/g, '?<break time="600ms"/> ');
-      paraWithPauses = paraWithPauses.replace(/:\s+/g, ':<break time="400ms"/> ');
-      
-      ssml += paraWithPauses;
-      ssml += `</prosody>`;
-      
-      // Pausa entre parágrafos
-      if (index < paragraphs.length - 1) {
-        ssml += `<break time="800ms"/>`;
-      }
-    });
+    // Adiciona o conteúdo com velocidade natural
+    ssml += `<prosody rate="0.95" pitch="0%" volume="medium">`;
+    ssml += escapedText;
+    ssml += `</prosody>`;
     
     ssml += `</voice>`;
     ssml += `</speak>`;
