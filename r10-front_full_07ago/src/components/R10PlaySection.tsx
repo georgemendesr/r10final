@@ -306,13 +306,13 @@ const R10PlaySection = () => {
             <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
               {getYouTubeVideoId(selectedVideo.url) ? (
                 <iframe
+                  key={selectedVideo.id}
                   className="absolute inset-0 w-full h-full"
                   src={`https://www.youtube.com/embed/${getYouTubeVideoId(selectedVideo.url)}?autoplay=1&rel=0&modestbranding=1&enablejsapi=1`}
                   title={selectedVideo.title}
                   frameBorder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   allowFullScreen
-                  loading="lazy"
                 />
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center bg-neutral-800">

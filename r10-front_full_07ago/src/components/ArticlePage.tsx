@@ -116,7 +116,7 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
             content: post.conteudo ? [post.conteudo] : [],
             tags: [],
             readTime: calculateReadTime(post.conteudo ? [post.conteudo] : []),
-            views: post.visualizacoes?.toString() || '0',
+            views: ((post.visualizacoes || 0) + 200).toString(),
             resumo: post.resumo || '', // Campo resumo da IA
             posicao: post.posicao // Adicionando posição elegível para TTS
           });
@@ -750,7 +750,7 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
               {/* Mobile Widgets */}
               <div className="lg:hidden mt-8 space-y-6">
                 <AdBox />
-                <RelatedWidget />
+                <RelatedWidget currentPostId={id} category={finalArticle.category} />
                 <MostRead />
                 <NewsletterCTA />
               </div>
@@ -760,7 +760,7 @@ const ArticlePage: React.FC<ArticlePageProps> = ({ articleData }) => {
             <aside className="col-span-3 hidden lg:flex flex-col gap-8">
               <AdBox />
               <MostRead />
-              <RelatedWidget />
+              <RelatedWidget currentPostId={id} category={finalArticle.category} />
               <NewsletterCTA />
             </aside>
           </div>

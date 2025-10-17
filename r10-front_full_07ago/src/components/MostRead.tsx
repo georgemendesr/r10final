@@ -98,12 +98,10 @@ const MostRead: React.FC = memo(() => {
                         {(post as any).titulo || (post as any).title || 'Título não disponível'}
                       </Link>
                       
-                      {post.views && (
-                        <div className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                          <span>👁️</span>
-                          <span>{post.views}</span>
-                        </div>
-                      )}
+                      <div className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                        <span>👁️</span>
+                        <span>{((post.visualizacoes || 0) + 200).toLocaleString('pt-BR')}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
