@@ -58,15 +58,15 @@ class AzureTtsService {
   /**
    * Escapa caracteres especiais para XML/SSML
    * CRÍTICO: Previne SSML parsing errors
-   * IMPORTANTE: Não escapar aspas pois elas são normalizadas antes e não quebram SSML em conteúdo de texto
    */
   escapeXml(text) {
     if (!text) return '';
     return text
       .replace(/&/g, '&amp;')   // & deve ser primeiro!
       .replace(/</g, '&lt;')    // < pode indicar tag HTML
-      .replace(/>/g, '&gt;');   // > pode indicar tag HTML
-    // NÃO escapar " e ' pois cleanTextForSpeech já normaliza e eles não quebram SSML em text nodes
+      .replace(/>/g, '&gt;')    // > pode indicar tag HTML
+      .replace(/"/g, '&quot;')  // aspas duplas
+      .replace(/'/g, '&apos;'); // aspas simples
   }
 
   /**
@@ -237,6 +237,7 @@ class AzureTtsService {
         // Criar SSML com voz customizada
         let ssml = this.createSSML(text, options.titulo, voiceToUse);
 
+        // Detectar e remover caracteres XML inválidos
         const invalidXmlRegex = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uD800-\uDFFF\uFFFE\uFFFF]/g;
         const invalidMatches = ssml.match(invalidXmlRegex);
         if (invalidMatches) {
@@ -245,6 +246,13 @@ class AzureTtsService {
           ssml = ssml.replace(invalidXmlRegex, '');
           console.warn(`[Azure TTS] ⚠️ Removidos ${invalidMatches.length} caracteres inválidos do SSML.`);
         }
+        
+        // Log hexadecimal dos primeiros 200 chars para debug
+        const hex = ssml.substring(0, 200).split('').map(c => {
+          const code = c.charCodeAt(0);
+          return code < 32 || code > 126 ? `[${code.toString(16).toUpperCase()}]` : c;
+        }).join('');
+        console.log('[Azure TTS] 🔍 Hex (primeiros 200):', hex);
         
         console.log(`[Azure TTS] Gerando áudio: ${path.basename(outputPath)}`);
         console.log(`[Azure TTS] Tamanho do texto: ${text.length} caracteres`);
