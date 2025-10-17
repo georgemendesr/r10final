@@ -57,16 +57,24 @@ const AdBanner: React.FC<AdBannerProps> = ({ position, className = '' }) => {
     );
   }
 
-  // Se há erro, mostrar banner de teste
+  // Se há erro, mostrar banner de teste COM AS DIMENSÕES CORRETAS
   if (error || !banner) {
     console.log(`🚫 AdBanner: Mostrando banner de teste para posição ${position}`);
+    
+    // Dimensões específicas por posição
+    let testBannerClasses = 'w-full h-20'; // padrão
+    
+    if (position === 'news-sidebar') {
+      testBannerClasses = NEWS_GENERAL_MAIN_IMAGE_CLASSES; // h-48 md:h-64 lg:h-80
+    } else if (position === 'super-banner') {
+      testBannerClasses = 'w-full max-w-[970px] h-[90px] md:h-[120px]'; // Super banner responsivo
+    }
+    
     return (
-      <div className={`${className} bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg cursor-pointer`}>
-        <div className="w-full h-20 flex items-center justify-center text-white">
-          <div className="text-center">
-            <div className="text-lg font-bold">BANNER TESTE</div>
-            <div className="text-xs opacity-80">{position}</div>
-          </div>
+      <div className={`${className} ${testBannerClasses} bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg cursor-pointer flex items-center justify-center`}>
+        <div className="text-white text-center">
+          <div className="text-lg font-bold">BANNER TESTE</div>
+          <div className="text-xs opacity-80">{position}</div>
         </div>
       </div>
     );
