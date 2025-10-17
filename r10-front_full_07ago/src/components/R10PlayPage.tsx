@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Play, Youtube, Eye, Clock, Calendar, TrendingUp, Users, BarChart3, Trash2, Edit3, MoreVertical, Filter, Search, Sparkles, X } from 'lucide-react';
-import { getRecentVideos, getChannelStats, formatRelativeDate, getVideoCategory } from '../services/youtubeService';
+import { fetchRecentVideos, fetchChannelStats, getChannelStats, formatRelativeDate, getVideoCategory } from '../services/youtubeService';
 
 interface Video {
   id: string;
@@ -19,23 +19,48 @@ interface Stats {
   totalViews: string;  // API retorna como string formatada
   totalSubscribers: string;  // API retorna como string formatada
   averageViews: number;
-  topCategory: string;
-  growthRate: number;
+  channelTitle?: string;
+  channelDescription?: string;
 }
 
 const R10PlayPage = () => {
   const [videos, setVideos] = useState<Video[]>([]);
   const [stats, setStats] = useState<Stats>(getChannelStats());
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Carregar dados reais do canal
-    const realVideos = getRecentVideos().map(video => ({
-      ...video,
-      category: getVideoCategory(video.title),
-      status: 'active' as const
-    }));
-    setVideos(realVideos);
+    // Carregar dados REAIS do canal via backend
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        const [recentVideos, channelStats] = await Promise.all([
+          fetchRecentVideos(20), // Mais vídeos para a página completa
+          fetchChannelStats()
+        ]);
+        
+        const videosWithMeta = recentVideos.map(video => ({
+          ...video,
+          category: getVideoCategory(video.title),
+          status: 'active' as const
+        }));
+        
+        setVideos(videosWithMeta);
+        setStats(channelStats as any);
+        
+        console.log('📺 R10 Play Page carregada:', {
+          videos: videosWithMeta.length,
+          subscribers: channelStats.totalSubscribers,
+          views: channelStats.totalViews
+        });
+      } catch (error) {
+        console.error('Erro ao carregar dados do YouTube:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
   }, []);
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -102,7 +127,7 @@ const R10PlayPage = () => {
                   <h1 className="text-2xl md:text-3xl font-bold text-white">R10 Play</h1>
                   <TrendingUp className="w-5 h-5 text-red-500 animate-pulse" />
                 </div>
-                <p className="text-gray-300 text-sm">Conteúdo exclusivo do Piauí</p>
+                <p className="text-gray-300 text-sm">Conteúdo exclusivo do R10 Piauí</p>
               </div>
             </div>
             <a 
@@ -116,8 +141,8 @@ const R10PlayPage = () => {
       </div>
 
       <div className="container mx-auto px-4 max-w-[1250px] py-8">
-        {/* Estatísticas Modernizadas */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {/* Estatísticas Modernizadas - SEM Crescimento */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-gradient-to-br from-neutral-900 to-neutral-800 rounded-xl p-6 shadow-lg border border-red-900/30 hover:border-red-700/50 transition-all">
             <div className="flex items-center justify-between">
               <div>
@@ -150,18 +175,6 @@ const R10PlayPage = () => {
               </div>
               <div className="w-14 h-14 bg-gradient-to-br from-purple-600 to-purple-700 rounded-xl flex items-center justify-center shadow-lg">
                 <Users className="w-7 h-7 text-white" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-br from-neutral-900 to-neutral-800 rounded-xl p-6 shadow-lg border border-red-900/30 hover:border-red-700/50 transition-all">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-400 text-sm mb-1">Crescimento</p>
-                <p className="text-3xl font-bold text-green-400">+{stats.growthRate}%</p>
-              </div>
-              <div className="w-14 h-14 bg-gradient-to-br from-green-600 to-green-700 rounded-xl flex items-center justify-center shadow-lg">
-                <TrendingUp className="w-7 h-7 text-white" />
               </div>
             </div>
           </div>
@@ -341,15 +354,16 @@ const R10PlayPage = () => {
               <X className="w-6 h-6" />
             </button>
 
-            {/* Player YouTube Embed */}
+            {/* Player YouTube Embed - Otimizado para performance */}
             <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
               <iframe
                 className="absolute inset-0 w-full h-full"
-                src={`https://www.youtube.com/embed/${getYouTubeVideoId(selectedVideo.url)}?autoplay=1&rel=0`}
+                src={`https://www.youtube.com/embed/${getYouTubeVideoId(selectedVideo.url)}?autoplay=1&rel=0&modestbranding=1&enablejsapi=1`}
                 title={selectedVideo.title}
                 frameBorder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                 allowFullScreen
+                loading="lazy"
               />
             </div>
 

@@ -58,15 +58,15 @@ class AzureTtsService {
   /**
    * Escapa caracteres especiais para XML/SSML
    * CRÍTICO: Previne SSML parsing errors
+   * IMPORTANTE: Não escapar aspas pois elas são normalizadas antes e não quebram SSML em conteúdo de texto
    */
   escapeXml(text) {
     if (!text) return '';
     return text
       .replace(/&/g, '&amp;')   // & deve ser primeiro!
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&apos;');
+      .replace(/</g, '&lt;')    // < pode indicar tag HTML
+      .replace(/>/g, '&gt;');   // > pode indicar tag HTML
+    // NÃO escapar " e ' pois cleanTextForSpeech já normaliza e eles não quebram SSML em text nodes
   }
 
   /**

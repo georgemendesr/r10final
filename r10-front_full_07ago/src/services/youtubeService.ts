@@ -1,5 +1,5 @@
-// Serviço para buscar dados do canal R10 Piauí no YouTube
-// Implementação real com YouTube Data API v3
+// Serviço para buscar dados REAIS do canal R10 Piauí no YouTube
+// Busca dados do backend que usa YouTube Data API v3
 
 interface YouTubeVideo {
   id: string;
@@ -10,6 +10,8 @@ interface YouTubeVideo {
   duration: string;
   url: string;
   description: string;
+  likeCount?: string;
+  commentCount?: string;
 }
 
 interface ChannelStats {
@@ -17,87 +19,74 @@ interface ChannelStats {
   totalViews: string;
   totalSubscribers: string;
   averageViews: number;
-  topCategory: string;
-  growthRate: number;
+  channelTitle?: string;
+  channelDescription?: string;
+  channelThumbnail?: string;
+  lastUpdate?: string;
+  isFallback?: boolean;
 }
 
-// Configuração da API do YouTube
-const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const CHANNEL_ID = import.meta.env.VITE_YOUTUBE_CHANNEL_ID;
-const API_BASE_URL = 'https://www.googleapis.com/youtube/v3';
+// URL do backend
+const API_BASE = window.location.hostname === 'localhost' 
+  ? 'http://localhost:3002' 
+  : '';
 
-// Função para buscar vídeos reais do canal
-export const fetchRecentVideos = async (): Promise<YouTubeVideo[]> => {
-  if (!YOUTUBE_API_KEY || !CHANNEL_ID) {
-    console.warn('YouTube API Key ou Channel ID não configurados. Usando dados de exemplo.');
-    return getRecentVideos();
-  }
-
+// Função para buscar vídeos reais do canal via backend
+export const fetchRecentVideos = async (maxResults = 8): Promise<YouTubeVideo[]> => {
   try {
-    // Buscar vídeos do canal
-    const response = await fetch(
-      `${API_BASE_URL}/search?part=snippet&channelId=${CHANNEL_ID}&maxResults=8&order=date&type=video&key=${YOUTUBE_API_KEY}`
-    );
+    const response = await fetch(`${API_BASE}/api/youtube/videos?maxResults=${maxResults}`);
     
     if (!response.ok) {
-      throw new Error('Erro ao buscar vídeos do YouTube');
+      console.warn('Erro ao buscar vídeos do backend. Usando fallback.');
+      return getRecentVideos();
     }
 
-    const data = await response.json();
+    const result = await response.json();
     
-    // Buscar detalhes dos vídeos (duração, visualizações)
-    const videoIds = data.items.map((item: any) => item.id.videoId).join(',');
-    const detailsResponse = await fetch(
-      `${API_BASE_URL}/videos?part=contentDetails,statistics&id=${videoIds}&key=${YOUTUBE_API_KEY}`
-    );
+    if (result.success && result.data) {
+      console.log(`✅ ${result.data.length} vídeos carregados do YouTube`);
+      return result.data;
+    }
     
-    const detailsData = await detailsResponse.json();
-    
-    // Combinar dados
-    const videos: YouTubeVideo[] = data.items.map((item: any, index: number) => {
-      const details = detailsData.items[index];
-      return {
-        id: item.id.videoId,
-        title: item.snippet.title,
-        thumbnail: item.snippet.thumbnails.maxresdefault?.url || item.snippet.thumbnails.high.url,
-        publishedAt: item.snippet.publishedAt,
-        viewCount: formatViewCount(details.statistics.viewCount),
-        duration: formatDuration(details.contentDetails.duration),
-        url: `https://www.youtube.com/watch?v=${item.id.videoId}`,
-        description: item.snippet.description.substring(0, 200)
-      };
-    });
-    
-    return videos;
+    return getRecentVideos();
   } catch (error) {
     console.error('Erro ao buscar vídeos do YouTube:', error);
-    return getRecentVideos(); // Fallback para dados de exemplo
+    return getRecentVideos(); // Fallback para dados locais
   }
 };
 
-// Função para formatar duração do YouTube (PT4M13S -> 4:13)
-const formatDuration = (duration: string): string => {
-  const match = duration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
-  if (!match) return '0:00';
-  
-  const hours = parseInt(match[1]?.replace('H', '') || '0');
-  const minutes = parseInt(match[2]?.replace('M', '') || '0');
-  const seconds = parseInt(match[3]?.replace('S', '') || '0');
-  
-  return hours > 0 
-    ? `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
-    : `${minutes}:${seconds.toString().padStart(2, '0')}`;
+// Função para buscar estatísticas reais do canal via backend
+export const fetchChannelStats = async (): Promise<ChannelStats> => {
+  try {
+    const response = await fetch(`${API_BASE}/api/youtube/stats`);
+    
+    if (!response.ok) {
+      console.warn('Erro ao buscar estatísticas do backend. Usando fallback.');
+      return getChannelStats();
+    }
+
+    const result = await response.json();
+    
+    if (result.success && result.data) {
+      console.log('✅ Estatísticas do canal carregadas:', result.data);
+      return result.data;
+    }
+    
+    return getChannelStats();
+  } catch (error) {
+    console.error('Erro ao buscar estatísticas do canal:', error);
+    return getChannelStats();
+  }
 };
 
-// Dados reais do canal R10 Piauí (atualizados manualmente)
+// Dados de fallback do canal R10 Piauí
 export const getChannelStats = (): ChannelStats => {
   return {
     totalVideos: 245,
     totalViews: '1.2M',
     totalSubscribers: '12.5K',
     averageViews: 4800,
-    topCategory: 'Notícias',
-    growthRate: 8.5
+    isFallback: true
   };
 };
 

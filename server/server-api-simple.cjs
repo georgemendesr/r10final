@@ -3826,6 +3826,12 @@ function createApp({ dbPath }) {
 
   console.log('🎙️ Rotas Azure TTS registradas em /api/tts/*');
 
+  // Registrar rotas YouTube
+  const youtubeRoutes = require('./youtubeRoutes.cjs');
+  app.use('/api/youtube', youtubeRoutes);
+
+  console.log('📺 Rotas YouTube registradas em /api/youtube/*');
+
   // Registrar rotas de Configurações
   const settingsRoutes = require('./settingsRoutes.cjs');
   app.use('/api/settings', settingsRoutes);
