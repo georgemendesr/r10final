@@ -560,8 +560,8 @@ const Dashboard = () => {
             ...(canAccessCategories ? [{ id: 'categorias', label: 'Categorias', icon: Settings, badge: null, url: '/admin?tab=categorias' }] : []),
             { id: 'analytics', label: 'Analytics', icon: TrendingUp, badge: null, url: '/admin?tab=analytics' },
             { id: 'advanced-analytics', label: 'Analytics Avançados', icon: BarChart3, badge: 'NEW', url: '/admin?tab=advanced-analytics' },
-            ...(canAccessUsers ? [{ id: 'usuarios', label: 'Usuários', icon: Users, badge: null, url: '/admin/usuarios' }] : []),
-            { id: 'configuracoes', label: 'Configurações', icon: Settings, badge: null, url: '/admin?tab=configuracoes' }
+            ...(canAccessUsers ? [{ id: 'usuarios', label: 'Usuários', icon: Users, badge: null, url: '/admin/usuarios' }] : [])
+            // Configurações removidas do menu - acessível apenas via URL direta /admin?tab=configuracoes
           ].map(item => (
             <Link
               key={item.id}
