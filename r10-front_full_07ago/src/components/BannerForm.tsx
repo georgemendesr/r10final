@@ -150,6 +150,32 @@ const BannerForm: React.FC<BannerFormProps> = ({ banner, onSave, onCancel }) => 
                   ))}
                 </select>
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Data Início
+                  </label>
+                  <input
+                    type="date"
+                    name="dataInicio"
+                    value={formData.dataInicio}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Data Fim
+                  </label>
+                  <input
+                    type="date"
+                    name="dataFim"
+                    value={formData.dataFim}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                  />
+                </div>
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Tipo de Banner *
