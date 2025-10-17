@@ -2155,27 +2155,61 @@ function createApp({ dbPath }) {
   app._router && app._router.stack && (app._router.stack = app._router.stack.filter(l => !(l.route && l.route.path === '/api/users/:id' && l.route.methods.put)));
   app.put('/api/users/:id', authMiddleware, requireRole('admin'), (req, res) => {
     const targetId = Number(req.params.id);
-    const { name, role, avatar } = req.body || {};
+    const { name, email, password, role, avatar } = req.body || {};
     if (!targetId) return res.status(400).json({ error: 'id inválido' });
     if (role && !['admin','editor'].includes(String(role))) return res.status(400).json({ error: 'role inválida' });
+    
     db.get('SELECT id,name,email,role,avatar FROM usuarios WHERE id = ?', [targetId], (err, user) => {
       if (err) return res.status(500).json({ error: 'erro de servidor' });
       if (!user) return res.status(404).json({ error: 'usuário não encontrado' });
+      
       const nextName = typeof name === 'string' && name.trim() ? name.trim() : user.name;
+      const nextEmail = typeof email === 'string' && email.trim() ? email.trim().toLowerCase() : user.email;
       const nextRole = role ? String(role) : user.role;
-  const { validateAvatarInput } = require('./helpers/avatar-validator.cjs');
-  let avatarResult;
+      
+      const { validateAvatarInput } = require('./helpers/avatar-validator.cjs');
+      let avatarResult;
       if (avatar !== undefined) {
         avatarResult = validateAvatarInput(avatar);
         if (!avatarResult.ok) return res.status(400).json({ error: avatarResult.error });
       }
       const nextAvatar = avatar === undefined ? user.avatar : (avatarResult ? avatarResult.value : null);
+      
       const applyUpdate = () => {
-        db.run('UPDATE usuarios SET name = ?, role = ?, avatar = ? WHERE id = ?', [nextName, nextRole, nextAvatar, targetId], (uErr) => {
-          if (uErr) return res.status(500).json({ error: 'erro de servidor' });
-          res.json({ id: String(user.id), name: nextName, email: user.email, role: nextRole, avatar: nextAvatar });
-        });
+        // Se password foi enviado, atualizar também
+        if (password && typeof password === 'string' && password.trim().length >= 8) {
+          const passwordHash = hashPassword(password.trim());
+          db.run(
+            'UPDATE usuarios SET name = ?, email = ?, password_hash = ?, role = ?, avatar = ? WHERE id = ?', 
+            [nextName, nextEmail, passwordHash, nextRole, nextAvatar, targetId], 
+            (uErr) => {
+              if (uErr) {
+                if (String(uErr.message||'').includes('UNIQUE')) {
+                  return res.status(409).json({ error: 'email já cadastrado por outro usuário' });
+                }
+                return res.status(500).json({ error: 'erro de servidor' });
+              }
+              res.json({ id: String(user.id), name: nextName, email: nextEmail, role: nextRole, avatar: nextAvatar });
+            }
+          );
+        } else {
+          // Sem alterar senha
+          db.run(
+            'UPDATE usuarios SET name = ?, email = ?, role = ?, avatar = ? WHERE id = ?', 
+            [nextName, nextEmail, nextRole, nextAvatar, targetId], 
+            (uErr) => {
+              if (uErr) {
+                if (String(uErr.message||'').includes('UNIQUE')) {
+                  return res.status(409).json({ error: 'email já cadastrado por outro usuário' });
+                }
+                return res.status(500).json({ error: 'erro de servidor' });
+              }
+              res.json({ id: String(user.id), name: nextName, email: nextEmail, role: nextRole, avatar: nextAvatar });
+            }
+          );
+        }
       };
+      
       if (user.role === 'admin' && nextRole !== 'admin') {
         db.get("SELECT COUNT(*) as cnt FROM usuarios WHERE role = 'admin'", [], (cErr, row) => {
           if (cErr) return res.status(500).json({ error: 'erro de servidor' });
