@@ -139,6 +139,13 @@ class AzureTtsService {
     // Remove caracteres especiais problemáticos
     text = text.replace(/[""]/g, '"');
     text = text.replace(/['']/g, "'");
+
+  // Normalizar pontuação repetida que quebra SSML (ex: ".." ou ",,")
+  text = text.replace(/\.{2,}/g, '.');
+  text = text.replace(/,{2,}/g, ',');
+  text = text.replace(/!{2,}/g, '!');
+  text = text.replace(/\?{2,}/g, '?');
+  text = text.replace(/;{2,}/g, ';');
     
     // Melhorar pausas em pontuações (SSML vai controlar isso melhor)
     text = text.replace(/\.\s+/g, '. ');
@@ -279,6 +286,8 @@ class AzureTtsService {
               });
             } else {
               console.error(`[Azure TTS] ❌ Erro na síntese: ${result.errorDetails}`);
+              console.error(`[Azure TTS] ❌ SSML que falhou (primeiros 1000 chars):`, ssml.substring(0, 1000));
+              console.error(`[Azure TTS] 🔚 SSML que falhou (últimos 1000 chars):`, ssml.substring(Math.max(0, ssml.length - 1000)));
               synthesizer.close();
               reject(new Error(`Falha na síntese: ${result.errorDetails}`));
             }
