@@ -35,7 +35,7 @@ const R10PlayPage = () => {
       setLoading(true);
       try {
         const [recentVideos, channelStats] = await Promise.all([
-          fetchRecentVideos(20), // Mais vídeos para a página completa
+          fetchRecentVideos(12), // Reduzido de 20 para 12 para melhor performance
           fetchChannelStats()
         ]);
         
@@ -235,6 +235,7 @@ const R10PlayPage = () => {
                   src={video.thumbnail}
                   alt={video.title}
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                  loading="lazy"
                 />
                 
                 {/* Overlay Gradiente no Hover */}
