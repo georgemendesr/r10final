@@ -248,6 +248,7 @@ class AzureTtsService {
         
         console.log(`[Azure TTS] Gerando áudio: ${path.basename(outputPath)}`);
         console.log(`[Azure TTS] Tamanho do texto: ${text.length} caracteres`);
+        console.log(`[Azure TTS] 🔍 SSML Gerado (primeiros 500 chars):`, ssml.substring(0, 500));
         
         // Sintetizar
         synthesizer.speakSsmlAsync(

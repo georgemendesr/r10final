@@ -114,7 +114,7 @@ const R10PlaySection = () => {
               className="group cursor-pointer rounded-2xl overflow-hidden bg-neutral-800/50 backdrop-blur hover:bg-neutral-800 transition-all duration-300 hover:shadow-2xl hover:shadow-red-900/50 ring-2 ring-red-500/30 hover:ring-red-500"
               onClick={() => openVideo(videos[0])}
             >
-              <div className="relative aspect-video lg:aspect-[21/9] overflow-hidden">
+              <div className="relative aspect-video overflow-hidden">
                 <img 
                   src={videos[0].thumbnail}
                   alt={videos[0].title}
