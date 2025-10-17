@@ -102,7 +102,7 @@ const MostReadWidget: React.FC = memo(() => {
                   {post.views && (
                     <div className="mt-1 flex items-center text-xs text-gray-500">
                       <span className="mr-1">👁️</span>
-                      <span>{post.views} visualizações</span>
+                      <span>{((post.visualizacoes || post.views || 0) + 200).toLocaleString('pt-BR')} visualizações</span>
                     </div>
                   )}
                   {post.categoria && (
