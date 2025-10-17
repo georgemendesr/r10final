@@ -101,7 +101,15 @@ router.post('/generate-post/:id', authMiddleware, async (req, res) => {
       try {
         // Gerar áudio com voz customizada
         console.log(`[TTS API] Gerando áudio para matéria ${id}: "${post.titulo}" (voz: ${voiceName || 'padrão'})`);
+        console.log(`[TTS API] Post completo:`, { 
+          id: post.id, 
+          titulo: post.titulo?.substring(0, 50), 
+          subtitulo: post.subtitulo?.substring(0, 50),
+          conteudoLength: post.conteudo?.length 
+        });
+        
         const result = await azureTts.generatePostAudio(post, undefined, { voiceName });
+        console.log(`[TTS API] Áudio gerado com sucesso:`, result);
 
         // Atualizar banco com URL do áudio
         db.run(
@@ -110,6 +118,8 @@ router.post('/generate-post/:id', authMiddleware, async (req, res) => {
           (updateErr) => {
             if (updateErr) {
               console.error('[TTS API] Erro ao atualizar banco:', updateErr);
+            } else {
+              console.log(`[TTS API] Banco atualizado com sucesso para post ${id}`);
             }
           }
         );
@@ -124,15 +134,18 @@ router.post('/generate-post/:id', authMiddleware, async (req, res) => {
 
       } catch (genError) {
         console.error('[TTS API] Erro ao gerar áudio:', genError);
-        res.status(500).json({ 
+        console.error('[TTS API] Stack trace:', genError.stack);
+        return res.status(500).json({ 
           error: 'Erro ao gerar áudio',
-          details: genError.message 
+          details: genError.message,
+          stack: process.env.NODE_ENV === 'development' ? genError.stack : undefined
         });
       }
     });
 
   } catch (error) {
-    console.error('[TTS API] Erro:', error);
+    console.error('[TTS API] Erro geral:', error);
+    console.error('[TTS API] Stack trace:', error.stack);
     res.status(500).json({ 
       error: 'Erro ao processar requisição',
       details: error.message 
