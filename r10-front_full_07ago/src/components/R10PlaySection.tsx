@@ -13,6 +13,33 @@ interface Video {
   description: string;
 }
 
+// Extrair videoId da URL do YouTube - função global
+const getYouTubeVideoId = (url: string): string | null => {
+  if (!url) {
+    console.warn('⚠️ R10Play: URL vazia fornecida');
+    return null;
+  }
+  
+  // Suporta múltiplos formatos de URL do YouTube
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=)([^&]+)/,        // youtube.com/watch?v=ID
+    /(?:youtu\.be\/)([^?]+)/,                    // youtu.be/ID
+    /(?:youtube\.com\/embed\/)([^?]+)/,          // youtube.com/embed/ID
+    /(?:youtube\.com\/v\/)([^?]+)/               // youtube.com/v/ID
+  ];
+  
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match && match[1]) {
+      console.log(`✅ R10Play: VideoId extraído com sucesso: ${match[1]}`);
+      return match[1];
+    }
+  }
+  
+  console.warn('⚠️ R10Play: Nenhum padrão correspondeu para URL:', url);
+  return null;
+};
+
 const R10PlaySection = () => {
   const [videos, setVideos] = useState<Video[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,33 +95,6 @@ const R10PlaySection = () => {
   const closeVideo = () => {
     console.log('🔚 R10Play: Fechando modal de vídeo');
     setSelectedVideo(null);
-  };
-
-  // Extrair videoId da URL do YouTube
-  const getYouTubeVideoId = (url: string) => {
-    if (!url) {
-      console.warn('⚠️ R10Play: URL vazia fornecida');
-      return null;
-    }
-    
-    // Suporta múltiplos formatos de URL do YouTube
-    const patterns = [
-      /(?:youtube\.com\/watch\?v=)([^&]+)/,        // youtube.com/watch?v=ID
-      /(?:youtu\.be\/)([^?]+)/,                    // youtu.be/ID
-      /(?:youtube\.com\/embed\/)([^?]+)/,          // youtube.com/embed/ID
-      /(?:youtube\.com\/v\/)([^?]+)/               // youtube.com/v/ID
-    ];
-    
-    for (const pattern of patterns) {
-      const match = url.match(pattern);
-      if (match && match[1]) {
-        console.log(`✅ R10Play: VideoId extraído com sucesso: ${match[1]}`);
-        return match[1];
-      }
-    }
-    
-    console.warn('⚠️ R10Play: Nenhum padrão correspondeu para URL:', url);
-    return null;
   };
 
   return (

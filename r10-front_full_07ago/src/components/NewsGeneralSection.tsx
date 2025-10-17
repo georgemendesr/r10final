@@ -90,8 +90,8 @@ const NewsGeneralSection = () => {
           {getHomeSectionTitles().geral}
         </h2>
 
-        {/* Super Banner - Margem reduzida e centralizado */}
-        <div className="w-full flex justify-center my-4 md:my-6">
+        {/* Super Banner - Margens iguais em cima e embaixo */}
+        <div className="w-full flex justify-center my-6">
           <AdBanner position="super-banner" className="mx-auto" />
         </div>
 
