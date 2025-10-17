@@ -143,9 +143,10 @@ class AzureTtsService {
     text = text.replace(/[\u00A0\u202F]/g, ' '); // espaços não separáveis → espaço normal
     text = text.replace(/[\u201C\u201D]/g, '"'); // aspas duplas curvas → "
     text = text.replace(/[\u2018\u2019]/g, "'"); // aspas simples curvas → '
-    text = text.replace(/[\u2013\u2014]/g, '-'); // travessão / meia-risca → hífen
-    text = text.replace(/\u2022/g, '-'); // bullet → hífen
-    text = text.replace(/\u2026/g, '...'); // reticências → ...
+  text = text.replace(/[\u2013\u2014]/g, '-'); // travessão / meia-risca → hífen
+  text = text.replace(/\u2022/g, '-'); // bullet → hífen
+  text = text.replace(/\u2026/g, '...'); // reticências → ...
+  text = text.replace(/[\u200B\u200C\u200D\u200E\u200F\u2028\u2029\u202A-\u202E\u2060\uFEFF]/g, ''); // remove espaços/controles invisíveis
 
     // Normalizar pontuação repetida que quebra SSML (ex: ".." ou ",,")
     text = text.replace(/\.{2,}/g, '.');
@@ -258,7 +259,16 @@ class AzureTtsService {
         const synthesizer = new sdk.SpeechSynthesizer(speechConfig, audioConfig);
         
         // Criar SSML com voz customizada
-        const ssml = this.createSSML(text, options.titulo, voiceToUse);
+        let ssml = this.createSSML(text, options.titulo, voiceToUse);
+
+        const invalidXmlRegex = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uD800-\uDFFF\uFFFE\uFFFF]/g;
+        const invalidMatches = ssml.match(invalidXmlRegex);
+        if (invalidMatches) {
+          const uniqueCodes = [...new Set(invalidMatches.map(ch => ch.codePointAt(0)))];
+          console.warn('[Azure TTS] ⚠️ SSML continha caracteres XML inválidos:', uniqueCodes.map(code => `U+${code.toString(16).toUpperCase().padStart(4, '0')}`));
+          ssml = ssml.replace(invalidXmlRegex, '');
+          console.warn(`[Azure TTS] ⚠️ Removidos ${invalidMatches.length} caracteres inválidos do SSML.`);
+        }
         
         console.log(`[Azure TTS] Gerando áudio: ${path.basename(outputPath)}`);
         console.log(`[Azure TTS] Tamanho do texto: ${text.length} caracteres`);
