@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { listBanners, selectActiveByPosition, type Banner } from '../services/bannersApi';
+import { listBanners, selectActiveByPosition, recordImpression, recordClick, type Banner } from '../services/bannersApi';
 import { NEWS_GENERAL_MAIN_IMAGE_CLASSES } from '../constants/layout';
 
 interface AdBannerProps {
@@ -42,8 +42,20 @@ const AdBanner: React.FC<AdBannerProps> = ({ position, className = '' }) => {
     };
   }, [position]);
 
-  const handleBannerClick = () => {
-    if (banner) window.open(banner.link, '_blank', 'noopener,noreferrer');
+  // Registrar impressão quando o banner for carregado
+  useEffect(() => {
+    if (banner) {
+      console.log(`📊 AdBanner: Registrando impressão do banner ${banner.id}`);
+      recordImpression(banner.id);
+    }
+  }, [banner]);
+
+  const handleBannerClick = async () => {
+    if (banner) {
+      console.log(`🖱️ AdBanner: Registrando clique do banner ${banner.id}`);
+      await recordClick(banner.id);
+      window.open(banner.link, '_blank', 'noopener,noreferrer');
+    }
   };
 
   // Mostrar loading

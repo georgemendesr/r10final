@@ -50,17 +50,51 @@ const R10PlaySection = () => {
   }, []);
 
   const openVideo = (video: Video) => {
+    console.log('🎬 R10Play: Abrindo vídeo:', video.title);
+    console.log('🔗 R10Play: URL:', video.url);
+    
+    const videoId = getYouTubeVideoId(video.url);
+    console.log('📺 R10Play: VideoID extraído:', videoId);
+    
+    if (!videoId) {
+      console.error('❌ R10Play: Falha ao extrair videoId da URL:', video.url);
+      alert('Erro: URL do vídeo inválida. Não foi possível extrair o ID do YouTube.');
+      return;
+    }
+    
     setSelectedVideo(video);
   };
 
   const closeVideo = () => {
+    console.log('🔚 R10Play: Fechando modal de vídeo');
     setSelectedVideo(null);
   };
 
   // Extrair videoId da URL do YouTube
   const getYouTubeVideoId = (url: string) => {
-    const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&]+)/);
-    return match ? match[1] : null;
+    if (!url) {
+      console.warn('⚠️ R10Play: URL vazia fornecida');
+      return null;
+    }
+    
+    // Suporta múltiplos formatos de URL do YouTube
+    const patterns = [
+      /(?:youtube\.com\/watch\?v=)([^&]+)/,        // youtube.com/watch?v=ID
+      /(?:youtu\.be\/)([^?]+)/,                    // youtu.be/ID
+      /(?:youtube\.com\/embed\/)([^?]+)/,          // youtube.com/embed/ID
+      /(?:youtube\.com\/v\/)([^?]+)/               // youtube.com/v/ID
+    ];
+    
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match && match[1]) {
+        console.log(`✅ R10Play: VideoId extraído com sucesso: ${match[1]}`);
+        return match[1];
+      }
+    }
+    
+    console.warn('⚠️ R10Play: Nenhum padrão correspondeu para URL:', url);
+    return null;
   };
 
   return (
@@ -270,15 +304,34 @@ const R10PlaySection = () => {
 
             {/* Player YouTube Embed - Otimizado para performance */}
             <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
-              <iframe
-                className="absolute inset-0 w-full h-full"
-                src={`https://www.youtube.com/embed/${getYouTubeVideoId(selectedVideo.url)}?autoplay=1&rel=0&modestbranding=1&enablejsapi=1`}
-                title={selectedVideo.title}
-                frameBorder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowFullScreen
-                loading="lazy"
-              />
+              {getYouTubeVideoId(selectedVideo.url) ? (
+                <iframe
+                  className="absolute inset-0 w-full h-full"
+                  src={`https://www.youtube.com/embed/${getYouTubeVideoId(selectedVideo.url)}?autoplay=1&rel=0&modestbranding=1&enablejsapi=1`}
+                  title={selectedVideo.title}
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                  loading="lazy"
+                />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center bg-neutral-800">
+                  <div className="text-center p-6">
+                    <Youtube className="w-16 h-16 mx-auto mb-4 text-red-500" />
+                    <p className="text-white text-lg mb-2">Erro ao carregar vídeo</p>
+                    <p className="text-gray-400 text-sm">URL inválida ou videoId não encontrado</p>
+                    <a
+                      href={selectedVideo.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+                    >
+                      <Youtube className="w-4 h-4" />
+                      Abrir no YouTube
+                    </a>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Informações do Vídeo */}

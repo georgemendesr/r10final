@@ -2150,6 +2150,42 @@ function createApp({ dbPath }) {
     });
   });
 
+  // Endpoint para registrar impressão de banner (público)
+  app.post('/api/banners/:id/impressao', (req, res) => {
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ error: 'id inválido' });
+    
+    db.run(
+      'UPDATE banners SET impressoes_atuais = impressoes_atuais + 1, updated_at = ? WHERE id = ?',
+      [new Date().toISOString(), id],
+      (err) => {
+        if (err) {
+          console.error(`Erro ao registrar impressão do banner ${id}:`, err);
+          return res.status(500).json({ error: 'erro de servidor' });
+        }
+        res.json({ success: true });
+      }
+    );
+  });
+
+  // Endpoint para registrar clique em banner (público)
+  app.post('/api/banners/:id/clique', (req, res) => {
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ error: 'id inválido' });
+    
+    db.run(
+      'UPDATE banners SET cliques_atuais = cliques_atuais + 1, updated_at = ? WHERE id = ?',
+      [new Date().toISOString(), id],
+      (err) => {
+        if (err) {
+          console.error(`Erro ao registrar clique do banner ${id}:`, err);
+          return res.status(500).json({ error: 'erro de servidor' });
+        }
+        res.json({ success: true });
+      }
+    );
+  });
+
   // Substituir endpoint PUT /api/users/:id existente por versão extendida
   // Localizar o trecho anterior e incluir avatar; se já modificado, ignorar duplicação
   app._router && app._router.stack && (app._router.stack = app._router.stack.filter(l => !(l.route && l.route.path === '/api/users/:id' && l.route.methods.put)));

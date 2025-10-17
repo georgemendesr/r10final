@@ -121,3 +121,25 @@ export function selectActiveByPosition(position: Banner['posicao'], banners: Ban
   const idx = Math.floor(Date.now() / 10000) % eligible.length;
   return eligible[idx];
 }
+
+/**
+ * Registra uma impressão (visualização) de banner
+ */
+export async function recordImpression(bannerId: string): Promise<void> {
+  try {
+    await post(`/banners/${bannerId}/impressao`, {});
+  } catch (error) {
+    console.error(`Erro ao registrar impressão do banner ${bannerId}:`, error);
+  }
+}
+
+/**
+ * Registra um clique em banner
+ */
+export async function recordClick(bannerId: string): Promise<void> {
+  try {
+    await post(`/banners/${bannerId}/clique`, {});
+  } catch (error) {
+    console.error(`Erro ao registrar clique do banner ${bannerId}:`, error);
+  }
+}
