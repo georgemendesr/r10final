@@ -415,6 +415,138 @@ class AzureTtsService {
       );
     });
   }
+
+  /**
+   * Gera e armazena áudio TTS em cache para matérias prioritárias
+   * @param {number} postId - ID da matéria
+   * @param {string} titulo - Título da matéria
+   * @param {string} subtitulo - Subtítulo (opcional)
+   * @param {string} conteudo - Conteúdo HTML da matéria
+   * @param {string} autor - Nome do autor (para selecionar voz)
+   * @returns {Promise<string|null>} URL do áudio ou null se falhar
+   */
+  async generateAndCacheTTS(postId, titulo, subtitulo, conteudo, autor = '') {
+    try {
+      if (!this.isConfigured()) {
+        console.log('[Azure TTS Cache] TTS não configurado, pulando geração');
+        return null;
+      }
+
+      console.log(`🎙️ [TTS Cache] Gerando áudio para matéria ${postId}...`);
+
+      // Determinar voz baseada no autor
+      const autorLower = (autor || '').toLowerCase();
+      let voice = 'pt-BR-AntonioNeural'; // padrão masculino
+      
+      if (autorLower.includes('francesca') || autorLower.includes('maria') || autorLower.includes('ana')) {
+        voice = 'pt-BR-FranciscaNeural';
+      }
+
+      console.log(`🎙️ [TTS Cache] Voz selecionada: ${voice}`);
+
+      // Limitar texto para evitar SSML muito grande
+      const MAX_TEXT_LENGTH = 5000;
+      let fullText = '';
+      
+      if (subtitulo) {
+        fullText += subtitulo + '. ';
+      }
+      
+      if (conteudo) {
+        fullText += this.cleanTextForSpeech(conteudo);
+      }
+
+      // Truncar se necessário
+      if (fullText.length > MAX_TEXT_LENGTH) {
+        console.log(`[TTS Cache] ⚠️ Texto muito longo (${fullText.length} chars), truncando...`);
+        const truncated = fullText.substring(0, MAX_TEXT_LENGTH);
+        const lastSentence = truncated.lastIndexOf('. ');
+        fullText = lastSentence > MAX_TEXT_LENGTH * 0.8 
+          ? truncated.substring(0, lastSentence + 1)
+          : truncated.substring(0, truncated.lastIndexOf(' '));
+      }
+
+      // Criar diretório de cache se não existir
+      const cacheDir = path.join(__dirname, '../audio-cache');
+      if (!fs.existsSync(cacheDir)) {
+        fs.mkdirSync(cacheDir, { recursive: true });
+        console.log(`📁 [TTS Cache] Diretório criado: ${cacheDir}`);
+      }
+
+      // Nome do arquivo com timestamp para evitar colisões
+      const filename = `tts-${postId}-${Date.now()}.mp3`;
+      const filepath = path.join(cacheDir, filename);
+
+      // Gerar áudio
+      const result = await this.generateAudio(fullText, filepath, {
+        titulo: titulo,
+        voiceName: voice
+      });
+
+      if (result.success) {
+        const audioUrl = `/audio-cache/${filename}`;
+        console.log(`✅ [TTS Cache] Áudio gerado e armazenado: ${audioUrl}`);
+        console.log(`📊 [TTS Cache] Duração: ${result.duration?.toFixed(2)}s, Tamanho: ${(result.fileSize / 1024).toFixed(2)}KB`);
+        return audioUrl;
+      } else {
+        console.error(`❌ [TTS Cache] Falha na geração de áudio para post ${postId}`);
+        return null;
+      }
+    } catch (error) {
+      console.error(`❌ [TTS Cache] Erro ao gerar cache TTS para post ${postId}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Limpa áudios em cache com mais de X dias
+   * @param {number} maxAgeDays - Idade máxima em dias (padrão: 30)
+   * @returns {Promise<{deleted: number, errors: number}>}
+   */
+  async cleanupExpiredCache(maxAgeDays = 30) {
+    try {
+      const cacheDir = path.join(__dirname, '../audio-cache');
+      
+      if (!fs.existsSync(cacheDir)) {
+        console.log('🧹 [TTS Cache] Diretório de cache não existe, nada a limpar');
+        return { deleted: 0, errors: 0 };
+      }
+
+      const files = fs.readdirSync(cacheDir);
+      const maxAgeMs = maxAgeDays * 24 * 60 * 60 * 1000;
+      const now = Date.now();
+      
+      let deleted = 0;
+      let errors = 0;
+
+      for (const file of files) {
+        // Processar apenas arquivos .mp3
+        if (!file.endsWith('.mp3')) continue;
+
+        const filepath = path.join(cacheDir, file);
+        
+        try {
+          const stats = fs.statSync(filepath);
+          const fileAge = now - stats.mtime.getTime();
+
+          if (fileAge > maxAgeMs) {
+            fs.unlinkSync(filepath);
+            deleted++;
+            console.log(`🗑️ [TTS Cache] Removido cache expirado: ${file} (${Math.floor(fileAge / (24 * 60 * 60 * 1000))} dias)`);
+          }
+        } catch (err) {
+          console.error(`❌ [TTS Cache] Erro ao processar ${file}:`, err);
+          errors++;
+        }
+      }
+
+      console.log(`🧹 [TTS Cache] Limpeza concluída: ${deleted} removidos, ${errors} erros`);
+      return { deleted, errors };
+    } catch (error) {
+      console.error('❌ [TTS Cache] Erro na limpeza de cache:', error);
+      return { deleted: 0, errors: 1 };
+    }
+  }
 }
 
 // Exportar instância singleton

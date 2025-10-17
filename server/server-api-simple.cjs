@@ -434,6 +434,8 @@ function createApp({ dbPath }) {
         if (!existing.has('updated_at')) steps.push("ALTER TABLE noticias ADD COLUMN updated_at DATETIME");
         if (!existing.has('views')) steps.push("ALTER TABLE noticias ADD COLUMN views INTEGER DEFAULT 0");
         if (!existing.has('status')) steps.push("ALTER TABLE noticias ADD COLUMN status VARCHAR(20) DEFAULT 'ativo'");
+        if (!existing.has('audio_generated_at')) steps.push("ALTER TABLE noticias ADD COLUMN audio_generated_at DATETIME");
+        if (!existing.has('audio_voice')) steps.push("ALTER TABLE noticias ADD COLUMN audio_voice VARCHAR(50)");
 
         let done = 0; const total = steps.length;
         if (total === 0) {
@@ -908,6 +910,20 @@ function createApp({ dbPath }) {
     }
   }));
   console.log('✅ Rota estática /uploads configurada (sem cache)');
+
+  // Servir arquivos de áudio TTS em cache
+  const AUDIO_CACHE_DIR = path.join(__dirname, '../audio-cache');
+  app.use('/audio-cache', express.static(AUDIO_CACHE_DIR, {
+    maxAge: '30d', // ✅ Cache de 30 dias (já que vamos invalidar manualmente)
+    etag: true,
+    lastModified: true,
+    setHeaders: (res, filepath, stat) => {
+      res.setHeader('Content-Type', 'audio/mpeg');
+      res.setHeader('Accept-Ranges', 'bytes'); // Permitir streaming de áudio
+      res.setHeader('Cache-Control', 'public, max-age=2592000'); // 30 dias
+    }
+  }));
+  console.log('✅ Rota estática /audio-cache configurada (cache 30 dias)');
 
   // ======= INICIALIZAR / MIGRAR TABELA NOTICIAS =======
   db.serialize(()=>{
@@ -3012,6 +3028,53 @@ function createApp({ dbPath }) {
           return res.status(404).json({ error: 'Post não encontrado' });
         }
         
+        // 🎙️ INVALIDAR CACHE TTS SE CONTEÚDO FOI ALTERADO
+        const contentChanged = desired.titulo || desired.subtitulo || desired.conteudo;
+        if (contentChanged) {
+          console.log(`♻️ [TTS Cache] Conteúdo alterado, invalidando cache de áudio...`);
+          db.run(
+            'UPDATE noticias SET audio_url = NULL, audio_generated_at = NULL, audio_voice = NULL WHERE id = ?',
+            [id],
+            (invalidateErr) => {
+              if (invalidateErr) {
+                console.error(`❌ [TTS Cache] Erro ao invalidar cache:`, invalidateErr);
+              } else {
+                console.log(`✅ [TTS Cache] Cache invalidado para post ${id}`);
+                
+                // 🔄 REGENERAR AUTOMATICAMENTE SE FOR DESTAQUE/SUPERMANCHETE
+                db.get('SELECT posicao, titulo, subtitulo, conteudo, autor FROM noticias WHERE id = ?', [id], (err, row) => {
+                  if (!err && row && (row.posicao === 'destaque' || row.posicao === 'supermanchete')) {
+                    console.log(`🔄 [TTS AUTO] Regenerando áudio para ${row.posicao} atualizado...`);
+                    
+                    const azureTtsService = require('./azureTtsService.cjs');
+                    azureTtsService.generateAndCacheTTS(
+                      id, 
+                      desired.titulo || row.titulo, 
+                      desired.subtitulo || row.subtitulo, 
+                      desired.conteudo || row.conteudo, 
+                      row.autor
+                    )
+                    .then(audioUrl => {
+                      if (audioUrl) {
+                        db.run(
+                          'UPDATE noticias SET audio_url = ?, audio_generated_at = ?, audio_voice = ? WHERE id = ?',
+                          [audioUrl, new Date().toISOString(), row.autor?.toLowerCase().includes('francesca') ? 'pt-BR-FranciscaNeural' : 'pt-BR-AntonioNeural', id],
+                          (updateErr) => {
+                            if (!updateErr) {
+                              console.log(`✅ [TTS AUTO] Áudio regenerado para post ${id}: ${audioUrl}`);
+                            }
+                          }
+                        );
+                      }
+                    })
+                    .catch(err => console.error(`❌ [TTS AUTO] Erro ao regenerar:`, err));
+                  }
+                });
+              }
+            }
+          );
+        }
+        
         // Gerar resumo automaticamente se o conteúdo foi atualizado
         let updatedContent = desired.conteudo;
         if (updatedContent) {
@@ -3507,6 +3570,33 @@ function createApp({ dbPath }) {
         
         const newId = this.lastID;
         console.log(`✅ [CREATE POST] Novo post criado com ID: ${newId} (posição: ${normalizedPosition})`);
+        
+        // 🎙️ AUTO-GERAR TTS PARA DESTAQUE E SUPERMANCHETE
+        if (normalizedPosition === 'destaque' || normalizedPosition === 'supermanchete') {
+          console.log(`🎙️ [TTS AUTO] Iniciando geração automática de TTS para ${normalizedPosition}...`);
+          
+          const azureTtsService = require('./azureTtsService.cjs');
+          azureTtsService.generateAndCacheTTS(newId, titulo, subtitulo, conteudo, autor)
+            .then(audioUrl => {
+              if (audioUrl) {
+                // Atualizar post com URL do áudio
+                db.run(
+                  'UPDATE noticias SET audio_url = ?, audio_generated_at = ?, audio_voice = ? WHERE id = ?',
+                  [audioUrl, new Date().toISOString(), autor?.toLowerCase().includes('francesca') ? 'pt-BR-FranciscaNeural' : 'pt-BR-AntonioNeural', newId],
+                  (updateErr) => {
+                    if (updateErr) {
+                      console.error(`❌ [TTS AUTO] Erro ao salvar audio_url para post ${newId}:`, updateErr);
+                    } else {
+                      console.log(`✅ [TTS AUTO] Áudio TTS armazenado em cache para post ${newId}: ${audioUrl}`);
+                    }
+                  }
+                );
+              }
+            })
+            .catch(err => {
+              console.error(`❌ [TTS AUTO] Erro ao gerar TTS para post ${newId}:`, err);
+            });
+        }
         
         // Gerar resumo automaticamente se há conteúdo
         if (conteudo && conteudo.trim().length > 50) {
@@ -4390,6 +4480,31 @@ if (require.main === module) {
   const primary = Number(process.env.PORT || PORT) || 3002;
   const extra = process.env.ADDITIONAL_PORT ? Number(process.env.ADDITIONAL_PORT) : null;
   const ports = extra && extra !== primary ? [primary, extra] : [primary];
+  
+  // 🧹 LIMPEZA AUTOMÁTICA DE CACHE TTS (diária às 3h da manhã)
+  const azureTtsService = require('./azureTtsService.cjs');
+  
+  // Executar limpeza na inicialização (async, não bloqueia)
+  azureTtsService.cleanupExpiredCache(30).catch(err => 
+    console.error('❌ Erro na limpeza inicial de cache TTS:', err)
+  );
+  
+  // Agendar limpeza diária (executa a cada 24 horas)
+  setInterval(() => {
+    const now = new Date();
+    const hour = now.getHours();
+    
+    // Executar apenas às 3h da manhã
+    if (hour === 3) {
+      console.log('🧹 [Cron] Iniciando limpeza automática de cache TTS...');
+      azureTtsService.cleanupExpiredCache(30)
+        .then(result => console.log(`🧹 [Cron] Limpeza concluída: ${result.deleted} removidos`))
+        .catch(err => console.error('❌ [Cron] Erro na limpeza:', err));
+    }
+  }, 60 * 60 * 1000); // Verificar a cada 1 hora
+  
+  console.log('⏰ Cron job de limpeza TTS agendado (diariamente às 3h)');
+  
   ports.forEach((p) => {
     try {
       const server = app.listen(p, '0.0.0.0', () => {
