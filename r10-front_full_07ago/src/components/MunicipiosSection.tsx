@@ -101,7 +101,7 @@ const MunicipiosSection: React.FC = () => {
         const municipiosWithData: MunicipioData[] = [];
         
         // Buscar todas as notícias de todas as posições para encontrar por município
-        const apiUrl = import.meta.env.PROD ? '/api/posts?limit=100' : 'http://localhost:3002/api/posts?limit=100';
+        const apiUrl = import.meta.env.PROD ? '/api/posts?limit=200' : 'http://localhost:3002/api/posts?limit=200';
         const response = await fetch(apiUrl);
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const allPostsResponse = await response.json();
@@ -112,23 +112,18 @@ const MunicipiosSection: React.FC = () => {
         for (const municipio of municipiosList) {
           try {
             // Filtrar posts pela CATEGORIA ESPECÍFICA do município OU pela POSIÇÃO 'municipios'
+            // Filtrar posts pela CATEGORIA do município (mais simples e direto)
             const municipioPosts = allPosts.filter((post: any) => {
-              // Opção 1: Post tem posição 'municipios' E categoria corresponde ao município
-              const isPosicaoMunicipio = post.posicao?.toLowerCase() === 'municipios';
               const isCategoriaMunicipio = post.categoria?.toLowerCase() === municipio.toLowerCase();
               
-              // Opção 2: Verificar subcategorias se existirem
+              // Verificar subcategorias se existirem (fallback)
               const hasSubcategoriaMunicipio = Array.isArray(post.subcategorias) && 
                 post.subcategorias.some((sub: string) => 
                   sub.toLowerCase() === municipio.toLowerCase()
                 );
               
-              // Retornar TRUE se:
-              // - Posição é 'municipios' E (categoria OU subcategoria corresponde)
-              // - OU apenas categoria/subcategoria corresponde (compatibilidade com dados antigos)
-              return (isPosicaoMunicipio && (isCategoriaMunicipio || hasSubcategoriaMunicipio)) ||
-                     isCategoriaMunicipio ||
-                     hasSubcategoriaMunicipio;
+              // Retornar TRUE se categoria OU subcategoria corresponde
+              return isCategoriaMunicipio || hasSubcategoriaMunicipio;
             }).slice(0, 4); // Máximo 4 posts por município
 
             console.log(`📊 MunicipiosSection: Posts encontrados para ${municipio}:`, municipioPosts.length);
